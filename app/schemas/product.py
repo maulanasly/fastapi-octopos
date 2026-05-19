@@ -1,5 +1,6 @@
-from typing import List, Optional
+from typing import Optional
 
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
 
 

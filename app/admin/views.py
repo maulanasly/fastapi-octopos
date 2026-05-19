@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from sqladmin import ModelView
 
 from app.models.order import Order, OrderItem

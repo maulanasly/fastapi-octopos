@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel
 
 from app.schemas.product import Product
