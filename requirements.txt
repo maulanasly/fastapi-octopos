@@ -1,0 +1,9 @@
+fastapi[all]
+SQLAlchemy>=2.0
+pydantic-settings
+sqladmin
+python-jose[cryptography]
+passlib[bcrypt]
+google-auth
+python-multipart
+requests
