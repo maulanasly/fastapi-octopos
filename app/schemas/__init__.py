@@ -7,5 +7,6 @@ from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
 )
+from app.schemas.report import CategorySalesItem, SalesSummary, TopProductItem
 from app.schemas.token import Token, TokenPayload
 from app.schemas.user import User, UserCreate, UserUpdate

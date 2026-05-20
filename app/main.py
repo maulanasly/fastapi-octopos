@@ -18,6 +18,7 @@ from app.admin.views import (
     OrderAdmin,
     OrderItemAdmin,
     ProductAdmin,
+    ReportsAdmin,
     UserAdmin,
 )
 from app.api.router import api_router
@@ -68,13 +69,19 @@ class AdminAuth(AuthenticationBackend):
 
 
 authentication_backend = AdminAuth(secret_key=settings.SECRET_KEY)
-admin = Admin(app=app, engine=engine, authentication_backend=authentication_backend)
+admin = Admin(
+    app=app,
+    engine=engine,
+    templates_dir="app/templates",
+    authentication_backend=authentication_backend,
+)
 
 admin.add_view(UserAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(ProductAdmin)
 admin.add_view(OrderAdmin)
 admin.add_view(OrderItemAdmin)
+admin.add_view(ReportsAdmin)
 
 
 @app.get("/")

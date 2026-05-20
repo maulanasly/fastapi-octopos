@@ -1,0 +1,210 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<!-- Metric Cards Row -->
+<div class="col-12 mb-3">
+  <div class="row row-cards">
+    <!-- Total Revenue -->
+    <div class="col-md-4">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-blue-lt text-blue avatar" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-dollar-sign fa-lg"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Revenue</div>
+              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+                ${{ "%.2f"|format(sales_summary.total_revenue) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed Orders -->
+    <div class="col-md-4">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #2fb344 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-green-lt text-green avatar" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-shopping-bag fa-lg"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Completed Orders</div>
+              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+                {{ sales_summary.order_count }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Average Order Value -->
+    <div class="col-md-4">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #4299e1 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-cyan-lt text-cyan avatar" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-calculator fa-lg"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Average Order Value</div>
+              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+                ${{ "%.2f"|format(sales_summary.average_order_value) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Reporting Data Row -->
+<div class="col-md-7">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-trophy me-2 text-warning"></i>Top Selling Products
+      </h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover">
+        <thead>
+          <tr class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; background-color: #f8fafc;">
+            <th>Product Name</th>
+            <th>SKU</th>
+            <th class="text-center">Quantity Sold</th>
+            <th class="text-end">Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if top_products %}
+            {% for item in top_products %}
+            <tr>
+              <td><span class="font-weight-medium text-dark">{{ item.product_name }}</span></td>
+              <td class="text-secondary">{{ item.product_sku }}</td>
+              <td class="text-center text-primary font-weight-bold">{{ item.total_quantity_sold }}</td>
+              <td class="text-end text-success font-weight-bold">${{ "%.2f"|format(item.total_revenue) }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-secondary py-4">No completed orders found.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="col-md-5">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-tags me-2 text-info"></i>Sales by Category
+      </h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover">
+        <thead>
+          <tr class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; background-color: #f8fafc;">
+            <th>Category</th>
+            <th class="text-center">Items Sold</th>
+            <th class="text-end">Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if category_sales %}
+            {% for item in category_sales %}
+            <tr>
+              <td><span class="font-weight-medium text-dark">{{ item.category_name }}</span></td>
+              <td class="text-center text-secondary">{{ item.total_quantity_sold }}</td>
+              <td class="text-end text-success font-weight-bold">${{ "%.2f"|format(item.total_revenue) }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="3" class="text-center text-secondary py-4">No data available.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Low Stock Warnings Row -->
+<div class="col-12 mt-3">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Low Stock Warning (Threshold &le; 10)
+      </h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover mb-0">
+        <thead>
+          <tr class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; background-color: #f8fafc;">
+            <th>Product Name</th>
+            <th>SKU</th>
+            <th>Stock Status</th>
+            <th class="text-center">Stock Level</th>
+            <th class="text-center" style="width: 150px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if low_stock_products %}
+            {% for prod in low_stock_products %}
+            <tr>
+              <td><span class="font-weight-medium text-dark">{{ prod.name }}</span></td>
+              <td class="text-secondary">{{ prod.sku }}</td>
+              <td>
+                {% if prod.stock_quantity == 0 %}
+                  <span class="badge bg-danger-lt text-danger font-weight-bold">Out of Stock</span>
+                {% elif prod.stock_quantity <= 3 %}
+                  <span class="badge bg-orange-lt text-orange font-weight-bold">Critical Stock</span>
+                {% else %}
+                  <span class="badge bg-warning-lt text-warning font-weight-bold">Low Stock</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <div class="d-flex align-items-center justify-content-center">
+                  <div class="progress progress-xs w-100 me-2" style="max-width: 100px;">
+                    <div class="progress-bar {% if prod.stock_quantity == 0 %}bg-danger{% elif prod.stock_quantity <= 3 %}bg-orange{% else %}bg-warning{% endif %}"
+                         style="width: {{ prod.stock_quantity * 10 }}%">
+                    </div>
+                  </div>
+                  <span class="font-weight-bold">{{ prod.stock_quantity }}</span>
+                </div>
+              </td>
+              <td class="text-center">
+                <a href="/admin/product/edit/{{ prod.id }}" class="btn btn-outline-primary btn-sm px-3 py-1">
+                  <i class="fa-solid fa-plus me-1"></i>Restock
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-success py-4 font-weight-medium">
+                <i class="fa-solid fa-circle-check me-2"></i>All product stock levels are healthy!
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
