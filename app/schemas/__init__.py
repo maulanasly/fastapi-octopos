@@ -1,4 +1,5 @@
 from app.schemas.order import Order, OrderCreate, OrderItem, OrderItemCreate
+from app.schemas.payment import Payment, PaymentCreate
 from app.schemas.product import (
     Category,
     CategoryCreate,

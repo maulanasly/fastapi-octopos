@@ -11,11 +11,12 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     total_amount = Column(Float, nullable=False, default=0.0)
-    status = Column(String, default="completed")  # pending, completed, cancelled
+    status = Column(String, default="pending")  # pending, completed, cancelled
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
     items = relationship("OrderItem", back_populates="order")
+    payments = relationship("Payment", back_populates="order")
 
 
 class OrderItem(Base):

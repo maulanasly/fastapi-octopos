@@ -4,6 +4,7 @@ from typing import List, Optional
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel
 
+from app.schemas.payment import Payment
 from app.schemas.product import Product
 from app.schemas.user import User
 
@@ -41,6 +42,7 @@ class Order(OrderBase):
     status: str
     created_at: datetime
     items: List[OrderItem] = []
+    payments: List[Payment] = []
     user: Optional[User] = None
 
     model_config = {"from_attributes": True}
