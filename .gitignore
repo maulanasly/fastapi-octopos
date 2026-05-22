@@ -130,3 +130,4 @@ dmypy.json
 
 # sql app
 sql_app.db
+.github/
