@@ -1,17 +1,26 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from google.auth.transport import requests
+from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import create_access_token, verify_password
+from app.core.limiter import limiter
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    get_password_hash,
+    verify_password,
+)
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
-from app.schemas.token import Token
+from app.schemas.token import RefreshTokenRequest, Token
+from app.schemas.user import User as UserSchema
+from app.schemas.user import UserCreate
 
 router = APIRouter()
 
@@ -20,13 +29,56 @@ class GoogleToken(BaseModel):
     token: str
 
 
+def _issue_tokens(user: User, db: Session) -> dict:
+    """Create and persist an access + refresh token pair for a user."""
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(user.id, expires_delta=access_token_expires)
+
+    raw_refresh, expires_at = create_refresh_token()
+    db_refresh = RefreshToken(token=raw_refresh, user_id=user.id, expires_at=expires_at)
+    db.add(db_refresh)
+    db.commit()
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": raw_refresh,
+    }
+
+
+@router.post(
+    "/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED
+)
+def register(user_in: UserCreate, db: Session = Depends(get_db)):
+    """
+    Register a new user with email and password.
+    """
+    existing = db.query(User).filter(User.email == user_in.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = User(
+        email=user_in.email,
+        full_name=user_in.full_name,
+        hashed_password=get_password_hash(user_in.password),
+        is_active=True,
+        is_superuser=False,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.post("/token", response_model=Token)
+@limiter.limit("10/minute")
 def login_access_token(
-    db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+    request: Request,
+    db: Session = Depends(get_db),
+    form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     """
-    OAuth2 compatible token login, get an access token for future requests.
-    This is the fallback Basic Auth flow for development.
+    OAuth2 compatible token login. Returns access + refresh tokens.
     """
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not user.hashed_password:
@@ -36,48 +88,85 @@ def login_access_token(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
 
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    return {
-        "access_token": create_access_token(
-            user.id, expires_delta=access_token_expires
-        ),
-        "token_type": "bearer",
-    }
+    return _issue_tokens(user, db)
+
+
+@router.post("/refresh", response_model=Token)
+def refresh_access_token(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    Exchange a valid refresh token for a new access + refresh token pair.
+    The old refresh token is revoked.
+    """
+    db_token = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.token == payload.refresh_token,
+            RefreshToken.revoked == False,  # noqa: E712
+        )  # noqa: E712
+        .first()
+    )
+    if not db_token:
+        raise HTTPException(status_code=401, detail="Invalid or revoked refresh token")
+
+    expires_at = db_token.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+
+    user = db.query(User).filter(User.id == db_token.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    # Revoke the used token (rotation)
+    db_token.revoked = True
+    db.add(db_token)
+
+    return _issue_tokens(user, db)
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """
+    Revoke the given refresh token (server-side logout).
+    """
+    db_token = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.token == payload.refresh_token)
+        .first()
+    )
+    if db_token:
+        db_token.revoked = True
+        db.add(db_token)
+        db.commit()
 
 
 @router.post("/google", response_model=Token)
 def google_auth(google_token: GoogleToken, db: Session = Depends(get_db)):
     """
-    Verify Google ID token and return a local access token.
-    If the user doesn't exist, create one.
+    Verify Google ID token and return a local access + refresh token pair.
     """
     try:
         if not settings.GOOGLE_CLIENT_ID:
-            # For development, if client id is not set, we can just allow it with a mock or raise error
-            # Here we raise an error because it's not configured
             raise ValueError("Google Client ID not configured")
 
         idinfo = id_token.verify_oauth2_token(
-            google_token.token, requests.Request(), settings.GOOGLE_CLIENT_ID
+            google_token.token, google_requests.Request(), settings.GOOGLE_CLIENT_ID
         )
         email = idinfo["email"]
         name = idinfo.get("name", "")
 
         user = db.query(User).filter(User.email == email).first()
         if not user:
-            # Create user if it doesn't exist
             user = User(email=email, full_name=name, is_active=True)
             db.add(user)
             db.commit()
             db.refresh(user)
 
-        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        return {
-            "access_token": create_access_token(
-                user.id, expires_delta=access_token_expires
-            ),
-            "token_type": "bearer",
-        }
+        if not user.is_active:
+            raise HTTPException(status_code=400, detail="Inactive user")
+
+        return _issue_tokens(user, db)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

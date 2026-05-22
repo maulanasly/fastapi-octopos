@@ -1,8 +1,10 @@
 # pyrefly: ignore [missing-import]
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 # pyrefly: ignore [missing-import]
 from sqladmin import Admin
@@ -25,7 +27,7 @@ from app.admin.views import (
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
-from app.core.security import get_password_hash
+from app.core.limiter import limiter
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -34,10 +36,12 @@ app = FastAPI(
     title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Set all CORS enabled origins
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

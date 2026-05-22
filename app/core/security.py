@@ -1,14 +1,17 @@
+import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import bcrypt
 from jose import jwt
 
 from app.core.config import settings
 
+REFRESH_TOKEN_EXPIRE_DAYS = 30
+
 
 def create_access_token(
-    subject: Union[str, Any], expires_delta: timedelta = None
+    subject: Union[str, Any], expires_delta: Optional[timedelta] = None
 ) -> str:
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -21,6 +24,13 @@ def create_access_token(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
     return encoded_jwt
+
+
+def create_refresh_token() -> tuple[str, datetime]:
+    """Returns (token_string, expiry_datetime)."""
+    token = secrets.token_urlsafe(48)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    return token, expires_at
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

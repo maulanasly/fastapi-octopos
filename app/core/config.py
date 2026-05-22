@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,6 +7,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "FastAPI POS Backend"
     API_V1_STR: str = "/api/v1"
+
+    # CORS — set explicit origins in production (e.g. ["https://yourapp.com"])
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
 
     # Database
     SQLALCHEMY_DATABASE_URI: str = "sqlite:///./sql_app.db"

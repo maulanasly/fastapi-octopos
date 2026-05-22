@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException
@@ -37,7 +37,7 @@ def open_drawer(
         starting_cash=drawer_in.starting_cash,
         expected_cash=drawer_in.expected_cash or 0.0,
         status="open",
-        opened_at=datetime.utcnow(),
+        opened_at=datetime.now(timezone.utc),
     )
     db.add(drawer)
     db.commit()
@@ -86,7 +86,7 @@ def close_drawer(
         if close_in.expected_cash is not None
         else drawer.expected_cash
     )
-    drawer.closed_at = datetime.utcnow()
+    drawer.closed_at = datetime.now(timezone.utc)
     drawer.status = "closed"
     db.add(drawer)
     db.commit()

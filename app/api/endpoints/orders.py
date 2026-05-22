@@ -126,6 +126,11 @@ def add_payment_to_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    if order.status in ("cancelled", "completed"):
+        raise HTTPException(
+            status_code=400, detail=f"Cannot add payment to a {order.status} order"
+        )
+
     payment = Payment(
         order_id=order.id,
         payment_method=payment_in.payment_method,
@@ -134,8 +139,8 @@ def add_payment_to_order(
     db.add(payment)
     db.flush()
 
-    # Calculate total paid
-    total_paid = sum(p.amount for p in order.payments) + payment.amount
+    # After flush, the new payment is already present in order.payments
+    total_paid = sum(p.amount for p in order.payments)
 
     # Update order status if fully paid
     if total_paid >= order.total_amount:

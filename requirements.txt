@@ -7,3 +7,5 @@ passlib[bcrypt]
 google-auth
 python-multipart
 requests
+slowapi
+alembic
