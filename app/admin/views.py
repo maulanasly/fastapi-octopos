@@ -1,9 +1,12 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import BaseView, ModelView, expose
 from sqlalchemy import func
+
+# pyrefly: ignore [missing-import]
 from starlette.requests import Request
 
 from app.core.database import SessionLocal
+from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.user import User
@@ -59,6 +62,20 @@ class OrderItemAdmin(ModelView, model=OrderItem):
         OrderItem.unit_price,
     ]
     column_searchable_list = [OrderItem.order_id]
+
+
+class DrawerSessionAdmin(ModelView, model=DrawerSession):
+    column_list = [
+        DrawerSession.id,
+        DrawerSession.user,
+        DrawerSession.opened_at,
+        DrawerSession.closed_at,
+        DrawerSession.starting_cash,
+        DrawerSession.ending_cash,
+        DrawerSession.status,
+    ]
+    column_searchable_list = [DrawerSession.status]
+    column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
 
 
 class ReportsAdmin(BaseView):

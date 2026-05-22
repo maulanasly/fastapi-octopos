@@ -38,6 +38,7 @@ class OrderCreate(OrderBase):
 class Order(OrderBase):
     id: int
     user_id: int
+    drawer_session_id: Optional[int] = None
     total_amount: float
     status: str
     created_at: datetime

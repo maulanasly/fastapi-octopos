@@ -15,6 +15,7 @@ from starlette.requests import Request
 
 from app.admin.views import (
     CategoryAdmin,
+    DrawerSessionAdmin,
     OrderAdmin,
     OrderItemAdmin,
     ProductAdmin,
@@ -82,6 +83,7 @@ admin.add_view(ProductAdmin)
 admin.add_view(OrderAdmin)
 admin.add_view(OrderItemAdmin)
 admin.add_view(ReportsAdmin)
+admin.add_view(DrawerSessionAdmin)
 
 
 @app.get("/")

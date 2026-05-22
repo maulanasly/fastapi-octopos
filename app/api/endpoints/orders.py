@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
+from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.product import Product
@@ -80,11 +81,31 @@ def create_order(
             )
         )
 
-    order = Order(user_id=current_user.id, total_amount=total_amount, status="pending")
+    # Verify active drawer session for the cashier
+    active_drawer = (
+        db.query(DrawerSession)
+        .filter(
+            DrawerSession.user_id == current_user.id,
+            DrawerSession.status == "open",
+        )
+        .first()
+    )
+    if not active_drawer:
+        raise HTTPException(
+            status_code=400,
+            detail="Cash drawer is not open. Please open a drawer session before placing orders.",
+        )
+    # Assign drawer_session_id to the new order
+    drawer_session_id = active_drawer.id
 
+    order = Order(
+        user_id=current_user.id,
+        drawer_session_id=drawer_session_id,
+        total_amount=total_amount,
+        status="pending",
+    )
     db.add(order)
     db.flush()  # To get the order.id
-
     for db_item in db_items:
         db_item.order_id = order.id
         db.add(db_item)
