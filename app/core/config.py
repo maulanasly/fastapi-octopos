@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
@@ -12,7 +13,9 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
 
     # Database
-    SQLALCHEMY_DATABASE_URI: str = "sqlite:///./sql_app.db"
+    SQLALCHEMY_DATABASE_URI: str = (
+        f"sqlite:///{(Path(__file__).resolve().parents[2] / 'sql_app.db').as_posix()}"
+    )
 
     # Security
     SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"  # Should be random string in production
