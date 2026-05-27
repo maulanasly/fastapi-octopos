@@ -26,6 +26,7 @@ from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
+from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
 
 
@@ -223,6 +224,9 @@ class OrderAdmin(ModelView, model=Order):
         Order.promotion,
         Order.subtotal_amount,
         Order.discount_amount,
+        Order.taxable_base_amount,
+        Order.tax_total_amount,
+        Order.grand_total_amount,
         Order.redeemed_points,
         Order.total_amount,
         Order.paid_amount,
@@ -339,6 +343,41 @@ class SyncEventLogAdmin(ModelView, model=SyncEventLog):
         SyncEventLog.status,
     ]
     column_sortable_list = [SyncEventLog.processed_at, SyncEventLog.id]
+
+
+class TaxRuleAdmin(ModelView, model=TaxRule):
+    column_list = [
+        TaxRule.id,
+        TaxRule.name,
+        TaxRule.tax_scope,
+        TaxRule.tax_mode,
+        TaxRule.rate,
+        TaxRule.product,
+        TaxRule.category,
+        TaxRule.starts_at,
+        TaxRule.ends_at,
+        TaxRule.is_active,
+        TaxRule.updated_at,
+    ]
+    column_searchable_list = [TaxRule.name, TaxRule.description]
+    column_sortable_list = [TaxRule.id, TaxRule.rate, TaxRule.updated_at]
+
+
+class OrderTaxLineAdmin(ModelView, model=OrderTaxLine):
+    column_list = [
+        OrderTaxLine.id,
+        OrderTaxLine.order_id,
+        OrderTaxLine.tax_rule,
+        OrderTaxLine.tax_name,
+        OrderTaxLine.tax_scope,
+        OrderTaxLine.tax_mode,
+        OrderTaxLine.tax_rate,
+        OrderTaxLine.taxable_base,
+        OrderTaxLine.tax_amount,
+        OrderTaxLine.applied_at,
+    ]
+    column_searchable_list = [OrderTaxLine.tax_name, OrderTaxLine.tax_scope]
+    column_sortable_list = [OrderTaxLine.applied_at, OrderTaxLine.id]
 
 
 class ReportsAdmin(BaseView):

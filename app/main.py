@@ -23,6 +23,7 @@ from app.admin.views import (
     LoyaltyTransactionAdmin,
     OrderAdmin,
     OrderItemAdmin,
+    OrderTaxLineAdmin,
     ProductAdmin,
     PromotionAdmin,
     PurchaseInvoiceAdmin,
@@ -36,6 +37,7 @@ from app.admin.views import (
     StockMovementAdmin,
     SupplierAdmin,
     SyncEventLogAdmin,
+    TaxRuleAdmin,
     UserAdmin,
 )
 from app.api.router import api_router
@@ -109,6 +111,8 @@ admin.add_view(PurchaseInvoiceAdmin)
 admin.add_view(PurchaseInvoiceItemAdmin)
 admin.add_view(OrderAdmin)
 admin.add_view(OrderItemAdmin)
+admin.add_view(TaxRuleAdmin)
+admin.add_view(OrderTaxLineAdmin)
 admin.add_view(RefundAdmin)
 admin.add_view(RefundItemAdmin)
 admin.add_view(ShiftReconciliationAdmin)

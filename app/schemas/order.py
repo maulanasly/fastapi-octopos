@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from app.schemas.customer import Customer
 from app.schemas.payment import Payment
 from app.schemas.product import Product
+from app.schemas.tax import OrderTaxLine
 from app.schemas.user import User
 
 
@@ -49,6 +50,9 @@ class Order(OrderBase):
     idempotency_key: Optional[str] = None
     subtotal_amount: Optional[float] = None
     discount_amount: float
+    taxable_base_amount: float
+    tax_total_amount: float
+    grand_total_amount: float
     total_amount: float
     paid_amount: float
     change_amount: float
@@ -60,6 +64,7 @@ class Order(OrderBase):
     created_at: datetime
     items: List[OrderItem] = []
     payments: List[Payment] = []
+    tax_lines: List[OrderTaxLine] = []
     user: Optional[User] = None
     customer: Optional[Customer] = None
 
@@ -71,3 +76,30 @@ class ReservationReleaseSummary(BaseModel):
     skipped_paid_count: int
     released_order_ids: List[int]
     skipped_paid_order_ids: List[int]
+
+
+class ReceiptOrderItem(BaseModel):
+    product_id: int
+    quantity: int
+    unit_price: float
+    line_total: float
+
+
+class OrderReceipt(BaseModel):
+    order_id: int
+    created_at: datetime
+    subtotal_amount: float
+    discount_amount: float
+    redeemed_points: int
+    taxable_base_amount: float
+    tax_total_amount: float
+    grand_total_amount: float
+    total_amount: float
+    paid_amount: float
+    change_amount: float
+    remaining_amount: float
+    status: str
+    reservation_status: str
+    items: List[ReceiptOrderItem]
+    tax_lines: List[OrderTaxLine]
+    payments: List[Payment]

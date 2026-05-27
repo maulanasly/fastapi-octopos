@@ -21,6 +21,8 @@ from app.schemas.order import (
     OrderCreate,
     OrderItem,
     OrderItemCreate,
+    OrderReceipt,
+    ReceiptOrderItem,
     ReservationReleaseSummary,
 )
 from app.schemas.payment import (
@@ -71,5 +73,13 @@ from app.schemas.sync import (
     SyncBatchResponse,
     SyncEventIn,
     SyncEventResult,
+)
+from app.schemas.tax import (
+    OrderTaxLine,
+    TaxLiabilityItem,
+    TaxLiabilitySummary,
+    TaxRule,
+    TaxRuleCreate,
+    TaxRuleUpdate,
 )
 from app.schemas.token import Token, TokenPayload

@@ -26,6 +26,7 @@ import app.models.refund  # noqa: F401 E402
 import app.models.shift_reconciliation  # noqa: F401 E402
 import app.models.stock_movement  # noqa: F401 E402
 import app.models.sync_event  # noqa: F401 E402
+import app.models.tax  # noqa: F401 E402
 import app.models.user  # noqa: F401 E402
 
 # Import app settings and all models so autogenerate can detect them

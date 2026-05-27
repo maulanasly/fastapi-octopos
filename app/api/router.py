@@ -14,6 +14,7 @@ from app.api.endpoints import (
     refunds,
     reports,
     sync,
+    taxes,
 )
 
 api_router = APIRouter()
@@ -31,3 +32,4 @@ api_router.include_router(refunds.router, prefix="/refunds", tags=["refunds"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(drawers.router, prefix="/drawers", tags=["drawers"])
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
+api_router.include_router(taxes.router, prefix="/taxes", tags=["taxes"])

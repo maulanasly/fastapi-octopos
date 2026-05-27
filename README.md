@@ -57,6 +57,8 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Superuser endpoint to release expired unpaid reservations with stock restoration
 - Order list filtering by user role (superuser vs own orders)
 - Inventory movement logging for sales and order cancellations
+- Tax-ready order totals (`taxable_base_amount`, `tax_total_amount`, `grand_total_amount`)
+- Fiscal receipt endpoint with itemized tax/payment breakdown
 
 ### Localization & Regional Settings
 
@@ -89,6 +91,13 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Scope support: `order`, `product`, or `category`
 - Eligibility controls: active window, minimum order amount, usage limit
 - Discount tracking on order (`subtotal_amount`, `discount_amount`, `total_amount`)
+
+### Tax Engine & Fiscal Receipt
+
+- Tax rule management with scope support: `order`, `product`, `category`
+- Tax modes: `exclusive` (added on top) and `inclusive` (embedded in base)
+- Effective-date activation windows (`starts_at`, `ends_at`) and soft deactivation
+- Persisted per-order tax lines for auditability and fiscal reporting
 
 ### Inventory Ledger
 
@@ -134,13 +143,14 @@ Superuser-only APIs for:
 - Category sales
 - Low stock products
 - Purchase invoice summary (counts, totals, variance, review pipeline)
+- Tax liability summary by tax name/rate with period filtering
 - Optional date-range filtering on sales analytics endpoints
 
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
 - Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
-- Admin views include Promotions management
+- Admin views include Promotions and Tax Rule management
 - Custom reports page at `/admin/reports`
 - Reports dashboard supports period presets (`today`, `7d`, `30d`, `month`, `all`) with aligned sales/refund/invoice summary scope
 
@@ -283,6 +293,14 @@ Base prefix: `/api/v1`
 - `GET /localization/`
 - `PUT /localization/`
 
+### Taxes
+
+- `GET /taxes/`
+- `POST /taxes/`
+- `GET /taxes/{tax_rule_id}`
+- `PUT /taxes/{tax_rule_id}`
+- `DELETE /taxes/{tax_rule_id}`
+
 ### Purchasing
 
 - `GET /purchasing/suppliers`
@@ -306,6 +324,7 @@ Base prefix: `/api/v1`
 
 - `GET /orders/`
 - `POST /orders/`
+- `GET /orders/{order_id}/receipt`
 - `POST /orders/{order_id}/payments`
 - `POST /orders/{order_id}/payments/split`
 - `POST /orders/{order_id}/cancel`
@@ -337,6 +356,7 @@ Base prefix: `/api/v1`
 - `GET /reports/categories`
 - `GET /reports/low-stock`
 - `GET /reports/purchase-invoices`
+- `GET /reports/tax-liability`
 
 ## Admin Panel
 

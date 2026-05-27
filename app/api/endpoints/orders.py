@@ -16,9 +16,15 @@ from app.models.payment import Payment
 from app.models.product import Product
 from app.models.promotion import Promotion
 from app.models.stock_movement import StockMovement
+from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
 from app.schemas.order import Order as OrderSchema
-from app.schemas.order import OrderCreate, ReservationReleaseSummary
+from app.schemas.order import (
+    OrderCreate,
+    OrderReceipt,
+    ReceiptOrderItem,
+    ReservationReleaseSummary,
+)
 from app.schemas.payment import Payment as PaymentSchema
 from app.schemas.payment import PaymentCreate, SplitPaymentCreate
 
@@ -65,6 +71,86 @@ def _sync_order_settlement(db: Session, order: Order) -> None:
     order.paid_amount = paid_amount
     order.change_amount = change_amount
     order.remaining_amount = remaining_amount
+
+
+def _is_tax_rule_active(rule: TaxRule, now: datetime) -> bool:
+    if not rule.is_active:
+        return False
+    if rule.starts_at and _as_utc(rule.starts_at) > now:
+        return False
+    if rule.ends_at and _as_utc(rule.ends_at) < now:
+        return False
+    return True
+
+
+def _get_scope_subtotal(rule: TaxRule, movement_inputs: list[dict]) -> float:
+    if rule.tax_scope == "order":
+        return sum(float(item["line_total"]) for item in movement_inputs)
+    if rule.tax_scope == "product":
+        return sum(
+            float(item["line_total"])
+            for item in movement_inputs
+            if item["product_id"] == rule.product_id
+        )
+    if rule.tax_scope == "category":
+        return sum(
+            float(item["line_total"])
+            for item in movement_inputs
+            if item["category_id"] == rule.category_id
+        )
+    return 0.0
+
+
+def _calculate_order_taxes(
+    db: Session,
+    movement_inputs: list[dict],
+    taxable_base_amount: float,
+    now: datetime,
+) -> tuple[list[dict], float, float]:
+    active_rules = db.query(TaxRule).filter(TaxRule.is_active.is_(True)).all()
+    subtotal = sum(float(item["line_total"]) for item in movement_inputs)
+    net_ratio = taxable_base_amount / subtotal if subtotal > 0 else 0.0
+
+    tax_lines: list[dict] = []
+    exclusive_tax_total = 0.0
+    for rule in active_rules:
+        if not _is_tax_rule_active(rule, now):
+            continue
+
+        scope_subtotal = _get_scope_subtotal(rule, movement_inputs)
+        if scope_subtotal <= 0:
+            continue
+
+        scoped_taxable_base = round(scope_subtotal * net_ratio, 2)
+        if scoped_taxable_base <= 0:
+            continue
+
+        if rule.tax_mode == "inclusive":
+            tax_amount = round(
+                scoped_taxable_base * (rule.rate / (100.0 + rule.rate))
+                if rule.rate > 0
+                else 0.0,
+                2,
+            )
+        else:
+            tax_amount = round(scoped_taxable_base * (rule.rate / 100.0), 2)
+            exclusive_tax_total += tax_amount
+
+        tax_lines.append(
+            {
+                "tax_rule_id": rule.id,
+                "tax_name": rule.name,
+                "tax_scope": rule.tax_scope,
+                "tax_mode": rule.tax_mode,
+                "tax_rate": float(rule.rate),
+                "taxable_base": scoped_taxable_base,
+                "tax_amount": tax_amount,
+            }
+        )
+
+    tax_total_amount = round(sum(line["tax_amount"] for line in tax_lines), 2)
+    grand_total_amount = round(taxable_base_amount + exclusive_tax_total, 2)
+    return tax_lines, tax_total_amount, grand_total_amount
 
 
 def _complete_order_if_paid(db: Session, order: Order) -> None:
@@ -431,6 +517,15 @@ def create_order(
         redeemed_points = order_in.redeem_points
         total_amount -= float(redeemed_points)
 
+    taxable_base_amount = round(total_amount, 2)
+    tax_lines_data, tax_total_amount, grand_total_amount = _calculate_order_taxes(
+        db=db,
+        movement_inputs=movement_inputs,
+        taxable_base_amount=taxable_base_amount,
+        now=datetime.now(timezone.utc),
+    )
+    total_amount = grand_total_amount
+
     reservation_expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=settings.ORDER_RESERVATION_TIMEOUT_MINUTES
     )
@@ -442,6 +537,9 @@ def create_order(
         idempotency_key=order_in.idempotency_key,
         subtotal_amount=subtotal_amount,
         discount_amount=discount_amount,
+        taxable_base_amount=taxable_base_amount,
+        tax_total_amount=tax_total_amount,
+        grand_total_amount=grand_total_amount,
         total_amount=total_amount,
         paid_amount=0.0,
         change_amount=0.0,
@@ -457,6 +555,20 @@ def create_order(
         db_item.order_id = order.id
         db.add(db_item)
     db.flush()
+
+    for tax_line_data in tax_lines_data:
+        db.add(
+            OrderTaxLine(
+                order_id=order.id,
+                tax_rule_id=tax_line_data["tax_rule_id"],
+                tax_name=tax_line_data["tax_name"],
+                tax_scope=tax_line_data["tax_scope"],
+                tax_mode=tax_line_data["tax_mode"],
+                tax_rate=tax_line_data["tax_rate"],
+                taxable_base=tax_line_data["taxable_base"],
+                tax_amount=tax_line_data["tax_amount"],
+            )
+        )
 
     for idx, db_item in enumerate(db_items):
         movement_input = movement_inputs[idx]
@@ -491,6 +603,54 @@ def create_order(
     db.commit()
     db.refresh(order)
     return order
+
+
+@router.get("/{order_id}/receipt", response_model=OrderReceipt)
+def get_order_receipt(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not current_user.is_superuser and order.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this order")
+
+    item_lines = [
+        ReceiptOrderItem(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            unit_price=item.unit_price,
+            line_total=round(item.quantity * item.unit_price, 2),
+        )
+        for item in order.items
+    ]
+    subtotal_amount = (
+        float(order.subtotal_amount)
+        if order.subtotal_amount is not None
+        else float(sum(item.line_total for item in item_lines))
+    )
+
+    return OrderReceipt(
+        order_id=order.id,
+        created_at=order.created_at,
+        subtotal_amount=round(subtotal_amount, 2),
+        discount_amount=round(float(order.discount_amount or 0.0), 2),
+        redeemed_points=int(order.redeemed_points or 0),
+        taxable_base_amount=round(float(order.taxable_base_amount or 0.0), 2),
+        tax_total_amount=round(float(order.tax_total_amount or 0.0), 2),
+        grand_total_amount=round(float(order.grand_total_amount or 0.0), 2),
+        total_amount=round(float(order.total_amount or 0.0), 2),
+        paid_amount=round(float(order.paid_amount or 0.0), 2),
+        change_amount=round(float(order.change_amount or 0.0), 2),
+        remaining_amount=round(float(order.remaining_amount or 0.0), 2),
+        status=order.status,
+        reservation_status=order.reservation_status,
+        items=item_lines,
+        tax_lines=order.tax_lines,
+        payments=order.payments,
+    )
 
 
 @router.post("/{order_id}/payments", response_model=PaymentSchema)

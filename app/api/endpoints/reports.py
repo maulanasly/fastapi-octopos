@@ -13,6 +13,7 @@ from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.purchase import PurchaseInvoice
 from app.models.refund import Refund
+from app.models.tax import OrderTaxLine
 from app.models.user import User
 from app.schemas.product import Product as ProductSchema
 from app.schemas.purchase import PurchaseInvoiceSummary
@@ -22,6 +23,7 @@ from app.schemas.report import (
     TopCustomerItem,
     TopProductItem,
 )
+from app.schemas.tax import TaxLiabilityItem, TaxLiabilitySummary
 
 router = APIRouter()
 
@@ -293,4 +295,53 @@ def get_purchase_invoice_summary(
         approved_total=float(approved_total or 0.0),
         billed_total=float(billed_total or 0.0),
         variance_total=float(variance_total or 0.0),
+    )
+
+
+@router.get("/tax-liability", response_model=TaxLiabilitySummary)
+def get_tax_liability_summary(
+    db: Session = Depends(get_db),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    query = (
+        db.query(
+            OrderTaxLine.tax_name.label("tax_name"),
+            OrderTaxLine.tax_rate.label("tax_rate"),
+            func.coalesce(func.sum(OrderTaxLine.taxable_base), 0.0).label(
+                "total_taxable_base"
+            ),
+            func.coalesce(func.sum(OrderTaxLine.tax_amount), 0.0).label(
+                "total_tax_amount"
+            ),
+            func.count(func.distinct(OrderTaxLine.order_id)).label("order_count"),
+        )
+        .join(Order, Order.id == OrderTaxLine.order_id)
+        .filter(Order.status == "completed")
+    )
+    if start_date:
+        query = query.filter(Order.created_at >= start_date)
+    if end_date:
+        query = query.filter(Order.created_at <= end_date)
+
+    rows = (
+        query.group_by(OrderTaxLine.tax_name, OrderTaxLine.tax_rate)
+        .order_by(func.sum(OrderTaxLine.tax_amount).desc())
+        .all()
+    )
+    items = [
+        TaxLiabilityItem(
+            tax_name=row.tax_name,
+            tax_rate=float(row.tax_rate or 0.0),
+            total_taxable_base=float(row.total_taxable_base or 0.0),
+            total_tax_amount=float(row.total_tax_amount or 0.0),
+            order_count=int(row.order_count or 0),
+        )
+        for row in rows
+    ]
+    total_tax_amount = sum(item.total_tax_amount for item in items)
+    return TaxLiabilitySummary(
+        total_tax_amount=float(total_tax_amount),
+        items=items,
     )

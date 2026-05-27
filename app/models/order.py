@@ -30,6 +30,9 @@ class Order(Base):
     idempotency_key = Column(String, nullable=True, index=True)
     subtotal_amount = Column(Float, nullable=True)
     discount_amount = Column(Float, nullable=False, default=0.0)
+    taxable_base_amount = Column(Float, nullable=False, default=0.0)
+    tax_total_amount = Column(Float, nullable=False, default=0.0)
+    grand_total_amount = Column(Float, nullable=False, default=0.0)
     total_amount = Column(Float, nullable=False, default=0.0)
     paid_amount = Column(Float, nullable=False, default=0.0)
     change_amount = Column(Float, nullable=False, default=0.0)
@@ -48,6 +51,7 @@ class Order(Base):
     items = relationship("OrderItem", back_populates="order")
     payments = relationship("Payment", back_populates="order")
     refunds = relationship("Refund", back_populates="order")
+    tax_lines = relationship("OrderTaxLine", back_populates="order")
 
 
 class OrderItem(Base):
