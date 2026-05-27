@@ -9,6 +9,7 @@ from app.core.database import SessionLocal
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
+from app.models.refund import Refund, RefundItem
 from app.models.user import User
 
 
@@ -78,6 +79,30 @@ class DrawerSessionAdmin(ModelView, model=DrawerSession):
     column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
 
 
+class RefundAdmin(ModelView, model=Refund):
+    column_list = [
+        Refund.id,
+        Refund.order_id,
+        Refund.user,
+        Refund.total_amount,
+        Refund.created_at,
+    ]
+    column_searchable_list = [Refund.order_id]
+    column_sortable_list = [Refund.created_at, Refund.total_amount]
+
+
+class RefundItemAdmin(ModelView, model=RefundItem):
+    column_list = [
+        RefundItem.id,
+        RefundItem.refund_id,
+        RefundItem.order_item_id,
+        RefundItem.product,
+        RefundItem.quantity,
+        RefundItem.unit_price,
+    ]
+    column_searchable_list = [RefundItem.refund_id, RefundItem.order_item_id]
+
+
 class ReportsAdmin(BaseView):
     name = "Reports Dashboard"
     icon = "fa-solid fa-chart-line"
@@ -92,11 +117,18 @@ class ReportsAdmin(BaseView):
                 func.count(Order.id),
             ).filter(Order.status == "completed")
             total_revenue, order_count = summary_query.first()
+            raw_total_refunds = db.query(
+                func.coalesce(func.sum(Refund.total_amount), 0.0)
+            ).scalar()
+            total_refunds = raw_total_refunds if raw_total_refunds is not None else 0.0
+            net_revenue = float(total_revenue or 0.0) - float(total_refunds)
             average_order_value = (
                 total_revenue / order_count if order_count > 0 else 0.0
             )
             sales_summary = {
                 "total_revenue": total_revenue,
+                "total_refunds": total_refunds,
+                "net_revenue": net_revenue,
                 "order_count": order_count,
                 "average_order_value": average_order_value,
             }

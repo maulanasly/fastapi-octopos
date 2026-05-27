@@ -8,6 +8,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+- [Make Commands](#make-commands)
 - [Environment Variables](#environment-variables)
 - [API Overview](#api-overview)
 - [Admin Panel](#admin-panel)
@@ -44,6 +45,14 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Cancel order with automatic stock restoration
 - Order list filtering by user role (superuser vs own orders)
 
+### Refunds & Returns
+
+- Create full or partial refunds from completed orders
+- Validate refundable quantity per order item (prevents over-refund)
+- Automatic stock restoration for refunded items
+- Refund audit trail with reason, cashier, timestamp, and itemized lines
+- Refund listing and detail endpoints with role-based access
+
 ### Drawer Sessions
 
 - Open drawer session
@@ -56,7 +65,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 
 Superuser-only APIs for:
 
-- Sales summary (revenue, order count, average order value)
+- Sales summary (gross revenue, total refunds, net revenue, order count, average order value)
 - Top-selling products
 - Category sales
 - Low stock products
@@ -111,19 +120,33 @@ source .venv/bin/activate
 ### 3. Install dependencies
 
 ```bash
-pip install -r requirements.txt
+make install
 ```
 
 ### 4. Run the app
 
 ```bash
-uvicorn app.main:app --reload
+make run
 ```
 
 Open:
 
 - Swagger UI: `http://127.0.0.1:8000/docs`
 - Admin: `http://127.0.0.1:8000/admin`
+
+## Make Commands
+
+Common commands:
+
+```bash
+make help
+make install
+make run
+make migrate
+make makemigration MSG="add-refunds-table"
+make lint
+make check
+```
 
 ## Environment Variables
 
@@ -171,6 +194,12 @@ Base prefix: `/api/v1`
 - `POST /orders/{order_id}/payments`
 - `POST /orders/{order_id}/cancel`
 
+### Refunds
+
+- `GET /refunds/`
+- `GET /refunds/{refund_id}`
+- `POST /refunds/`
+
 ### Drawers
 
 - `POST /drawers/open`
@@ -197,7 +226,7 @@ This project includes Alembic migration files in `alembic/versions`.
 Run migrations:
 
 ```bash
-alembic upgrade head
+make migrate
 ```
 
 ## License

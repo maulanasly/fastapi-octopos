@@ -21,6 +21,8 @@ from app.admin.views import (
     OrderAdmin,
     OrderItemAdmin,
     ProductAdmin,
+    RefundAdmin,
+    RefundItemAdmin,
     ReportsAdmin,
     UserAdmin,
 )
@@ -86,6 +88,8 @@ admin.add_view(CategoryAdmin)
 admin.add_view(ProductAdmin)
 admin.add_view(OrderAdmin)
 admin.add_view(OrderItemAdmin)
+admin.add_view(RefundAdmin)
+admin.add_view(RefundItemAdmin)
 admin.add_view(ReportsAdmin)
 admin.add_view(DrawerSessionAdmin)
 

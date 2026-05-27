@@ -10,6 +10,7 @@ from app.api.dependencies import get_current_active_superuser
 from app.core.database import get_db
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
+from app.models.refund import Refund
 from app.models.user import User
 from app.schemas.product import Product as ProductSchema
 from app.schemas.report import CategorySalesItem, SalesSummary, TopProductItem
@@ -22,23 +23,36 @@ def get_sales_summary(
     db: Session = Depends(get_db),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
+    cashier_id: Optional[int] = Query(None, ge=1),
     current_user: User = Depends(get_current_active_superuser),
 ):
-    query = db.query(
+    sales_query = db.query(
         func.coalesce(func.sum(Order.total_amount), 0.0), func.count(Order.id)
     ).filter(Order.status == "completed")
+    refunds_query = db.query(func.coalesce(func.sum(Refund.total_amount), 0.0)).join(
+        Order, Refund.order_id == Order.id
+    )
 
     if start_date:
-        query = query.filter(Order.created_at >= start_date)
+        sales_query = sales_query.filter(Order.created_at >= start_date)
+        refunds_query = refunds_query.filter(Refund.created_at >= start_date)
     if end_date:
-        query = query.filter(Order.created_at <= end_date)
+        sales_query = sales_query.filter(Order.created_at <= end_date)
+        refunds_query = refunds_query.filter(Refund.created_at <= end_date)
+    if cashier_id:
+        sales_query = sales_query.filter(Order.user_id == cashier_id)
+        refunds_query = refunds_query.filter(Order.user_id == cashier_id)
 
-    total_revenue, order_count = query.first()
+    total_revenue, order_count = sales_query.first()
+    total_refunds = float(refunds_query.scalar() or 0.0)
+    net_revenue = float(total_revenue or 0.0) - total_refunds
 
     average_order_value = total_revenue / order_count if order_count > 0 else 0.0
 
     return SalesSummary(
         total_revenue=float(total_revenue),
+        total_refunds=total_refunds,
+        net_revenue=net_revenue,
         order_count=int(order_count),
         average_order_value=float(average_order_value),
     )

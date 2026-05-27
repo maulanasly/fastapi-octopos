@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 class SalesSummary(BaseModel):
     total_revenue: float
+    total_refunds: float
+    net_revenue: float
     order_count: int
     average_order_value: float
 

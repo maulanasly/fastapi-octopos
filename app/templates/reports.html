@@ -5,7 +5,7 @@
 <div class="col-12 mb-3">
   <div class="row row-cards">
     <!-- Total Revenue -->
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
         <div class="card-body">
           <div class="row align-items-center">
@@ -15,9 +15,9 @@
               </span>
             </div>
             <div class="col">
-              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Revenue</div>
+              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Net Revenue</div>
               <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
-                ${{ "%.2f"|format(sales_summary.total_revenue) }}
+                ${{ "%.2f"|format(sales_summary.net_revenue) }}
               </div>
             </div>
           </div>
@@ -26,7 +26,28 @@
     </div>
 
     <!-- Completed Orders -->
-    <div class="col-md-4">
+    <div class="col-md-3">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #d63939 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto">
+              <span class="bg-red-lt text-red avatar" style="width: 48px; height: 48px;">
+                <i class="fa-solid fa-rotate-left fa-lg"></i>
+              </span>
+            </div>
+            <div class="col">
+              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Refunds</div>
+              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+                ${{ "%.2f"|format(sales_summary.total_refunds) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed Orders -->
+    <div class="col-md-3">
       <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #2fb344 !important;">
         <div class="card-body">
           <div class="row align-items-center">
@@ -47,7 +68,7 @@
     </div>
 
     <!-- Average Order Value -->
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #4299e1 !important;">
         <div class="card-body">
           <div class="row align-items-center">
