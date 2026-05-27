@@ -31,6 +31,9 @@ class Order(Base):
     subtotal_amount = Column(Float, nullable=True)
     discount_amount = Column(Float, nullable=False, default=0.0)
     total_amount = Column(Float, nullable=False, default=0.0)
+    paid_amount = Column(Float, nullable=False, default=0.0)
+    change_amount = Column(Float, nullable=False, default=0.0)
+    remaining_amount = Column(Float, nullable=False, default=0.0)
     redeemed_points = Column(Integer, nullable=False, default=0)
     status = Column(String, default="pending")  # pending, completed, cancelled
     reservation_status = Column(

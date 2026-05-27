@@ -18,7 +18,12 @@ from app.schemas.order import (
     OrderItemCreate,
     ReservationReleaseSummary,
 )
-from app.schemas.payment import Payment, PaymentCreate
+from app.schemas.payment import (
+    Payment,
+    PaymentCreate,
+    SplitPaymentCreate,
+    SplitPaymentLineCreate,
+)
 from app.schemas.product import (
     Category,
     CategoryCreate,

@@ -20,7 +20,7 @@ from app.models.user import User
 from app.schemas.order import Order as OrderSchema
 from app.schemas.order import OrderCreate, ReservationReleaseSummary
 from app.schemas.payment import Payment as PaymentSchema
-from app.schemas.payment import PaymentCreate
+from app.schemas.payment import PaymentCreate, SplitPaymentCreate
 
 router = APIRouter()
 
@@ -37,6 +37,71 @@ def _is_reservation_expired(order: Order) -> bool:
     if order.reservation_expires_at is None:
         return False
     return _as_utc(order.reservation_expires_at) <= datetime.now(timezone.utc)
+
+
+def _normalize_payment_method(payment_method: str) -> str:
+    return payment_method.strip().lower()
+
+
+def _calculate_settlement_totals(
+    db: Session, order: Order
+) -> tuple[float, float, float]:
+    total_paid_raw = (
+        db.query(func.coalesce(func.sum(Payment.amount), 0.0))
+        .filter(Payment.order_id == order.id)
+        .scalar()
+    )
+    total_paid = float(total_paid_raw or 0.0)
+    applied_paid_amount = min(total_paid, order.total_amount)
+    change_amount = max(total_paid - order.total_amount, 0.0)
+    remaining_amount = max(order.total_amount - applied_paid_amount, 0.0)
+    return applied_paid_amount, change_amount, remaining_amount
+
+
+def _sync_order_settlement(db: Session, order: Order) -> None:
+    paid_amount, change_amount, remaining_amount = _calculate_settlement_totals(
+        db, order
+    )
+    order.paid_amount = paid_amount
+    order.change_amount = change_amount
+    order.remaining_amount = remaining_amount
+
+
+def _complete_order_if_paid(db: Session, order: Order) -> None:
+    if order.remaining_amount > 0:
+        return
+
+    order.status = "completed"
+    order.reservation_status = "committed"
+    order.reservation_expires_at = None
+    db.add(order)
+    if order.customer_id:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer:
+            existing_earn = (
+                db.query(LoyaltyTransaction)
+                .filter(
+                    LoyaltyTransaction.order_id == order.id,
+                    LoyaltyTransaction.customer_id == customer.id,
+                    LoyaltyTransaction.transaction_type == "earn",
+                )
+                .first()
+            )
+            if not existing_earn:
+                earned_points = int(order.total_amount)
+                if earned_points > 0:
+                    customer.points_balance += earned_points
+                    db.add(customer)
+                    db.add(
+                        LoyaltyTransaction(
+                            customer_id=customer.id,
+                            order_id=order.id,
+                            transaction_type="earn",
+                            points_delta=earned_points,
+                            balance_after=customer.points_balance,
+                            note="Points earned on completed order",
+                        )
+                    )
 
 
 def _restore_order_stock(
@@ -138,6 +203,9 @@ def _release_order_reservation(
     order.status = "cancelled"
     order.reservation_status = "released"
     order.reservation_expires_at = None
+    order.paid_amount = 0.0
+    order.change_amount = 0.0
+    order.remaining_amount = 0.0
     db.add(order)
 
 
@@ -375,6 +443,9 @@ def create_order(
         subtotal_amount=subtotal_amount,
         discount_amount=discount_amount,
         total_amount=total_amount,
+        paid_amount=0.0,
+        change_amount=0.0,
+        remaining_amount=total_amount,
         redeemed_points=redeemed_points,
         status="pending",
         reservation_status="reserved",
@@ -471,58 +542,104 @@ def add_payment_to_order(
             detail="Order reservation has expired. Release reservation and create a new order",
         )
 
+    _sync_order_settlement(db=db, order=order)
+    payment_method = _normalize_payment_method(payment_in.payment_method)
+    if payment_method != "cash" and payment_in.amount > order.remaining_amount:
+        raise HTTPException(
+            status_code=400,
+            detail="Non-cash payment amount cannot exceed remaining amount",
+        )
+
     payment = Payment(
         order_id=order.id,
         user_id=current_user.id,
         idempotency_key=payment_in.idempotency_key,
-        payment_method=payment_in.payment_method,
+        payment_method=payment_method,
         amount=payment_in.amount,
     )
     db.add(payment)
     db.flush()
 
-    # After flush, the new payment is already present in order.payments
-    total_paid = sum(p.amount for p in order.payments)
-
-    # Update order status if fully paid
-    if total_paid >= order.total_amount:
-        order.status = "completed"
-        order.reservation_status = "committed"
-        order.reservation_expires_at = None
-        db.add(order)
-        if order.customer_id:
-            customer = (
-                db.query(Customer).filter(Customer.id == order.customer_id).first()
-            )
-            if customer:
-                existing_earn = (
-                    db.query(LoyaltyTransaction)
-                    .filter(
-                        LoyaltyTransaction.order_id == order.id,
-                        LoyaltyTransaction.customer_id == customer.id,
-                        LoyaltyTransaction.transaction_type == "earn",
-                    )
-                    .first()
-                )
-                if not existing_earn:
-                    earned_points = int(order.total_amount)
-                    if earned_points > 0:
-                        customer.points_balance += earned_points
-                        db.add(customer)
-                        db.add(
-                            LoyaltyTransaction(
-                                customer_id=customer.id,
-                                order_id=order.id,
-                                transaction_type="earn",
-                                points_delta=earned_points,
-                                balance_after=customer.points_balance,
-                                note="Points earned on completed order",
-                            )
-                        )
+    _sync_order_settlement(db=db, order=order)
+    _complete_order_if_paid(db=db, order=order)
 
     db.commit()
     db.refresh(payment)
     return payment
+
+
+@router.post("/{order_id}/payments/split", response_model=OrderSchema)
+def add_split_payments_to_order(
+    order_id: int,
+    split_in: SplitPaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not split_in.payments:
+        raise HTTPException(
+            status_code=400,
+            detail="Split payment must contain at least one payment line",
+        )
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.drawer_session_id:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(DrawerSession.id == order.drawer_session_id)
+            .first()
+        )
+        if drawer and drawer.status != "open":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot add payment to an order from a closed drawer session",
+            )
+
+    if order.status in ("cancelled", "completed"):
+        raise HTTPException(
+            status_code=400, detail=f"Cannot add payment to a {order.status} order"
+        )
+    if order.reservation_status == "released":
+        raise HTTPException(
+            status_code=400, detail="Cannot add payment to an order with released stock"
+        )
+    if _is_reservation_expired(order):
+        raise HTTPException(
+            status_code=400,
+            detail="Order reservation has expired. Release reservation and create a new order",
+        )
+
+    running_total_paid = sum(payment.amount for payment in order.payments)
+    for line in split_in.payments:
+        payment_method = _normalize_payment_method(line.payment_method)
+        remaining_before = max(
+            order.total_amount - min(running_total_paid, order.total_amount), 0.0
+        )
+        if payment_method != "cash" and line.amount > remaining_before:
+            raise HTTPException(
+                status_code=400,
+                detail="Non-cash payment amount cannot exceed remaining amount",
+            )
+        running_total_paid += line.amount
+
+    for line in split_in.payments:
+        db.add(
+            Payment(
+                order_id=order.id,
+                user_id=current_user.id,
+                payment_method=_normalize_payment_method(line.payment_method),
+                amount=line.amount,
+            )
+        )
+
+    db.flush()
+    _sync_order_settlement(db=db, order=order)
+    _complete_order_if_paid(db=db, order=order)
+    db.commit()
+    db.refresh(order)
+    return order
 
 
 @router.post("/release-expired-reservations", response_model=ReservationReleaseSummary)

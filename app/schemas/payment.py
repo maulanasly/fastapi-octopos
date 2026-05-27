@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PaymentBase(BaseModel):
     payment_method: str
-    amount: float
+    amount: float = Field(gt=0)
 
 
 class PaymentCreate(PaymentBase):
@@ -21,3 +21,12 @@ class Payment(PaymentBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SplitPaymentLineCreate(BaseModel):
+    payment_method: str
+    amount: float = Field(gt=0)
+
+
+class SplitPaymentCreate(BaseModel):
+    payments: List[SplitPaymentLineCreate]

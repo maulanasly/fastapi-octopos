@@ -50,6 +50,9 @@ class Order(OrderBase):
     subtotal_amount: Optional[float] = None
     discount_amount: float
     total_amount: float
+    paid_amount: float
+    change_amount: float
+    remaining_amount: float
     redeemed_points: int
     status: str
     reservation_status: str

@@ -48,6 +48,9 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Reservation expiry timestamp on order creation with configurable timeout
 - Drawer session required before placing orders
 - Attach payments to orders (supports partial payment)
+- Atomic split-tender payment endpoint for multi-method checkout
+- Settlement summary per order (`paid_amount`, `change_amount`, `remaining_amount`)
+- Non-cash payment cannot exceed remaining amount; only cash can create change
 - Idempotent order and payment writes via `idempotency_key`
 - Auto-complete order when paid amount reaches/exceeds total
 - Cancel order with automatic stock restoration
@@ -293,6 +296,7 @@ Base prefix: `/api/v1`
 - `GET /orders/`
 - `POST /orders/`
 - `POST /orders/{order_id}/payments`
+- `POST /orders/{order_id}/payments/split`
 - `POST /orders/{order_id}/cancel`
 - `POST /orders/release-expired-reservations`
 
