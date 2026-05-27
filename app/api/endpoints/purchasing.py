@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
+from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
 from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.stock_movement import StockMovement
@@ -14,6 +15,7 @@ from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
 from app.schemas.purchase import PurchaseOrderCreate, PurchaseOrderReceive
 from app.schemas.purchase import Supplier as SupplierSchema
 from app.schemas.purchase import SupplierCreate, SupplierUpdate
+from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
 
 router = APIRouter()
 
@@ -164,6 +166,97 @@ def create_purchase_order(
                 quantity_ordered=item.quantity_ordered,
                 quantity_received=0,
                 unit_cost=item.unit_cost,
+            )
+        )
+
+    db.commit()
+    return (
+        db.query(PurchaseOrder)
+        .options(joinedload(PurchaseOrder.items))
+        .filter(PurchaseOrder.id == purchase_order.id)
+        .first()
+    )
+
+
+@router.post("/orders/from-replenishment", response_model=PurchaseOrderSchema)
+def create_purchase_order_from_replenishment(
+    payload: PurchaseOrderFromSuggestionsCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    supplier = db.query(Supplier).filter(Supplier.id == payload.supplier_id).first()
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    if not supplier.is_active:
+        raise HTTPException(status_code=400, detail="Supplier is inactive")
+
+    product_query = db.query(Product).order_by(Product.id.asc())
+    requested_product_ids = payload.product_ids or []
+    if requested_product_ids:
+        unique_product_ids = sorted(set(requested_product_ids))
+        product_query = product_query.filter(Product.id.in_(unique_product_ids))
+    else:
+        unique_product_ids = []
+
+    products = product_query.all()
+    product_map = {product.id: product for product in products}
+    missing_product_ids = [
+        product_id for product_id in unique_product_ids if product_id not in product_map
+    ]
+    if missing_product_ids:
+        missing_products_text = ", ".join(
+            str(product_id) for product_id in missing_product_ids
+        )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Product(s) not found: {missing_products_text}",
+        )
+
+    suggestions = build_replenishment_suggestions(
+        db=db,
+        products=products,
+        lookback_days=payload.lookback_days,
+    )
+    if payload.include_only_reorder:
+        suggestions = [item for item in suggestions if item.should_reorder]
+
+    suggestion_items = [
+        item for item in suggestions if item.recommended_order_quantity > 0
+    ]
+    if not suggestion_items:
+        raise HTTPException(
+            status_code=400,
+            detail="No replenishment suggestions with recommended quantity > 0",
+        )
+
+    total_estimated_amount = sum(
+        item.recommended_order_quantity * product_map[item.product_id].price
+        for item in suggestion_items
+    )
+
+    notes = payload.notes or (
+        "Auto-generated from replenishment suggestions "
+        f"(lookback_days={payload.lookback_days})"
+    )
+    purchase_order = PurchaseOrder(
+        supplier_id=supplier.id,
+        user_id=current_user.id,
+        status="draft",
+        total_estimated_amount=total_estimated_amount,
+        notes=notes,
+    )
+    db.add(purchase_order)
+    db.flush()
+
+    for suggestion in suggestion_items:
+        product = product_map[suggestion.product_id]
+        db.add(
+            PurchaseOrderItem(
+                purchase_order_id=purchase_order.id,
+                product_id=product.id,
+                quantity_ordered=suggestion.recommended_order_quantity,
+                quantity_received=0,
+                unit_cost=product.price,
             )
         )
 

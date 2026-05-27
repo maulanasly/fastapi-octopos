@@ -1,7 +1,7 @@
 from typing import Optional
 
 # pyrefly: ignore [missing-import]
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CategoryBase(BaseModel):
@@ -24,7 +24,11 @@ class ProductBase(BaseModel):
     sku: str
     description: Optional[str] = None
     price: float
-    stock_quantity: int = 0
+    stock_quantity: int = Field(0, ge=0)
+    min_stock: int = Field(0, ge=0)
+    max_stock: Optional[int] = Field(None, ge=0)
+    reorder_point: int = Field(0, ge=0)
+    lead_time_days: int = Field(0, ge=0)
     category_id: Optional[int] = None
 
 

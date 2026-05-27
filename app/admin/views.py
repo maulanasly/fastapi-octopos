@@ -42,10 +42,19 @@ class ProductAdmin(ModelView, model=Product):
         Product.sku,
         Product.price,
         Product.stock_quantity,
+        Product.min_stock,
+        Product.max_stock,
+        Product.reorder_point,
+        Product.lead_time_days,
         Product.category,
     ]
     column_searchable_list = [Product.name, Product.sku]
-    column_sortable_list = [Product.price, Product.stock_quantity]
+    column_sortable_list = [
+        Product.price,
+        Product.stock_quantity,
+        Product.reorder_point,
+        Product.lead_time_days,
+    ]
 
 
 class PromotionAdmin(ModelView, model=Promotion):

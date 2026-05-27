@@ -6,8 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
+from app.core.replenishment import build_replenishment_suggestions
+from app.models.product import Product
 from app.models.stock_movement import StockMovement
 from app.models.user import User
+from app.schemas.replenishment import ReplenishmentSuggestion
 from app.schemas.stock_movement import StockMovement as StockMovementSchema
 
 router = APIRouter()
@@ -42,3 +45,35 @@ def get_inventory_movements(
         query = query.filter(StockMovement.created_at <= end_date)
 
     return query.offset(skip).limit(limit).all()
+
+
+@router.get("/replenishment-suggestions", response_model=List[ReplenishmentSuggestion])
+def get_replenishment_suggestions(
+    db: Session = Depends(get_db),
+    lookback_days: int = Query(30, ge=1, le=365),
+    product_id: Optional[int] = Query(None, ge=1),
+    only_reorder_needed: bool = Query(True),
+    current_user: User = Depends(get_current_active_user),
+):
+    query = db.query(Product).order_by(Product.id.asc())
+    if product_id is not None:
+        query = query.filter(Product.id == product_id)
+
+    products = query.all()
+    suggestions = build_replenishment_suggestions(
+        db=db,
+        products=products,
+        lookback_days=lookback_days,
+    )
+
+    if only_reorder_needed:
+        suggestions = [item for item in suggestions if item.should_reorder]
+
+    return sorted(
+        suggestions,
+        key=lambda item: (
+            item.recommended_order_quantity,
+            item.current_stock,
+        ),
+        reverse=True,
+    )

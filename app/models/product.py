@@ -23,6 +23,10 @@ class Product(Base):
     description = Column(Text, nullable=True)
     price = Column(Float, nullable=False)
     stock_quantity = Column(Integer, default=0)
+    min_stock = Column(Integer, nullable=False, default=0)
+    max_stock = Column(Integer, nullable=True)
+    reorder_point = Column(Integer, nullable=False, default=0)
+    lead_time_days = Column(Integer, nullable=False, default=0)
     category_id = Column(Integer, ForeignKey("categories.id"))
 
     category = relationship("Category", back_populates="products")

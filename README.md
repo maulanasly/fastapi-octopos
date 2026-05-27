@@ -34,6 +34,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Product CRUD (create, list, update, delete)
 - Category validation on product creation
 - SKU uniqueness at database level
+- Replenishment settings per product (`min_stock`, `max_stock`, `reorder_point`, `lead_time_days`)
 - Inventory movement logging for stock updates (`initial_stock`, `manual_adjustment`)
 
 ### Orders & Payments
@@ -81,6 +82,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 
 - Stock movement history endpoint with filters by product, movement type, user, and date range
 - Tracks `quantity_before`, `quantity_delta`, and `quantity_after` for each movement
+- Replenishment suggestion endpoint using sales velocity and lead-time projection
 
 ### Purchasing & Receiving
 
@@ -88,6 +90,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Purchase order creation with itemized quantity and unit cost
 - Purchase order lifecycle: `draft`, `ordered`, `partially_received`, `received`, `cancelled`
 - Receiving endpoint updates product stock and records `purchase_receipt` movements
+- Purchase order auto-generation from replenishment suggestions
 
 ### Drawer Sessions
 
@@ -255,6 +258,7 @@ Base prefix: `/api/v1`
 ### Inventory
 
 - `GET /inventory/movements`
+- `GET /inventory/replenishment-suggestions`
 
 ### Purchasing
 
@@ -264,6 +268,7 @@ Base prefix: `/api/v1`
 - `GET /purchasing/orders`
 - `GET /purchasing/orders/{purchase_order_id}`
 - `POST /purchasing/orders`
+- `POST /purchasing/orders/from-replenishment`
 - `POST /purchasing/orders/{purchase_order_id}/mark-ordered`
 - `POST /purchasing/orders/{purchase_order_id}/receive`
 - `POST /purchasing/orders/{purchase_order_id}/cancel`

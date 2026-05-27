@@ -33,6 +33,10 @@ from app.schemas.purchase import (
     SupplierUpdate,
 )
 from app.schemas.refund import Refund, RefundCreate, RefundItem, RefundItemCreate
+from app.schemas.replenishment import (
+    PurchaseOrderFromSuggestionsCreate,
+    ReplenishmentSuggestion,
+)
 from app.schemas.report import (
     CategorySalesItem,
     SalesSummary,
