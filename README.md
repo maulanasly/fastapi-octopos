@@ -45,6 +45,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Stock validation and automatic stock deduction on order creation
 - Drawer session required before placing orders
 - Attach payments to orders (supports partial payment)
+- Idempotent order and payment writes via `idempotency_key`
 - Auto-complete order when paid amount reaches/exceeds total
 - Cancel order with automatic stock restoration
 - Order list filtering by user role (superuser vs own orders)
@@ -57,6 +58,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Automatic stock restoration for refunded items
 - Refund audit trail with reason, cashier, timestamp, and itemized lines
 - Refund listing and detail endpoints with role-based access
+- Idempotent refund creation via `idempotency_key`
 - Inventory movement logging for refund restocking
 
 ### Customers & Loyalty
@@ -96,6 +98,13 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Enforce one open drawer session per user
 - Track starting cash, ending cash, expected cash, opened/closed time
 
+### Offline Sync & Idempotency
+
+- Batch sync endpoint for offline POS clients (`/sync/events/batch`)
+- Event types: `order_create`, `order_add_payment`, `refund_create`
+- Per-event status response (`success`, `failed`, `duplicate`)
+- Sync event logging for replay safety and audit trail
+
 ### Reports
 
 Superuser-only APIs for:
@@ -111,7 +120,7 @@ Superuser-only APIs for:
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
-- Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements
+- Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
 - Admin views include Promotions management
 - Custom reports page at `/admin/reports`
 
@@ -271,6 +280,10 @@ Base prefix: `/api/v1`
 - `GET /refunds/`
 - `GET /refunds/{refund_id}`
 - `POST /refunds/`
+
+### Sync
+
+- `POST /sync/events/batch`
 
 ### Drawers
 

@@ -36,6 +36,7 @@ class OrderCreate(OrderBase):
     items: List[OrderItemCreate]
     customer_id: Optional[int] = None
     promotion_code: Optional[str] = None
+    idempotency_key: Optional[str] = None
     redeem_points: int = Field(0, ge=0)
 
 
@@ -45,6 +46,7 @@ class Order(OrderBase):
     customer_id: Optional[int] = None
     promotion_id: Optional[int] = None
     drawer_session_id: Optional[int] = None
+    idempotency_key: Optional[str] = None
     subtotal_amount: Optional[float] = None
     discount_amount: float
     total_amount: float

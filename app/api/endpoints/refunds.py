@@ -73,6 +73,18 @@ def create_refund(
             status_code=400, detail="Refund must contain at least one item"
         )
 
+    if refund_in.idempotency_key:
+        existing_refund = (
+            db.query(Refund)
+            .filter(
+                Refund.user_id == current_user.id,
+                Refund.idempotency_key == refund_in.idempotency_key,
+            )
+            .first()
+        )
+        if existing_refund:
+            return existing_refund
+
     order = (
         db.query(Order)
         .options(joinedload(Order.items))
@@ -187,6 +199,7 @@ def create_refund(
     refund = Refund(
         order_id=order.id,
         user_id=current_user.id,
+        idempotency_key=refund_in.idempotency_key,
         reason=refund_in.reason,
         total_amount=total_amount,
     )

@@ -15,6 +15,7 @@ from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
+from app.models.sync_event import SyncEventLog
 from app.models.user import User
 
 
@@ -235,6 +236,27 @@ class StockMovementAdmin(ModelView, model=StockMovement):
     ]
     column_searchable_list = [StockMovement.movement_type, StockMovement.note]
     column_sortable_list = [StockMovement.created_at, StockMovement.id]
+
+
+class SyncEventLogAdmin(ModelView, model=SyncEventLog):
+    column_list = [
+        SyncEventLog.id,
+        SyncEventLog.user,
+        SyncEventLog.client_event_id,
+        SyncEventLog.event_type,
+        SyncEventLog.idempotency_key,
+        SyncEventLog.status,
+        SyncEventLog.resource_type,
+        SyncEventLog.resource_id,
+        SyncEventLog.processed_at,
+    ]
+    column_searchable_list = [
+        SyncEventLog.client_event_id,
+        SyncEventLog.event_type,
+        SyncEventLog.idempotency_key,
+        SyncEventLog.status,
+    ]
+    column_sortable_list = [SyncEventLog.processed_at, SyncEventLog.id]
 
 
 class ReportsAdmin(BaseView):

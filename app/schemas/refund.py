@@ -12,6 +12,7 @@ class RefundItemCreate(BaseModel):
 class RefundCreate(BaseModel):
     order_id: int
     reason: Optional[str] = None
+    idempotency_key: Optional[str] = None
     items: List[RefundItemCreate]
 
 
@@ -31,6 +32,7 @@ class Refund(BaseModel):
     order_id: int
     user_id: int
     reason: Optional[str] = None
+    idempotency_key: Optional[str] = None
     total_amount: float
     created_at: datetime
     items: List[RefundItem] = []

@@ -62,6 +62,18 @@ def create_order(
             status_code=400, detail="Order must contain at least one item"
         )
 
+    if order_in.idempotency_key:
+        existing_order = (
+            db.query(Order)
+            .filter(
+                Order.user_id == current_user.id,
+                Order.idempotency_key == order_in.idempotency_key,
+            )
+            .first()
+        )
+        if existing_order:
+            return existing_order
+
     total_amount = 0.0
     subtotal_amount = 0.0
     discount_amount = 0.0
@@ -245,6 +257,7 @@ def create_order(
         customer_id=order_in.customer_id,
         promotion_id=promotion.id if promotion else None,
         drawer_session_id=drawer_session_id,
+        idempotency_key=order_in.idempotency_key,
         subtotal_amount=subtotal_amount,
         discount_amount=discount_amount,
         total_amount=total_amount,
@@ -300,6 +313,18 @@ def add_payment_to_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
+    if payment_in.idempotency_key:
+        existing_payment = (
+            db.query(Payment)
+            .filter(
+                Payment.user_id == current_user.id,
+                Payment.idempotency_key == payment_in.idempotency_key,
+            )
+            .first()
+        )
+        if existing_payment:
+            return existing_payment
+
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -323,6 +348,8 @@ def add_payment_to_order(
 
     payment = Payment(
         order_id=order.id,
+        user_id=current_user.id,
+        idempotency_key=payment_in.idempotency_key,
         payment_method=payment_in.payment_method,
         amount=payment_in.amount,
     )

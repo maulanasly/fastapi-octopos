@@ -1,4 +1,13 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, Text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -7,10 +16,16 @@ from app.core.database import Base
 
 class Refund(Base):
     __tablename__ = "refunds"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "idempotency_key", name="uq_refunds_user_idempotency"
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    idempotency_key = Column(String, nullable=True, index=True)
     reason = Column(Text, nullable=True)
     total_amount = Column(Float, nullable=False, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

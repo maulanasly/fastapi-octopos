@@ -8,4 +8,5 @@ from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
+from app.models.sync_event import SyncEventLog
 from app.models.user import User

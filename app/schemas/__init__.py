@@ -40,4 +40,10 @@ from app.schemas.report import (
     TopProductItem,
 )
 from app.schemas.stock_movement import StockMovement
+from app.schemas.sync import (
+    SyncBatchRequest,
+    SyncBatchResponse,
+    SyncEventIn,
+    SyncEventResult,
+)
 from app.schemas.token import Token, TokenPayload

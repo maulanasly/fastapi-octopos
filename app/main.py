@@ -32,6 +32,7 @@ from app.admin.views import (
     ShiftReconciliationAdmin,
     StockMovementAdmin,
     SupplierAdmin,
+    SyncEventLogAdmin,
     UserAdmin,
 )
 from app.api.router import api_router
@@ -106,6 +107,7 @@ admin.add_view(RefundAdmin)
 admin.add_view(RefundItemAdmin)
 admin.add_view(ShiftReconciliationAdmin)
 admin.add_view(StockMovementAdmin)
+admin.add_view(SyncEventLogAdmin)
 admin.add_view(ReportsAdmin)
 admin.add_view(DrawerSessionAdmin)
 
