@@ -19,6 +19,7 @@ from app.admin.views import (
     CategoryAdmin,
     CustomerAdmin,
     DrawerSessionAdmin,
+    LocalizationSettingAdmin,
     LoyaltyTransactionAdmin,
     OrderAdmin,
     OrderItemAdmin,
@@ -95,6 +96,7 @@ admin = Admin(
 )
 
 admin.add_view(UserAdmin)
+admin.add_view(LocalizationSettingAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(CustomerAdmin)
 admin.add_view(LoyaltyTransactionAdmin)

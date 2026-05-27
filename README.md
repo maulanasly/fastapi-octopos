@@ -58,6 +58,12 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Order list filtering by user role (superuser vs own orders)
 - Inventory movement logging for sales and order cancellations
 
+### Localization & Regional Settings
+
+- Centralized localization settings (`language`, `timezone`, `currency`, `date_format`, `number_format`, `country_code`)
+- Translation-ready message layer with English and Indonesian keys for auth-related errors
+- Shared currency/number/date formatting helpers for dashboard rendering
+
 ### Refunds & Returns
 
 - Create full or partial refunds from completed orders
@@ -271,6 +277,11 @@ Base prefix: `/api/v1`
 
 - `GET /inventory/movements`
 - `GET /inventory/replenishment-suggestions`
+
+### Localization
+
+- `GET /localization/`
+- `PUT /localization/`
 
 ### Purchasing
 

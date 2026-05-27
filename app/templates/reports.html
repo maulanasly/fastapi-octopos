@@ -36,7 +36,7 @@
             <div class="col">
               <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Net Revenue</div>
               <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
-                ${{ "%.2f"|format(sales_summary.net_revenue) }}
+                {{ localized.net_revenue }}
               </div>
             </div>
           </div>
@@ -57,7 +57,7 @@
             <div class="col">
               <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Refunds</div>
               <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
-                ${{ "%.2f"|format(sales_summary.total_refunds) }}
+                {{ localized.total_refunds }}
               </div>
             </div>
           </div>
@@ -99,7 +99,7 @@
             <div class="col">
               <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Average Order Value</div>
               <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
-                ${{ "%.2f"|format(sales_summary.average_order_value) }}
+                {{ localized.average_order_value }}
               </div>
             </div>
           </div>
@@ -121,11 +121,11 @@
       <div class="row row-cards">
         <div class="col-md-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Gross Revenue</div>
-          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.gross_revenue) }}</div>
+          <div class="h2 mb-0">{{ localized.gross_revenue }}</div>
         </div>
         <div class="col-md-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Total Discounts</div>
-          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.total_discounts) }}</div>
+          <div class="h2 mb-0">{{ localized.total_discounts }}</div>
         </div>
         <div class="col-md-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Active Customers</div>
@@ -141,7 +141,7 @@
         </div>
         <div class="col-md-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Purchase Received Value</div>
-          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.purchase_received_value) }}</div>
+          <div class="h2 mb-0">{{ localized.purchase_received_value }}</div>
         </div>
         <div class="col-md-3 mt-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Reconciled Shifts</div>
@@ -149,7 +149,7 @@
         </div>
         <div class="col-md-3 mt-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Avg Cash Variance</div>
-          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.average_cash_variance) }}</div>
+          <div class="h2 mb-0">{{ localized.average_cash_variance }}</div>
         </div>
         <div class="col-md-3 mt-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoices</div>
@@ -161,11 +161,11 @@
         </div>
         <div class="col-md-3 mt-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Approved Invoice Total</div>
-          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.invoice_approved_total) }}</div>
+          <div class="h2 mb-0">{{ localized.invoice_approved_total }}</div>
         </div>
         <div class="col-md-3 mt-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoice Variance Total</div>
-          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.invoice_variance_total) }}</div>
+          <div class="h2 mb-0">{{ localized.invoice_variance_total }}</div>
         </div>
       </div>
     </div>

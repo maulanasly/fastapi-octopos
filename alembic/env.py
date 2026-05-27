@@ -15,6 +15,7 @@ if config.config_file_name is not None:
 
 import app.models.customer  # noqa: F401 E402
 import app.models.drawer  # noqa: F401 E402
+import app.models.localization  # noqa: F401 E402
 import app.models.order  # noqa: F401 E402
 import app.models.payment  # noqa: F401 E402
 import app.models.product  # noqa: F401 E402

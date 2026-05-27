@@ -11,6 +11,11 @@ from app.schemas.drawer import (
     ShiftReconciliation,
     ShiftReconciliationCreate,
 )
+from app.schemas.localization import (
+    LocalizationSetting,
+    LocalizationSettingBase,
+    LocalizationSettingUpdate,
+)
 from app.schemas.order import (
     Order,
     OrderCreate,

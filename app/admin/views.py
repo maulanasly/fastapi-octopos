@@ -8,8 +8,10 @@ from sqlalchemy import case, func
 from starlette.requests import Request
 
 from app.core.database import SessionLocal
+from app.core.localization import format_currency, get_localization_setting
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
+from app.models.localization import LocalizationSetting
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
@@ -36,6 +38,21 @@ class UserAdmin(ModelView, model=User):
         User.is_superuser,
     ]
     column_searchable_list = [User.email, User.full_name]
+
+
+class LocalizationSettingAdmin(ModelView, model=LocalizationSetting):
+    column_list = [
+        LocalizationSetting.id,
+        LocalizationSetting.language,
+        LocalizationSetting.timezone,
+        LocalizationSetting.currency,
+        LocalizationSetting.date_format,
+        LocalizationSetting.number_format,
+        LocalizationSetting.country_code,
+        LocalizationSetting.updated_at,
+    ]
+    can_create = False
+    can_delete = False
 
 
 class CategoryAdmin(ModelView, model=Category):
@@ -332,6 +349,7 @@ class ReportsAdmin(BaseView):
     async def reports_page(self, request: Request):
         db = SessionLocal()
         try:
+            localization = get_localization_setting(db)
             now = datetime.now(timezone.utc)
             period = request.query_params.get("period", "30d")
             period_labels = {
@@ -629,6 +647,54 @@ class ReportsAdmin(BaseView):
                 "invoice_variance_total": float(invoice_variance_total or 0.0),
             }
 
+            localized = {
+                "net_revenue": format_currency(
+                    float(sales_summary["net_revenue"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "total_refunds": format_currency(
+                    float(sales_summary["total_refunds"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "average_order_value": format_currency(
+                    float(sales_summary["average_order_value"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "gross_revenue": format_currency(
+                    float(executive_summary["gross_revenue"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "total_discounts": format_currency(
+                    float(executive_summary["total_discounts"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "purchase_received_value": format_currency(
+                    float(executive_summary["purchase_received_value"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "average_cash_variance": format_currency(
+                    float(executive_summary["average_cash_variance"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "invoice_approved_total": format_currency(
+                    float(executive_summary["invoice_approved_total"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "invoice_variance_total": format_currency(
+                    float(executive_summary["invoice_variance_total"]),
+                    localization.currency,
+                    localization.number_format,
+                ),
+            }
+
             return await self.templates.TemplateResponse(
                 request,
                 "reports.html",
@@ -637,6 +703,8 @@ class ReportsAdmin(BaseView):
                     "title": "Reports Dashboard",
                     "period": period,
                     "period_label": period_labels[period],
+                    "localization": localization,
+                    "localized": localized,
                     "sales_summary": sales_summary,
                     "top_products": top_products,
                     "category_sales": category_sales,
