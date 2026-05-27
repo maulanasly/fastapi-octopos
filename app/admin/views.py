@@ -209,6 +209,8 @@ class OrderAdmin(ModelView, model=Order):
         Order.redeemed_points,
         Order.total_amount,
         Order.status,
+        Order.reservation_status,
+        Order.reservation_expires_at,
         Order.created_at,
     ]
     column_sortable_list = [Order.created_at, Order.total_amount]

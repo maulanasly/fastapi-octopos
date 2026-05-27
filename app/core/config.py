@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "admin"
 
+    # Order reservation
+    ORDER_RESERVATION_TIMEOUT_MINUTES: int = 15
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 

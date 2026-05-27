@@ -11,7 +11,13 @@ from app.schemas.drawer import (
     ShiftReconciliation,
     ShiftReconciliationCreate,
 )
-from app.schemas.order import Order, OrderCreate, OrderItem, OrderItemCreate
+from app.schemas.order import (
+    Order,
+    OrderCreate,
+    OrderItem,
+    OrderItemCreate,
+    ReservationReleaseSummary,
+)
 from app.schemas.payment import Payment, PaymentCreate
 from app.schemas.product import (
     Category,

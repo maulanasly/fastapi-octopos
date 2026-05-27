@@ -33,6 +33,10 @@ class Order(Base):
     total_amount = Column(Float, nullable=False, default=0.0)
     redeemed_points = Column(Integer, nullable=False, default=0)
     status = Column(String, default="pending")  # pending, completed, cancelled
+    reservation_status = Column(
+        String, nullable=False, default="reserved", index=True
+    )  # reserved, released, committed
+    reservation_expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")

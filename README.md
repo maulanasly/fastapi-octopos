@@ -44,11 +44,14 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Promotion code support with automatic discount calculation
 - Loyalty points redemption on order creation
 - Stock validation and automatic stock deduction on order creation
+- Stock reservation lifecycle on pending orders (`reserved`, `released`, `committed`)
+- Reservation expiry timestamp on order creation with configurable timeout
 - Drawer session required before placing orders
 - Attach payments to orders (supports partial payment)
 - Idempotent order and payment writes via `idempotency_key`
 - Auto-complete order when paid amount reaches/exceeds total
 - Cancel order with automatic stock restoration
+- Superuser endpoint to release expired unpaid reservations with stock restoration
 - Order list filtering by user role (superuser vs own orders)
 - Inventory movement logging for sales and order cancellations
 
@@ -219,6 +222,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=11520
 GOOGLE_CLIENT_ID=
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=admin
+ORDER_RESERVATION_TIMEOUT_MINUTES=15
 ```
 
 ## API Overview
@@ -290,6 +294,7 @@ Base prefix: `/api/v1`
 - `POST /orders/`
 - `POST /orders/{order_id}/payments`
 - `POST /orders/{order_id}/cancel`
+- `POST /orders/release-expired-reservations`
 
 ### Refunds
 

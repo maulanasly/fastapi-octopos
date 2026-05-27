@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 # pyrefly: ignore [missing-import]
@@ -7,6 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
@@ -17,7 +18,7 @@ from app.models.promotion import Promotion
 from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.order import Order as OrderSchema
-from app.schemas.order import OrderCreate
+from app.schemas.order import OrderCreate, ReservationReleaseSummary
 from app.schemas.payment import Payment as PaymentSchema
 from app.schemas.payment import PaymentCreate
 
@@ -28,6 +29,116 @@ def _as_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _is_reservation_expired(order: Order) -> bool:
+    if order.reservation_status != "reserved":
+        return False
+    if order.reservation_expires_at is None:
+        return False
+    return _as_utc(order.reservation_expires_at) <= datetime.now(timezone.utc)
+
+
+def _restore_order_stock(
+    db: Session,
+    order: Order,
+    user_id: int,
+    movement_type: str,
+    note: str,
+):
+    for item in order.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if product:
+            quantity_before = product.stock_quantity
+            product.stock_quantity += item.quantity
+            db.add(product)
+            db.add(
+                StockMovement(
+                    product_id=product.id,
+                    user_id=user_id,
+                    order_id=order.id,
+                    order_item_id=item.id,
+                    movement_type=movement_type,
+                    quantity_before=quantity_before,
+                    quantity_delta=item.quantity,
+                    quantity_after=product.stock_quantity,
+                    note=note,
+                )
+            )
+
+
+def _revert_order_customer_and_promotion_effects(
+    db: Session,
+    order: Order,
+):
+    if order.customer_id:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer:
+            if order.redeemed_points > 0:
+                customer.points_balance += order.redeemed_points
+                db.add(
+                    LoyaltyTransaction(
+                        customer_id=customer.id,
+                        order_id=order.id,
+                        transaction_type="adjust",
+                        points_delta=order.redeemed_points,
+                        balance_after=customer.points_balance,
+                        note="Redeemed points restored due to order cancellation",
+                    )
+                )
+
+            earned_points_total = (
+                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
+                .filter(
+                    LoyaltyTransaction.order_id == order.id,
+                    LoyaltyTransaction.customer_id == customer.id,
+                    LoyaltyTransaction.transaction_type == "earn",
+                )
+                .scalar()
+            )
+            earned_points = int(earned_points_total or 0)
+            if earned_points > 0:
+                customer.points_balance -= earned_points
+                db.add(
+                    LoyaltyTransaction(
+                        customer_id=customer.id,
+                        order_id=order.id,
+                        transaction_type="adjust",
+                        points_delta=-earned_points,
+                        balance_after=customer.points_balance,
+                        note="Earned points reversed due to order cancellation",
+                    )
+                )
+            db.add(customer)
+
+    if order.promotion_id:
+        promotion = (
+            db.query(Promotion).filter(Promotion.id == order.promotion_id).first()
+        )
+        if promotion and promotion.usage_count > 0:
+            promotion.usage_count -= 1
+            db.add(promotion)
+
+
+def _release_order_reservation(
+    db: Session,
+    order: Order,
+    user_id: int,
+    movement_type: str,
+    note: str,
+):
+    _restore_order_stock(
+        db=db,
+        order=order,
+        user_id=user_id,
+        movement_type=movement_type,
+        note=note,
+    )
+    _revert_order_customer_and_promotion_effects(db=db, order=order)
+    order.status = "cancelled"
+    order.reservation_status = "released"
+    order.reservation_expires_at = None
+    db.add(order)
 
 
 @router.get("/", response_model=List[OrderSchema])
@@ -252,6 +363,9 @@ def create_order(
         redeemed_points = order_in.redeem_points
         total_amount -= float(redeemed_points)
 
+    reservation_expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.ORDER_RESERVATION_TIMEOUT_MINUTES
+    )
     order = Order(
         user_id=current_user.id,
         customer_id=order_in.customer_id,
@@ -263,6 +377,8 @@ def create_order(
         total_amount=total_amount,
         redeemed_points=redeemed_points,
         status="pending",
+        reservation_status="reserved",
+        reservation_expires_at=reservation_expires_at,
     )
     db.add(order)
     db.flush()  # To get the order.id
@@ -345,6 +461,15 @@ def add_payment_to_order(
         raise HTTPException(
             status_code=400, detail=f"Cannot add payment to a {order.status} order"
         )
+    if order.reservation_status == "released":
+        raise HTTPException(
+            status_code=400, detail="Cannot add payment to an order with released stock"
+        )
+    if _is_reservation_expired(order):
+        raise HTTPException(
+            status_code=400,
+            detail="Order reservation has expired. Release reservation and create a new order",
+        )
 
     payment = Payment(
         order_id=order.id,
@@ -362,6 +487,8 @@ def add_payment_to_order(
     # Update order status if fully paid
     if total_paid >= order.total_amount:
         order.status = "completed"
+        order.reservation_status = "committed"
+        order.reservation_expires_at = None
         db.add(order)
         if order.customer_id:
             customer = (
@@ -398,6 +525,54 @@ def add_payment_to_order(
     return payment
 
 
+@router.post("/release-expired-reservations", response_model=ReservationReleaseSummary)
+def release_expired_reservations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="Only superuser can release expired reservations"
+        )
+
+    now = datetime.now(timezone.utc)
+    candidate_orders = (
+        db.query(Order)
+        .filter(
+            Order.status == "pending",
+            Order.reservation_status == "reserved",
+            Order.reservation_expires_at.isnot(None),
+            Order.reservation_expires_at <= now,
+        )
+        .all()
+    )
+
+    released_order_ids = []
+    skipped_paid_order_ids = []
+    for order in candidate_orders:
+        total_paid = sum(payment.amount for payment in order.payments)
+        if total_paid > 0:
+            skipped_paid_order_ids.append(order.id)
+            continue
+
+        _release_order_reservation(
+            db=db,
+            order=order,
+            user_id=current_user.id,
+            movement_type="reservation_release",
+            note="Stock restored by expired reservation release",
+        )
+        released_order_ids.append(order.id)
+
+    db.commit()
+    return ReservationReleaseSummary(
+        released_count=len(released_order_ids),
+        skipped_paid_count=len(skipped_paid_order_ids),
+        released_order_ids=released_order_ids,
+        skipped_paid_order_ids=skipped_paid_order_ids,
+    )
+
+
 @router.post("/{order_id}/cancel", response_model=OrderSchema)
 def cancel_order(
     order_id: int,
@@ -429,77 +604,13 @@ def cancel_order(
                 detail="Cannot cancel an order from a closed drawer session",
             )
 
-    # Restore stock for all items in the order
-    for item in order.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if product:
-            quantity_before = product.stock_quantity
-            product.stock_quantity += item.quantity
-            db.add(product)
-            db.add(
-                StockMovement(
-                    product_id=product.id,
-                    user_id=current_user.id,
-                    order_id=order.id,
-                    order_item_id=item.id,
-                    movement_type="order_cancel",
-                    quantity_before=quantity_before,
-                    quantity_delta=item.quantity,
-                    quantity_after=product.stock_quantity,
-                    note="Stock restored by order cancellation",
-                )
-            )
-
-    if order.customer_id:
-        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
-        if customer:
-            if order.redeemed_points > 0:
-                customer.points_balance += order.redeemed_points
-                db.add(
-                    LoyaltyTransaction(
-                        customer_id=customer.id,
-                        order_id=order.id,
-                        transaction_type="adjust",
-                        points_delta=order.redeemed_points,
-                        balance_after=customer.points_balance,
-                        note="Redeemed points restored due to order cancellation",
-                    )
-                )
-
-            earned_points_total = (
-                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
-                .filter(
-                    LoyaltyTransaction.order_id == order.id,
-                    LoyaltyTransaction.customer_id == customer.id,
-                    LoyaltyTransaction.transaction_type == "earn",
-                )
-                .scalar()
-            )
-            earned_points = int(earned_points_total or 0)
-            if earned_points > 0:
-                customer.points_balance -= earned_points
-                db.add(
-                    LoyaltyTransaction(
-                        customer_id=customer.id,
-                        order_id=order.id,
-                        transaction_type="adjust",
-                        points_delta=-earned_points,
-                        balance_after=customer.points_balance,
-                        note="Earned points reversed due to order cancellation",
-                    )
-                )
-            db.add(customer)
-
-    if order.promotion_id:
-        promotion = (
-            db.query(Promotion).filter(Promotion.id == order.promotion_id).first()
-        )
-        if promotion and promotion.usage_count > 0:
-            promotion.usage_count -= 1
-            db.add(promotion)
-
-    order.status = "cancelled"
-    db.add(order)
+    _release_order_reservation(
+        db=db,
+        order=order,
+        user_id=current_user.id,
+        movement_type="order_cancel",
+        note="Stock restored by order cancellation",
+    )
     db.commit()
     db.refresh(order)
     return order

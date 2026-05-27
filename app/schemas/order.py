@@ -52,6 +52,8 @@ class Order(OrderBase):
     total_amount: float
     redeemed_points: int
     status: str
+    reservation_status: str
+    reservation_expires_at: Optional[datetime] = None
     created_at: datetime
     items: List[OrderItem] = []
     payments: List[Payment] = []
@@ -59,3 +61,10 @@ class Order(OrderBase):
     customer: Optional[Customer] = None
 
     model_config = {"from_attributes": True}
+
+
+class ReservationReleaseSummary(BaseModel):
+    released_count: int
+    skipped_paid_count: int
+    released_order_ids: List[int]
+    skipped_paid_order_ids: List[int]
