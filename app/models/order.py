@@ -11,8 +11,11 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    promotion_id = Column(Integer, ForeignKey("promotions.id"), nullable=True)
     drawer_session_id = Column(Integer, ForeignKey("drawer_sessions.id"), nullable=True)
     drawer_session = relationship("DrawerSession", back_populates="orders")
+    subtotal_amount = Column(Float, nullable=True)
+    discount_amount = Column(Float, nullable=False, default=0.0)
     total_amount = Column(Float, nullable=False, default=0.0)
     redeemed_points = Column(Integer, nullable=False, default=0)
     status = Column(String, default="pending")  # pending, completed, cancelled
@@ -20,6 +23,7 @@ class Order(Base):
 
     user = relationship("User")
     customer = relationship("Customer", back_populates="orders")
+    promotion = relationship("Promotion", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
     payments = relationship("Payment", back_populates="order")
     refunds = relationship("Refund", back_populates="order")

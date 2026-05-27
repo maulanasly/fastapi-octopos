@@ -40,6 +40,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 
 - Create multi-item orders
 - Optional customer assignment on order
+- Promotion code support with automatic discount calculation
 - Loyalty points redemption on order creation
 - Stock validation and automatic stock deduction on order creation
 - Drawer session required before placing orders
@@ -65,6 +66,14 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Loyalty transactions ledger (`earn`, `redeem`, `adjust`)
 - Automatic points earning on completed orders
 - Automatic point restoration/reversal on order cancellation
+
+### Promotions & Discounts
+
+- Promotion management with code-based application
+- Discount types: `percentage` and `fixed`
+- Scope support: `order`, `product`, or `category`
+- Eligibility controls: active window, minimum order amount, usage limit
+- Discount tracking on order (`subtotal_amount`, `discount_amount`, `total_amount`)
 
 ### Inventory Ledger
 
@@ -92,6 +101,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 Superuser-only APIs for:
 
 - Sales summary (gross revenue, total refunds, net revenue, order count, average order value)
+- Sales summary includes gross revenue and total discounts
 - Top-selling products
 - Top customers
 - Category sales
@@ -102,6 +112,7 @@ Superuser-only APIs for:
 
 - SQLAdmin panel at `/admin`
 - Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements
+- Admin views include Promotions management
 - Custom reports page at `/admin/reports`
 
 ## Tech Stack
@@ -223,6 +234,14 @@ Base prefix: `/api/v1`
 - `DELETE /customers/{customer_id}`
 - `GET /customers/{customer_id}/orders`
 - `GET /customers/{customer_id}/loyalty-transactions`
+
+### Promotions
+
+- `GET /promotions/`
+- `POST /promotions/`
+- `GET /promotions/{promotion_id}`
+- `PUT /promotions/{promotion_id}`
+- `DELETE /promotions/{promotion_id}`
 
 ### Inventory
 

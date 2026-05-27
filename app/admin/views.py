@@ -10,6 +10,7 @@ from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
+from app.models.promotion import Promotion
 from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
@@ -44,6 +45,24 @@ class ProductAdmin(ModelView, model=Product):
     ]
     column_searchable_list = [Product.name, Product.sku]
     column_sortable_list = [Product.price, Product.stock_quantity]
+
+
+class PromotionAdmin(ModelView, model=Promotion):
+    column_list = [
+        Promotion.id,
+        Promotion.code,
+        Promotion.name,
+        Promotion.discount_type,
+        Promotion.discount_value,
+        Promotion.applies_to,
+        Promotion.is_active,
+        Promotion.usage_count,
+        Promotion.usage_limit,
+        Promotion.starts_at,
+        Promotion.ends_at,
+    ]
+    column_searchable_list = [Promotion.code, Promotion.name, Promotion.description]
+    column_sortable_list = [Promotion.id, Promotion.usage_count, Promotion.starts_at]
 
 
 class CustomerAdmin(ModelView, model=Customer):
@@ -123,6 +142,9 @@ class OrderAdmin(ModelView, model=Order):
         Order.id,
         Order.user,
         Order.customer,
+        Order.promotion,
+        Order.subtotal_amount,
+        Order.discount_amount,
         Order.redeemed_points,
         Order.total_amount,
         Order.status,
@@ -225,10 +247,20 @@ class ReportsAdmin(BaseView):
         try:
             # 1. Sales Summary
             summary_query = db.query(
+                func.coalesce(
+                    func.sum(func.coalesce(Order.subtotal_amount, Order.total_amount)),
+                    0.0,
+                ),
+                func.coalesce(func.sum(Order.discount_amount), 0.0),
                 func.coalesce(func.sum(Order.total_amount), 0.0),
                 func.count(Order.id),
             ).filter(Order.status == "completed")
-            total_revenue, order_count = summary_query.first()
+            (
+                gross_revenue,
+                total_discounts,
+                total_revenue,
+                order_count,
+            ) = summary_query.first()
             raw_total_refunds = db.query(
                 func.coalesce(func.sum(Refund.total_amount), 0.0)
             ).scalar()
@@ -238,6 +270,8 @@ class ReportsAdmin(BaseView):
                 total_revenue / order_count if order_count > 0 else 0.0
             )
             sales_summary = {
+                "gross_revenue": gross_revenue,
+                "total_discounts": total_discounts,
                 "total_revenue": total_revenue,
                 "total_refunds": total_refunds,
                 "net_revenue": net_revenue,
@@ -358,6 +392,8 @@ class ReportsAdmin(BaseView):
             ).scalar()
 
             executive_summary = {
+                "gross_revenue": float(gross_revenue or 0.0),
+                "total_discounts": float(total_discounts or 0.0),
                 "active_customers_count": int(
                     active_customers_count if active_customers_count is not None else 0
                 ),

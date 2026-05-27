@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List
 
 # pyrefly: ignore [missing-import]
@@ -12,6 +13,7 @@ from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.product import Product
+from app.models.promotion import Promotion
 from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.order import Order as OrderSchema
@@ -20,6 +22,12 @@ from app.schemas.payment import Payment as PaymentSchema
 from app.schemas.payment import PaymentCreate
 
 router = APIRouter()
+
+
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 @router.get("/", response_model=List[OrderSchema])
@@ -55,6 +63,9 @@ def create_order(
         )
 
     total_amount = 0.0
+    subtotal_amount = 0.0
+    discount_amount = 0.0
+    promotion = None
     db_items = []
     movement_inputs = []
     customer = None
@@ -83,7 +94,9 @@ def create_order(
             )
 
         unit_price = product.price
-        total_amount += unit_price * item.quantity
+        line_total = unit_price * item.quantity
+        total_amount += line_total
+        subtotal_amount += line_total
 
         # Deduct stock
         quantity_before = product.stock_quantity
@@ -98,6 +111,8 @@ def create_order(
         movement_inputs.append(
             {
                 "product_id": product.id,
+                "category_id": product.category_id,
+                "line_total": line_total,
                 "quantity_before": quantity_before,
                 "quantity_delta": -item.quantity,
                 "quantity_after": product.stock_quantity,
@@ -120,6 +135,85 @@ def create_order(
         )
     # Assign drawer_session_id to the new order
     drawer_session_id = active_drawer.id
+
+    if order_in.promotion_code:
+        normalized_code = order_in.promotion_code.strip().upper()
+        promotion = (
+            db.query(Promotion).filter(Promotion.code == normalized_code).first()
+        )
+        if not promotion:
+            raise HTTPException(status_code=404, detail="Promotion not found")
+        if not promotion.is_active:
+            raise HTTPException(status_code=400, detail="Promotion is inactive")
+
+        now = datetime.now(timezone.utc)
+        if promotion.starts_at and _as_utc(promotion.starts_at) > now:
+            raise HTTPException(status_code=400, detail="Promotion is not active yet")
+        if promotion.ends_at and _as_utc(promotion.ends_at) < now:
+            raise HTTPException(status_code=400, detail="Promotion has expired")
+        usage_limit_reached = promotion.usage_limit is not None and (
+            promotion.usage_count >= promotion.usage_limit
+        )
+        if usage_limit_reached:
+            raise HTTPException(status_code=400, detail="Promotion usage limit reached")
+        if subtotal_amount < promotion.min_order_amount:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Order does not meet minimum amount for promotion. "
+                    f"Required: {promotion.min_order_amount}"
+                ),
+            )
+
+        if promotion.applies_to == "order":
+            eligible_amount = subtotal_amount
+        elif promotion.applies_to == "product":
+            eligible_amount = sum(
+                movement_input["line_total"]
+                for movement_input in movement_inputs
+                if movement_input["product_id"] == promotion.product_id
+            )
+            if eligible_amount <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Promotion does not apply: qualifying product not found in order",
+                )
+        elif promotion.applies_to == "category":
+            eligible_amount = sum(
+                movement_input["line_total"]
+                for movement_input in movement_inputs
+                if movement_input["category_id"] == promotion.category_id
+            )
+            if eligible_amount <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Promotion does not apply: qualifying category not found in order",
+                )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid promotion scope: {promotion.applies_to}",
+            )
+
+        if promotion.discount_type == "percentage":
+            discount_amount = eligible_amount * (promotion.discount_value / 100.0)
+        elif promotion.discount_type == "fixed":
+            discount_amount = promotion.discount_value
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid promotion discount type: {promotion.discount_type}",
+            )
+
+        if promotion.max_discount_amount is not None:
+            discount_amount = min(discount_amount, promotion.max_discount_amount)
+        discount_amount = min(discount_amount, eligible_amount, total_amount)
+        if discount_amount <= 0:
+            raise HTTPException(status_code=400, detail="Promotion discount is zero")
+
+        total_amount -= discount_amount
+        promotion.usage_count += 1
+        db.add(promotion)
 
     max_redeemable_points = int(total_amount)
     if order_in.redeem_points > 0:
@@ -149,7 +243,10 @@ def create_order(
     order = Order(
         user_id=current_user.id,
         customer_id=order_in.customer_id,
+        promotion_id=promotion.id if promotion else None,
         drawer_session_id=drawer_session_id,
+        subtotal_amount=subtotal_amount,
+        discount_amount=discount_amount,
         total_amount=total_amount,
         redeemed_points=redeemed_points,
         status="pending",
@@ -365,6 +462,14 @@ def cancel_order(
                     )
                 )
             db.add(customer)
+
+    if order.promotion_id:
+        promotion = (
+            db.query(Promotion).filter(Promotion.id == order.promotion_id).first()
+        )
+        if promotion and promotion.usage_count > 0:
+            promotion.usage_count -= 1
+            db.add(promotion)
 
     order.status = "cancelled"
     db.add(order)

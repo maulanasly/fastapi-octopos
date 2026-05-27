@@ -20,6 +20,7 @@ from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
 )
+from app.schemas.promotion import Promotion, PromotionCreate, PromotionUpdate
 from app.schemas.purchase import (
     PurchaseOrder,
     PurchaseOrderCreate,

@@ -35,6 +35,7 @@ class OrderBase(BaseModel):
 class OrderCreate(OrderBase):
     items: List[OrderItemCreate]
     customer_id: Optional[int] = None
+    promotion_code: Optional[str] = None
     redeem_points: int = Field(0, ge=0)
 
 
@@ -42,7 +43,10 @@ class Order(OrderBase):
     id: int
     user_id: int
     customer_id: Optional[int] = None
+    promotion_id: Optional[int] = None
     drawer_session_id: Optional[int] = None
+    subtotal_amount: Optional[float] = None
+    discount_amount: float
     total_amount: float
     redeemed_points: int
     status: str

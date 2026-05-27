@@ -18,6 +18,7 @@ import app.models.drawer  # noqa: F401 E402
 import app.models.order  # noqa: F401 E402
 import app.models.payment  # noqa: F401 E402
 import app.models.product  # noqa: F401 E402
+import app.models.promotion  # noqa: F401 E402
 import app.models.purchase  # noqa: F401 E402
 import app.models.refresh_token  # noqa: F401 E402
 import app.models.refund  # noqa: F401 E402

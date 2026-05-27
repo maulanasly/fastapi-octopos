@@ -101,6 +101,14 @@
     <div class="card-body pt-0">
       <div class="row row-cards">
         <div class="col-md-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Gross Revenue</div>
+          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.gross_revenue) }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Total Discounts</div>
+          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.total_discounts) }}</div>
+        </div>
+        <div class="col-md-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Active Customers</div>
           <div class="h2 mb-0">{{ executive_summary.active_customers_count }}</div>
         </div>

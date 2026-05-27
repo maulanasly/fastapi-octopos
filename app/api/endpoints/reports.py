@@ -33,7 +33,12 @@ def get_sales_summary(
     current_user: User = Depends(get_current_active_superuser),
 ):
     sales_query = db.query(
-        func.coalesce(func.sum(Order.total_amount), 0.0), func.count(Order.id)
+        func.coalesce(
+            func.sum(func.coalesce(Order.subtotal_amount, Order.total_amount)), 0.0
+        ),
+        func.coalesce(func.sum(Order.discount_amount), 0.0),
+        func.coalesce(func.sum(Order.total_amount), 0.0),
+        func.count(Order.id),
     ).filter(Order.status == "completed")
     refunds_query = db.query(func.coalesce(func.sum(Refund.total_amount), 0.0)).join(
         Order, Refund.order_id == Order.id
@@ -49,13 +54,15 @@ def get_sales_summary(
         sales_query = sales_query.filter(Order.user_id == cashier_id)
         refunds_query = refunds_query.filter(Order.user_id == cashier_id)
 
-    total_revenue, order_count = sales_query.first()
+    gross_revenue, total_discounts, total_revenue, order_count = sales_query.first()
     total_refunds = float(refunds_query.scalar() or 0.0)
     net_revenue = float(total_revenue or 0.0) - total_refunds
 
     average_order_value = total_revenue / order_count if order_count > 0 else 0.0
 
     return SalesSummary(
+        gross_revenue=float(gross_revenue),
+        total_discounts=float(total_discounts),
         total_revenue=float(total_revenue),
         total_refunds=total_refunds,
         net_revenue=net_revenue,

@@ -23,6 +23,7 @@ from app.admin.views import (
     OrderAdmin,
     OrderItemAdmin,
     ProductAdmin,
+    PromotionAdmin,
     PurchaseOrderAdmin,
     PurchaseOrderItemAdmin,
     RefundAdmin,
@@ -95,6 +96,7 @@ admin.add_view(CategoryAdmin)
 admin.add_view(CustomerAdmin)
 admin.add_view(LoyaltyTransactionAdmin)
 admin.add_view(ProductAdmin)
+admin.add_view(PromotionAdmin)
 admin.add_view(SupplierAdmin)
 admin.add_view(PurchaseOrderAdmin)
 admin.add_view(PurchaseOrderItemAdmin)
