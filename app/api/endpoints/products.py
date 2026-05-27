@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
 from app.models.product import Category, Product
+from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.product import Category as CategorySchema
 from app.schemas.product import CategoryCreate
@@ -71,6 +72,21 @@ def create_product(
 
     product = Product(**product_in.model_dump())
     db.add(product)
+    db.flush()
+
+    if product.stock_quantity:
+        db.add(
+            StockMovement(
+                product_id=product.id,
+                user_id=current_user.id,
+                movement_type="initial_stock",
+                quantity_before=0,
+                quantity_delta=product.stock_quantity,
+                quantity_after=product.stock_quantity,
+                note="Initial stock set on product creation",
+            )
+        )
+
     db.commit()
     db.refresh(product)
     return product
@@ -88,10 +104,27 @@ def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     update_data = product_in.model_dump(exclude_unset=True)
+    previous_stock_quantity = product.stock_quantity
     for field, value in update_data.items():
         setattr(product, field, value)
 
     db.add(product)
+    stock_changed = "stock_quantity" in update_data and (
+        product.stock_quantity != previous_stock_quantity
+    )
+    if stock_changed:
+        db.add(
+            StockMovement(
+                product_id=product.id,
+                user_id=current_user.id,
+                movement_type="manual_adjustment",
+                quantity_before=previous_stock_quantity,
+                quantity_delta=product.stock_quantity - previous_stock_quantity,
+                quantity_after=product.stock_quantity,
+                note="Stock quantity updated from product endpoint",
+            )
+        )
+
     db.commit()
     db.refresh(product)
     return product

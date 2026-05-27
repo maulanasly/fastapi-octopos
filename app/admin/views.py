@@ -9,7 +9,10 @@ from app.core.database import SessionLocal
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
+from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
 from app.models.refund import Refund, RefundItem
+from app.models.shift_reconciliation import ShiftReconciliation
+from app.models.stock_movement import StockMovement
 from app.models.user import User
 
 
@@ -40,6 +43,47 @@ class ProductAdmin(ModelView, model=Product):
     ]
     column_searchable_list = [Product.name, Product.sku]
     column_sortable_list = [Product.price, Product.stock_quantity]
+
+
+class SupplierAdmin(ModelView, model=Supplier):
+    column_list = [
+        Supplier.id,
+        Supplier.name,
+        Supplier.contact_email,
+        Supplier.phone,
+        Supplier.is_active,
+        Supplier.created_at,
+    ]
+    column_searchable_list = [Supplier.name, Supplier.contact_email, Supplier.phone]
+    column_sortable_list = [Supplier.created_at, Supplier.id]
+
+
+class PurchaseOrderAdmin(ModelView, model=PurchaseOrder):
+    column_list = [
+        PurchaseOrder.id,
+        PurchaseOrder.supplier,
+        PurchaseOrder.user,
+        PurchaseOrder.status,
+        PurchaseOrder.total_estimated_amount,
+        PurchaseOrder.created_at,
+        PurchaseOrder.ordered_at,
+        PurchaseOrder.received_at,
+    ]
+    column_searchable_list = [PurchaseOrder.status]
+    column_sortable_list = [PurchaseOrder.created_at, PurchaseOrder.received_at]
+
+
+class PurchaseOrderItemAdmin(ModelView, model=PurchaseOrderItem):
+    column_list = [
+        PurchaseOrderItem.id,
+        PurchaseOrderItem.purchase_order_id,
+        PurchaseOrderItem.product,
+        PurchaseOrderItem.quantity_ordered,
+        PurchaseOrderItem.quantity_received,
+        PurchaseOrderItem.unit_cost,
+    ]
+    column_searchable_list = [PurchaseOrderItem.purchase_order_id]
+    column_sortable_list = [PurchaseOrderItem.id]
 
 
 class OrderAdmin(ModelView, model=Order):
@@ -79,6 +123,23 @@ class DrawerSessionAdmin(ModelView, model=DrawerSession):
     column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
 
 
+class ShiftReconciliationAdmin(ModelView, model=ShiftReconciliation):
+    column_list = [
+        ShiftReconciliation.id,
+        ShiftReconciliation.drawer_session_id,
+        ShiftReconciliation.closed_by_user,
+        ShiftReconciliation.expected_cash,
+        ShiftReconciliation.counted_cash,
+        ShiftReconciliation.cash_variance,
+        ShiftReconciliation.expected_non_cash,
+        ShiftReconciliation.counted_non_cash,
+        ShiftReconciliation.non_cash_variance,
+        ShiftReconciliation.created_at,
+    ]
+    column_searchable_list = [ShiftReconciliation.drawer_session_id]
+    column_sortable_list = [ShiftReconciliation.created_at, ShiftReconciliation.id]
+
+
 class RefundAdmin(ModelView, model=Refund):
     column_list = [
         Refund.id,
@@ -101,6 +162,23 @@ class RefundItemAdmin(ModelView, model=RefundItem):
         RefundItem.unit_price,
     ]
     column_searchable_list = [RefundItem.refund_id, RefundItem.order_item_id]
+
+
+class StockMovementAdmin(ModelView, model=StockMovement):
+    column_list = [
+        StockMovement.id,
+        StockMovement.product,
+        StockMovement.user,
+        StockMovement.movement_type,
+        StockMovement.quantity_before,
+        StockMovement.quantity_delta,
+        StockMovement.quantity_after,
+        StockMovement.order_id,
+        StockMovement.refund_id,
+        StockMovement.created_at,
+    ]
+    column_searchable_list = [StockMovement.movement_type, StockMovement.note]
+    column_sortable_list = [StockMovement.created_at, StockMovement.id]
 
 
 class ReportsAdmin(BaseView):

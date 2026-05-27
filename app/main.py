@@ -21,9 +21,14 @@ from app.admin.views import (
     OrderAdmin,
     OrderItemAdmin,
     ProductAdmin,
+    PurchaseOrderAdmin,
+    PurchaseOrderItemAdmin,
     RefundAdmin,
     RefundItemAdmin,
     ReportsAdmin,
+    ShiftReconciliationAdmin,
+    StockMovementAdmin,
+    SupplierAdmin,
     UserAdmin,
 )
 from app.api.router import api_router
@@ -86,10 +91,15 @@ admin = Admin(
 admin.add_view(UserAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(ProductAdmin)
+admin.add_view(SupplierAdmin)
+admin.add_view(PurchaseOrderAdmin)
+admin.add_view(PurchaseOrderItemAdmin)
 admin.add_view(OrderAdmin)
 admin.add_view(OrderItemAdmin)
 admin.add_view(RefundAdmin)
 admin.add_view(RefundItemAdmin)
+admin.add_view(ShiftReconciliationAdmin)
+admin.add_view(StockMovementAdmin)
 admin.add_view(ReportsAdmin)
 admin.add_view(DrawerSessionAdmin)
 

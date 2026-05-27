@@ -11,6 +11,7 @@ from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.product import Product
+from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.order import Order as OrderSchema
 from app.schemas.order import OrderCreate
@@ -54,6 +55,7 @@ def create_order(
 
     total_amount = 0.0
     db_items = []
+    movement_inputs = []
 
     # Verify stock and calculate total amount
     for item in order_in.items:
@@ -72,6 +74,7 @@ def create_order(
         total_amount += unit_price * item.quantity
 
         # Deduct stock
+        quantity_before = product.stock_quantity
         product.stock_quantity -= item.quantity
         db.add(product)
 
@@ -79,6 +82,14 @@ def create_order(
             OrderItem(
                 product_id=product.id, quantity=item.quantity, unit_price=unit_price
             )
+        )
+        movement_inputs.append(
+            {
+                "product_id": product.id,
+                "quantity_before": quantity_before,
+                "quantity_delta": -item.quantity,
+                "quantity_after": product.stock_quantity,
+            }
         )
 
     # Verify active drawer session for the cashier
@@ -109,6 +120,23 @@ def create_order(
     for db_item in db_items:
         db_item.order_id = order.id
         db.add(db_item)
+    db.flush()
+
+    for idx, db_item in enumerate(db_items):
+        movement_input = movement_inputs[idx]
+        db.add(
+            StockMovement(
+                product_id=movement_input["product_id"],
+                user_id=current_user.id,
+                order_id=order.id,
+                order_item_id=db_item.id,
+                movement_type="sale",
+                quantity_before=movement_input["quantity_before"],
+                quantity_delta=movement_input["quantity_delta"],
+                quantity_after=movement_input["quantity_after"],
+                note="Stock deducted by order creation",
+            )
+        )
 
     db.commit()
     db.refresh(order)
@@ -125,6 +153,18 @@ def add_payment_to_order(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.drawer_session_id:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(DrawerSession.id == order.drawer_session_id)
+            .first()
+        )
+        if drawer and drawer.status != "open":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot add payment to an order from a closed drawer session",
+            )
 
     if order.status in ("cancelled", "completed"):
         raise HTTPException(
@@ -171,12 +211,38 @@ def cancel_order(
     if order.status == "cancelled":
         raise HTTPException(status_code=400, detail="Order is already cancelled")
 
+    if order.drawer_session_id:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(DrawerSession.id == order.drawer_session_id)
+            .first()
+        )
+        if drawer and drawer.status != "open":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot cancel an order from a closed drawer session",
+            )
+
     # Restore stock for all items in the order
     for item in order.items:
         product = db.query(Product).filter(Product.id == item.product_id).first()
         if product:
+            quantity_before = product.stock_quantity
             product.stock_quantity += item.quantity
             db.add(product)
+            db.add(
+                StockMovement(
+                    product_id=product.id,
+                    user_id=current_user.id,
+                    order_id=order.id,
+                    order_item_id=item.id,
+                    movement_type="order_cancel",
+                    quantity_before=quantity_before,
+                    quantity_delta=item.quantity,
+                    quantity_after=product.stock_quantity,
+                    note="Stock restored by order cancellation",
+                )
+            )
 
     order.status = "cancelled"
     db.add(order)

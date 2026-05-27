@@ -26,3 +26,4 @@ class Product(Base):
     category_id = Column(Integer, ForeignKey("categories.id"))
 
     category = relationship("Category", back_populates="products")
+    stock_movements = relationship("StockMovement", back_populates="product")

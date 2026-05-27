@@ -34,6 +34,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Product CRUD (create, list, update, delete)
 - Category validation on product creation
 - SKU uniqueness at database level
+- Inventory movement logging for stock updates (`initial_stock`, `manual_adjustment`)
 
 ### Orders & Payments
 
@@ -44,6 +45,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Auto-complete order when paid amount reaches/exceeds total
 - Cancel order with automatic stock restoration
 - Order list filtering by user role (superuser vs own orders)
+- Inventory movement logging for sales and order cancellations
 
 ### Refunds & Returns
 
@@ -52,12 +54,26 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Automatic stock restoration for refunded items
 - Refund audit trail with reason, cashier, timestamp, and itemized lines
 - Refund listing and detail endpoints with role-based access
+- Inventory movement logging for refund restocking
+
+### Inventory Ledger
+
+- Stock movement history endpoint with filters by product, movement type, user, and date range
+- Tracks `quantity_before`, `quantity_delta`, and `quantity_after` for each movement
+
+### Purchasing & Receiving
+
+- Supplier management for replenishment workflow
+- Purchase order creation with itemized quantity and unit cost
+- Purchase order lifecycle: `draft`, `ordered`, `partially_received`, `received`, `cancelled`
+- Receiving endpoint updates product stock and records `purchase_receipt` movements
 
 ### Drawer Sessions
 
 - Open drawer session
 - Get current active drawer session
 - Close drawer session
+- Reconcile and close shift with expected vs counted cash/non-cash variance
 - Enforce one open drawer session per user
 - Track starting cash, ending cash, expected cash, opened/closed time
 
@@ -74,7 +90,7 @@ Superuser-only APIs for:
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
-- Admin views for Users, Categories, Products, Orders, Order Items, Drawer Sessions
+- Admin views for Users, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements
 - Custom reports page at `/admin/reports`
 
 ## Tech Stack
@@ -187,6 +203,22 @@ Base prefix: `/api/v1`
 - `PUT /products/{product_id}`
 - `DELETE /products/{product_id}`
 
+### Inventory
+
+- `GET /inventory/movements`
+
+### Purchasing
+
+- `GET /purchasing/suppliers`
+- `POST /purchasing/suppliers`
+- `PUT /purchasing/suppliers/{supplier_id}`
+- `GET /purchasing/orders`
+- `GET /purchasing/orders/{purchase_order_id}`
+- `POST /purchasing/orders`
+- `POST /purchasing/orders/{purchase_order_id}/mark-ordered`
+- `POST /purchasing/orders/{purchase_order_id}/receive`
+- `POST /purchasing/orders/{purchase_order_id}/cancel`
+
 ### Orders
 
 - `GET /orders/`
@@ -205,6 +237,8 @@ Base prefix: `/api/v1`
 - `POST /drawers/open`
 - `GET /drawers/active`
 - `POST /drawers/close/{session_id}`
+- `POST /drawers/reconcile/{session_id}`
+- `GET /drawers/{session_id}/reconciliation`
 
 ### Reports (Superuser)
 

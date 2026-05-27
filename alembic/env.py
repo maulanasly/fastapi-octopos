@@ -17,8 +17,11 @@ import app.models.drawer  # noqa: F401 E402
 import app.models.order  # noqa: F401 E402
 import app.models.payment  # noqa: F401 E402
 import app.models.product  # noqa: F401 E402
+import app.models.purchase  # noqa: F401 E402
 import app.models.refresh_token  # noqa: F401 E402
 import app.models.refund  # noqa: F401 E402
+import app.models.shift_reconciliation  # noqa: F401 E402
+import app.models.stock_movement  # noqa: F401 E402
 import app.models.user  # noqa: F401 E402
 
 # Import app settings and all models so autogenerate can detect them

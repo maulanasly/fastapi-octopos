@@ -23,3 +23,6 @@ class DrawerSession(Base):
 
     user = relationship("User")
     orders = relationship("Order", back_populates="drawer_session")
+    reconciliation = relationship(
+        "ShiftReconciliation", back_populates="drawer_session", uselist=False
+    )
