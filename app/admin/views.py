@@ -1,6 +1,8 @@
+from datetime import datetime, timedelta, timezone
+
 # pyrefly: ignore [missing-import]
 from sqladmin import BaseView, ModelView, expose
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
@@ -11,7 +13,13 @@ from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
-from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseInvoiceItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    Supplier,
+)
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
@@ -147,6 +155,49 @@ class PurchaseOrderItemAdmin(ModelView, model=PurchaseOrderItem):
     column_sortable_list = [PurchaseOrderItem.id]
 
 
+class PurchaseInvoiceAdmin(ModelView, model=PurchaseInvoice):
+    column_list = [
+        PurchaseInvoice.id,
+        PurchaseInvoice.invoice_number,
+        PurchaseInvoice.supplier,
+        PurchaseInvoice.purchase_order,
+        PurchaseInvoice.user,
+        PurchaseInvoice.status,
+        PurchaseInvoice.total_amount,
+        PurchaseInvoice.variance_amount,
+        PurchaseInvoice.has_quantity_variance,
+        PurchaseInvoice.has_price_variance,
+        PurchaseInvoice.created_at,
+    ]
+    column_searchable_list = [PurchaseInvoice.invoice_number, PurchaseInvoice.status]
+    column_sortable_list = [
+        PurchaseInvoice.created_at,
+        PurchaseInvoice.total_amount,
+        PurchaseInvoice.variance_amount,
+    ]
+
+
+class PurchaseInvoiceItemAdmin(ModelView, model=PurchaseInvoiceItem):
+    column_list = [
+        PurchaseInvoiceItem.id,
+        PurchaseInvoiceItem.invoice_id,
+        PurchaseInvoiceItem.purchase_order_item_id,
+        PurchaseInvoiceItem.product,
+        PurchaseInvoiceItem.billed_quantity,
+        PurchaseInvoiceItem.billed_unit_cost,
+        PurchaseInvoiceItem.expected_quantity,
+        PurchaseInvoiceItem.expected_unit_cost,
+        PurchaseInvoiceItem.quantity_variance,
+        PurchaseInvoiceItem.price_variance,
+        PurchaseInvoiceItem.line_total,
+    ]
+    column_searchable_list = [
+        PurchaseInvoiceItem.invoice_id,
+        PurchaseInvoiceItem.purchase_order_item_id,
+    ]
+    column_sortable_list = [PurchaseInvoiceItem.id, PurchaseInvoiceItem.line_total]
+
+
 class OrderAdmin(ModelView, model=Order):
     column_list = [
         Order.id,
@@ -276,6 +327,42 @@ class ReportsAdmin(BaseView):
     async def reports_page(self, request: Request):
         db = SessionLocal()
         try:
+            now = datetime.now(timezone.utc)
+            period = request.query_params.get("period", "30d")
+            period_labels = {
+                "today": "Today",
+                "7d": "Last 7 Days",
+                "30d": "Last 30 Days",
+                "month": "This Month",
+                "all": "All Time",
+            }
+            if period == "today":
+                start_date = datetime(
+                    year=now.year,
+                    month=now.month,
+                    day=now.day,
+                    tzinfo=timezone.utc,
+                )
+                end_date = None
+            elif period == "7d":
+                start_date = now - timedelta(days=7)
+                end_date = None
+            elif period == "30d":
+                start_date = now - timedelta(days=30)
+                end_date = None
+            elif period == "month":
+                start_date = datetime(
+                    year=now.year,
+                    month=now.month,
+                    day=1,
+                    tzinfo=timezone.utc,
+                )
+                end_date = None
+            else:
+                period = "all"
+                start_date = None
+                end_date = None
+
             # 1. Sales Summary
             summary_query = db.query(
                 func.coalesce(
@@ -286,15 +373,25 @@ class ReportsAdmin(BaseView):
                 func.coalesce(func.sum(Order.total_amount), 0.0),
                 func.count(Order.id),
             ).filter(Order.status == "completed")
+            refunds_query = (
+                db.query(func.coalesce(func.sum(Refund.total_amount), 0.0))
+                .join(Order, Refund.order_id == Order.id)
+                .filter(Order.status == "completed")
+            )
+            if start_date is not None:
+                summary_query = summary_query.filter(Order.created_at >= start_date)
+                refunds_query = refunds_query.filter(Refund.created_at >= start_date)
+            if end_date is not None:
+                summary_query = summary_query.filter(Order.created_at <= end_date)
+                refunds_query = refunds_query.filter(Refund.created_at <= end_date)
+
             (
                 gross_revenue,
                 total_discounts,
                 total_revenue,
                 order_count,
             ) = summary_query.first()
-            raw_total_refunds = db.query(
-                func.coalesce(func.sum(Refund.total_amount), 0.0)
-            ).scalar()
+            raw_total_refunds = refunds_query.scalar()
             total_refunds = raw_total_refunds if raw_total_refunds is not None else 0.0
             net_revenue = float(total_revenue or 0.0) - float(total_refunds)
             average_order_value = (
@@ -325,11 +422,21 @@ class ReportsAdmin(BaseView):
                 .join(Product, OrderItem.product_id == Product.id)
                 .join(Order, OrderItem.order_id == Order.id)
                 .filter(Order.status == "completed")
-                .group_by(Product.id)
+            )
+            if start_date is not None:
+                top_products_query = top_products_query.filter(
+                    Order.created_at >= start_date
+                )
+            if end_date is not None:
+                top_products_query = top_products_query.filter(
+                    Order.created_at <= end_date
+                )
+            top_products = (
+                top_products_query.group_by(Product.id)
                 .order_by(func.sum(OrderItem.quantity).desc())
                 .limit(10)
+                .all()
             )
-            top_products = top_products_query.all()
 
             # 3. Sales by Category
             category_sales_query = (
@@ -351,6 +458,14 @@ class ReportsAdmin(BaseView):
                 .group_by(Category.id, Category.name)
                 .order_by(func.sum(OrderItem.quantity * OrderItem.unit_price).desc())
             )
+            if start_date is not None:
+                category_sales_query = category_sales_query.filter(
+                    Order.created_at >= start_date
+                )
+            if end_date is not None:
+                category_sales_query = category_sales_query.filter(
+                    Order.created_at <= end_date
+                )
             category_sales = category_sales_query.all()
 
             # 4. Low Stock Products (threshold <= 10)
@@ -359,7 +474,7 @@ class ReportsAdmin(BaseView):
             )
 
             # 5. Top Customers
-            top_customers = (
+            top_customers_query = (
                 db.query(
                     Customer.id.label("customer_id"),
                     Customer.name.label("customer_name"),
@@ -372,13 +487,65 @@ class ReportsAdmin(BaseView):
                 )
                 .join(Order, Order.customer_id == Customer.id)
                 .filter(Order.status == "completed")
-                .group_by(
-                    Customer.id, Customer.name, Customer.email, Customer.points_balance
+            )
+            if start_date is not None:
+                top_customers_query = top_customers_query.filter(
+                    Order.created_at >= start_date
+                )
+            if end_date is not None:
+                top_customers_query = top_customers_query.filter(
+                    Order.created_at <= end_date
+                )
+            top_customers = (
+                top_customers_query.group_by(
+                    Customer.id,
+                    Customer.name,
+                    Customer.email,
+                    Customer.points_balance,
                 )
                 .order_by(func.sum(Order.total_amount).desc())
                 .limit(5)
                 .all()
             )
+
+            invoice_summary_query = db.query(PurchaseInvoice)
+            if start_date is not None:
+                invoice_summary_query = invoice_summary_query.filter(
+                    PurchaseInvoice.created_at >= start_date
+                )
+            if end_date is not None:
+                invoice_summary_query = invoice_summary_query.filter(
+                    PurchaseInvoice.created_at <= end_date
+                )
+            (
+                invoice_count,
+                invoice_pending_review_count,
+                invoice_approved_total,
+                invoice_billed_total,
+                invoice_variance_total,
+            ) = invoice_summary_query.with_entities(
+                func.count(PurchaseInvoice.id),
+                func.coalesce(
+                    func.sum(
+                        case((PurchaseInvoice.status == "pending_review", 1), else_=0)
+                    ),
+                    0,
+                ),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (
+                                PurchaseInvoice.status == "approved",
+                                PurchaseInvoice.total_amount,
+                            ),
+                            else_=0.0,
+                        )
+                    ),
+                    0.0,
+                ),
+                func.coalesce(func.sum(PurchaseInvoice.total_amount), 0.0),
+                func.coalesce(func.sum(PurchaseInvoice.variance_amount), 0.0),
+            ).first()
 
             # 6. Executive Summary
             active_customers_count = (
@@ -450,6 +617,11 @@ class ReportsAdmin(BaseView):
                 "average_cash_variance": float(
                     raw_avg_cash_variance if raw_avg_cash_variance is not None else 0.0
                 ),
+                "invoice_count": int(invoice_count or 0),
+                "invoice_pending_review_count": int(invoice_pending_review_count or 0),
+                "invoice_approved_total": float(invoice_approved_total or 0.0),
+                "invoice_billed_total": float(invoice_billed_total or 0.0),
+                "invoice_variance_total": float(invoice_variance_total or 0.0),
             }
 
             return await self.templates.TemplateResponse(
@@ -458,6 +630,8 @@ class ReportsAdmin(BaseView):
                 context={
                     "request": request,
                     "title": "Reports Dashboard",
+                    "period": period,
+                    "period_label": period_labels[period],
                     "sales_summary": sales_summary,
                     "top_products": top_products,
                     "category_sales": category_sales,

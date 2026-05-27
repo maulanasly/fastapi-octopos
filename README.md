@@ -91,6 +91,9 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Purchase order lifecycle: `draft`, `ordered`, `partially_received`, `received`, `cancelled`
 - Receiving endpoint updates product stock and records `purchase_receipt` movements
 - Purchase order auto-generation from replenishment suggestions
+- Supplier invoice capture with PO item linkage
+- 3-way matching-lite variance checks (`ordered` vs `received` vs `billed`)
+- Invoice status workflow: `draft`, `pending_review`, `approved`, `rejected`
 
 ### Drawer Sessions
 
@@ -118,14 +121,16 @@ Superuser-only APIs for:
 - Top customers
 - Category sales
 - Low stock products
+- Purchase invoice summary (counts, totals, variance, review pipeline)
 - Optional date-range filtering on sales analytics endpoints
 
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
-- Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
+- Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
 - Admin views include Promotions management
 - Custom reports page at `/admin/reports`
+- Reports dashboard supports period presets (`today`, `7d`, `30d`, `month`, `all`) with aligned sales/refund/invoice summary scope
 
 ## Tech Stack
 
@@ -272,6 +277,12 @@ Base prefix: `/api/v1`
 - `POST /purchasing/orders/{purchase_order_id}/mark-ordered`
 - `POST /purchasing/orders/{purchase_order_id}/receive`
 - `POST /purchasing/orders/{purchase_order_id}/cancel`
+- `GET /purchasing/invoices`
+- `GET /purchasing/invoices/{invoice_id}`
+- `POST /purchasing/invoices`
+- `POST /purchasing/invoices/{invoice_id}/submit-review`
+- `POST /purchasing/invoices/{invoice_id}/approve`
+- `POST /purchasing/invoices/{invoice_id}/reject`
 
 ### Orders
 
@@ -305,6 +316,7 @@ Base prefix: `/api/v1`
 - `GET /reports/top-customers`
 - `GET /reports/categories`
 - `GET /reports/low-stock`
+- `GET /reports/purchase-invoices`
 
 ## Admin Panel
 

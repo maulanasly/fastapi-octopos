@@ -24,6 +24,8 @@ from app.admin.views import (
     OrderItemAdmin,
     ProductAdmin,
     PromotionAdmin,
+    PurchaseInvoiceAdmin,
+    PurchaseInvoiceItemAdmin,
     PurchaseOrderAdmin,
     PurchaseOrderItemAdmin,
     RefundAdmin,
@@ -101,6 +103,8 @@ admin.add_view(PromotionAdmin)
 admin.add_view(SupplierAdmin)
 admin.add_view(PurchaseOrderAdmin)
 admin.add_view(PurchaseOrderItemAdmin)
+admin.add_view(PurchaseInvoiceAdmin)
+admin.add_view(PurchaseInvoiceItemAdmin)
 admin.add_view(OrderAdmin)
 admin.add_view(OrderItemAdmin)
 admin.add_view(RefundAdmin)

@@ -48,6 +48,7 @@ class PurchaseOrder(Base):
     supplier = relationship("Supplier", back_populates="purchase_orders")
     user = relationship("User")
     items = relationship("PurchaseOrderItem", back_populates="purchase_order")
+    invoices = relationship("PurchaseInvoice", back_populates="purchase_order")
 
 
 class PurchaseOrderItem(Base):
@@ -63,4 +64,67 @@ class PurchaseOrderItem(Base):
     unit_cost = Column(Float, nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="items")
+    product = relationship("Product")
+    invoice_items = relationship(
+        "PurchaseInvoiceItem", back_populates="purchase_order_item"
+    )
+
+
+class PurchaseInvoice(Base):
+    __tablename__ = "purchase_invoices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(
+        Integer, ForeignKey("suppliers.id"), nullable=False, index=True
+    )
+    purchase_order_id = Column(
+        Integer, ForeignKey("purchase_orders.id"), nullable=False, index=True
+    )
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    invoice_number = Column(String, nullable=False, index=True)
+    status = Column(
+        String, nullable=False, default="draft", index=True
+    )  # draft, pending_review, approved, rejected
+    invoice_date = Column(DateTime(timezone=True), nullable=True)
+    due_date = Column(DateTime(timezone=True), nullable=True)
+    subtotal_amount = Column(Float, nullable=False, default=0.0)
+    total_amount = Column(Float, nullable=False, default=0.0)
+    variance_amount = Column(Float, nullable=False, default=0.0)
+    has_quantity_variance = Column(Boolean, nullable=False, default=False)
+    has_price_variance = Column(Boolean, nullable=False, default=False)
+    notes = Column(Text, nullable=True)
+    review_note = Column(Text, nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    supplier = relationship("Supplier")
+    purchase_order = relationship("PurchaseOrder", back_populates="invoices")
+    user = relationship("User")
+    items = relationship("PurchaseInvoiceItem", back_populates="invoice")
+
+
+class PurchaseInvoiceItem(Base):
+    __tablename__ = "purchase_invoice_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(
+        Integer, ForeignKey("purchase_invoices.id"), nullable=False, index=True
+    )
+    purchase_order_item_id = Column(
+        Integer, ForeignKey("purchase_order_items.id"), nullable=False, index=True
+    )
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    billed_quantity = Column(Integer, nullable=False)
+    billed_unit_cost = Column(Float, nullable=False)
+    expected_quantity = Column(Integer, nullable=False)
+    expected_unit_cost = Column(Float, nullable=False)
+    quantity_variance = Column(Integer, nullable=False, default=0)
+    price_variance = Column(Float, nullable=False, default=0.0)
+    line_total = Column(Float, nullable=False, default=0.0)
+
+    invoice = relationship("PurchaseInvoice", back_populates="items")
+    purchase_order_item = relationship(
+        "PurchaseOrderItem", back_populates="invoice_items"
+    )
     product = relationship("Product")

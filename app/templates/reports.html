@@ -1,6 +1,25 @@
 {% extends "sqladmin/layout.html" %}
 
 {% block content %}
+<div class="col-12 mb-3">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body py-2">
+      <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+        <div class="text-secondary" style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">
+          Report Period: {{ period_label }}
+        </div>
+        <div class="btn-group" role="group" aria-label="Report period">
+          <a href="?period=today" class="btn btn-sm {% if period == 'today' %}btn-primary{% else %}btn-outline-primary{% endif %}">Today</a>
+          <a href="?period=7d" class="btn btn-sm {% if period == '7d' %}btn-primary{% else %}btn-outline-primary{% endif %}">7D</a>
+          <a href="?period=30d" class="btn btn-sm {% if period == '30d' %}btn-primary{% else %}btn-outline-primary{% endif %}">30D</a>
+          <a href="?period=month" class="btn btn-sm {% if period == 'month' %}btn-primary{% else %}btn-outline-primary{% endif %}">Month</a>
+          <a href="?period=all" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">All</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Metric Cards Row -->
 <div class="col-12 mb-3">
   <div class="row row-cards">
@@ -131,6 +150,22 @@
         <div class="col-md-3 mt-3">
           <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Avg Cash Variance</div>
           <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.average_cash_variance) }}</div>
+        </div>
+        <div class="col-md-3 mt-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoices</div>
+          <div class="h2 mb-0">{{ executive_summary.invoice_count }}</div>
+        </div>
+        <div class="col-md-3 mt-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Pending Invoice Review</div>
+          <div class="h2 mb-0">{{ executive_summary.invoice_pending_review_count }}</div>
+        </div>
+        <div class="col-md-3 mt-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Approved Invoice Total</div>
+          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.invoice_approved_total) }}</div>
+        </div>
+        <div class="col-md-3 mt-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoice Variance Total</div>
+          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.invoice_variance_total) }}</div>
         </div>
       </div>
     </div>

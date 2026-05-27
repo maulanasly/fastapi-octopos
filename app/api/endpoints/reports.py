@@ -3,7 +3,7 @@ from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_superuser
@@ -11,9 +11,11 @@ from app.core.database import get_db
 from app.models.customer import Customer
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
+from app.models.purchase import PurchaseInvoice
 from app.models.refund import Refund
 from app.models.user import User
 from app.schemas.product import Product as ProductSchema
+from app.schemas.purchase import PurchaseInvoiceSummary
 from app.schemas.report import (
     CategorySalesItem,
     SalesSummary,
@@ -40,8 +42,10 @@ def get_sales_summary(
         func.coalesce(func.sum(Order.total_amount), 0.0),
         func.count(Order.id),
     ).filter(Order.status == "completed")
-    refunds_query = db.query(func.coalesce(func.sum(Refund.total_amount), 0.0)).join(
-        Order, Refund.order_id == Order.id
+    refunds_query = (
+        db.query(func.coalesce(func.sum(Refund.total_amount), 0.0))
+        .join(Order, Refund.order_id == Order.id)
+        .filter(Order.status == "completed")
     )
 
     if start_date:
@@ -217,3 +221,76 @@ def get_top_customers(
         )
         for row in rows
     ]
+
+
+@router.get("/purchase-invoices", response_model=PurchaseInvoiceSummary)
+def get_purchase_invoice_summary(
+    db: Session = Depends(get_db),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    supplier_id: Optional[int] = Query(None, ge=1),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    query = db.query(PurchaseInvoice)
+    if start_date:
+        query = query.filter(PurchaseInvoice.created_at >= start_date)
+    if end_date:
+        query = query.filter(PurchaseInvoice.created_at <= end_date)
+    if supplier_id:
+        query = query.filter(PurchaseInvoice.supplier_id == supplier_id)
+
+    rows = query.with_entities(
+        func.count(PurchaseInvoice.id),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        PurchaseInvoice.status == "approved",
+                        PurchaseInvoice.total_amount,
+                    ),
+                    else_=0.0,
+                )
+            ),
+            0.0,
+        ),
+        func.coalesce(func.sum(PurchaseInvoice.total_amount), 0.0),
+        func.coalesce(func.sum(PurchaseInvoice.variance_amount), 0.0),
+        func.coalesce(
+            func.sum(case((PurchaseInvoice.status == "approved", 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((PurchaseInvoice.status == "rejected", 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((PurchaseInvoice.status == "pending_review", 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((PurchaseInvoice.status == "draft", 1), else_=0)),
+            0,
+        ),
+    ).first()
+
+    (
+        invoice_count,
+        approved_total,
+        billed_total,
+        variance_total,
+        approved_count,
+        rejected_count,
+        pending_review_count,
+        draft_count,
+    ) = rows
+
+    return PurchaseInvoiceSummary(
+        invoice_count=int(invoice_count or 0),
+        approved_count=int(approved_count or 0),
+        rejected_count=int(rejected_count or 0),
+        pending_review_count=int(pending_review_count or 0),
+        draft_count=int(draft_count or 0),
+        approved_total=float(approved_total or 0.0),
+        billed_total=float(billed_total or 0.0),
+        variance_total=float(variance_total or 0.0),
+    )

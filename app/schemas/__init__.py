@@ -22,6 +22,12 @@ from app.schemas.product import (
 )
 from app.schemas.promotion import Promotion, PromotionCreate, PromotionUpdate
 from app.schemas.purchase import (
+    PurchaseInvoice,
+    PurchaseInvoiceCreate,
+    PurchaseInvoiceItem,
+    PurchaseInvoiceItemCreate,
+    PurchaseInvoiceReviewAction,
+    PurchaseInvoiceSummary,
     PurchaseOrder,
     PurchaseOrderCreate,
     PurchaseOrderItem,

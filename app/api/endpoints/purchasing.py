@@ -2,15 +2,24 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
-from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseInvoiceItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    Supplier,
+)
 from app.models.stock_movement import StockMovement
 from app.models.user import User
+from app.schemas.purchase import PurchaseInvoice as PurchaseInvoiceSchema
+from app.schemas.purchase import PurchaseInvoiceCreate, PurchaseInvoiceReviewAction
 from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
 from app.schemas.purchase import PurchaseOrderCreate, PurchaseOrderReceive
 from app.schemas.purchase import Supplier as SupplierSchema
@@ -66,6 +75,317 @@ def update_supplier(
     db.commit()
     db.refresh(supplier)
     return supplier
+
+
+def _get_purchase_invoice_for_user(
+    db: Session,
+    invoice_id: int,
+    current_user: User,
+) -> PurchaseInvoice:
+    invoice = (
+        db.query(PurchaseInvoice)
+        .options(joinedload(PurchaseInvoice.items))
+        .filter(PurchaseInvoice.id == invoice_id)
+        .first()
+    )
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Purchase invoice not found")
+    if not current_user.is_superuser and invoice.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this purchase invoice"
+        )
+    return invoice
+
+
+@router.get("/invoices", response_model=List[PurchaseInvoiceSchema])
+def get_purchase_invoices(
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = Query(None),
+    supplier_id: Optional[int] = Query(None, ge=1),
+    purchase_order_id: Optional[int] = Query(None, ge=1),
+    current_user: User = Depends(get_current_active_user),
+):
+    query = (
+        db.query(PurchaseInvoice)
+        .options(joinedload(PurchaseInvoice.items))
+        .order_by(PurchaseInvoice.id.desc())
+    )
+    if not current_user.is_superuser:
+        query = query.filter(PurchaseInvoice.user_id == current_user.id)
+    if status:
+        query = query.filter(PurchaseInvoice.status == status)
+    if supplier_id:
+        query = query.filter(PurchaseInvoice.supplier_id == supplier_id)
+    if purchase_order_id:
+        query = query.filter(PurchaseInvoice.purchase_order_id == purchase_order_id)
+    return query.offset(skip).limit(limit).all()
+
+
+@router.get("/invoices/{invoice_id}", response_model=PurchaseInvoiceSchema)
+def get_purchase_invoice(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    return _get_purchase_invoice_for_user(
+        db=db,
+        invoice_id=invoice_id,
+        current_user=current_user,
+    )
+
+
+@router.post("/invoices", response_model=PurchaseInvoiceSchema)
+def create_purchase_invoice(
+    invoice_in: PurchaseInvoiceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not invoice_in.items:
+        raise HTTPException(
+            status_code=400, detail="Invoice must contain at least one item"
+        )
+
+    purchase_order = (
+        db.query(PurchaseOrder)
+        .options(joinedload(PurchaseOrder.items))
+        .filter(PurchaseOrder.id == invoice_in.purchase_order_id)
+        .first()
+    )
+    if not purchase_order:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    if not current_user.is_superuser and purchase_order.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to invoice this purchase order"
+        )
+    if purchase_order.status == "cancelled":
+        raise HTTPException(
+            status_code=400, detail="Cannot create invoice for cancelled purchase order"
+        )
+
+    normalized_invoice_number = invoice_in.invoice_number.strip()
+    if not normalized_invoice_number:
+        raise HTTPException(status_code=400, detail="Invoice number cannot be empty")
+
+    duplicate_invoice = (
+        db.query(PurchaseInvoice)
+        .filter(
+            PurchaseInvoice.supplier_id == purchase_order.supplier_id,
+            PurchaseInvoice.invoice_number == normalized_invoice_number,
+        )
+        .first()
+    )
+    if duplicate_invoice:
+        raise HTTPException(
+            status_code=400,
+            detail="Invoice number already exists for this supplier",
+        )
+
+    po_item_map = {item.id: item for item in purchase_order.items}
+    billed_item_ids = [item.purchase_order_item_id for item in invoice_in.items]
+    if len(billed_item_ids) != len(set(billed_item_ids)):
+        raise HTTPException(
+            status_code=400,
+            detail="Duplicate purchase_order_item_id in invoice items is not allowed",
+        )
+
+    existing_billed_rows = (
+        db.query(
+            PurchaseInvoiceItem.purchase_order_item_id,
+            func.coalesce(func.sum(PurchaseInvoiceItem.billed_quantity), 0),
+        )
+        .join(PurchaseInvoice, PurchaseInvoiceItem.invoice_id == PurchaseInvoice.id)
+        .filter(
+            PurchaseInvoice.purchase_order_id == purchase_order.id,
+            PurchaseInvoice.status != "rejected",
+        )
+        .group_by(PurchaseInvoiceItem.purchase_order_item_id)
+        .all()
+    )
+    existing_billed_map = {row[0]: int(row[1] or 0) for row in existing_billed_rows}
+
+    invoice_items: List[PurchaseInvoiceItem] = []
+    subtotal_amount = 0.0
+    variance_amount = 0.0
+    has_quantity_variance = False
+    has_price_variance = False
+
+    for billed_item in invoice_in.items:
+        po_item = po_item_map.get(billed_item.purchase_order_item_id)
+        if not po_item:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Purchase order item {billed_item.purchase_order_item_id} "
+                    "not found in this purchase order"
+                ),
+            )
+
+        previously_billed_quantity = existing_billed_map.get(po_item.id, 0)
+        expected_quantity = max(
+            po_item.quantity_received - previously_billed_quantity, 0
+        )
+        billed_quantity = billed_item.billed_quantity
+        billed_unit_cost = billed_item.billed_unit_cost
+        expected_unit_cost = po_item.unit_cost
+
+        cumulative_billed_quantity = previously_billed_quantity + billed_quantity
+        quantity_variance = billed_quantity - expected_quantity
+        price_variance = billed_unit_cost - expected_unit_cost
+        line_total = billed_quantity * billed_unit_cost
+        expected_line_total = expected_quantity * expected_unit_cost
+        line_variance_amount = line_total - expected_line_total
+
+        if any(
+            (
+                quantity_variance != 0,
+                cumulative_billed_quantity > po_item.quantity_received,
+                cumulative_billed_quantity > po_item.quantity_ordered,
+            )
+        ):
+            has_quantity_variance = True
+
+        if abs(price_variance) > 1e-9:
+            has_price_variance = True
+
+        subtotal_amount += line_total
+        variance_amount += line_variance_amount
+
+        invoice_items.append(
+            PurchaseInvoiceItem(
+                purchase_order_item_id=po_item.id,
+                product_id=po_item.product_id,
+                billed_quantity=billed_quantity,
+                billed_unit_cost=billed_unit_cost,
+                expected_quantity=expected_quantity,
+                expected_unit_cost=expected_unit_cost,
+                quantity_variance=quantity_variance,
+                price_variance=price_variance,
+                line_total=line_total,
+            )
+        )
+
+    purchase_invoice = PurchaseInvoice(
+        supplier_id=purchase_order.supplier_id,
+        purchase_order_id=purchase_order.id,
+        user_id=current_user.id,
+        invoice_number=normalized_invoice_number,
+        status="draft",
+        invoice_date=invoice_in.invoice_date,
+        due_date=invoice_in.due_date,
+        subtotal_amount=subtotal_amount,
+        total_amount=subtotal_amount,
+        variance_amount=variance_amount,
+        has_quantity_variance=has_quantity_variance,
+        has_price_variance=has_price_variance,
+        notes=invoice_in.notes,
+    )
+    db.add(purchase_invoice)
+    db.flush()
+
+    for invoice_item in invoice_items:
+        invoice_item.invoice_id = purchase_invoice.id
+        db.add(invoice_item)
+
+    db.commit()
+    return (
+        db.query(PurchaseInvoice)
+        .options(joinedload(PurchaseInvoice.items))
+        .filter(PurchaseInvoice.id == purchase_invoice.id)
+        .first()
+    )
+
+
+@router.post(
+    "/invoices/{invoice_id}/submit-review", response_model=PurchaseInvoiceSchema
+)
+def submit_purchase_invoice_for_review(
+    invoice_id: int,
+    action_in: PurchaseInvoiceReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    invoice = _get_purchase_invoice_for_user(
+        db=db,
+        invoice_id=invoice_id,
+        current_user=current_user,
+    )
+    if invoice.status != "draft":
+        raise HTTPException(
+            status_code=400, detail="Only draft invoices can be submitted for review"
+        )
+
+    invoice.status = "pending_review"
+    invoice.review_note = action_in.review_note
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+@router.post("/invoices/{invoice_id}/approve", response_model=PurchaseInvoiceSchema)
+def approve_purchase_invoice(
+    invoice_id: int,
+    action_in: PurchaseInvoiceReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="Only superuser can approve invoices"
+        )
+
+    invoice = _get_purchase_invoice_for_user(
+        db=db,
+        invoice_id=invoice_id,
+        current_user=current_user,
+    )
+    if invoice.status != "pending_review":
+        raise HTTPException(
+            status_code=400, detail="Only pending_review invoices can be approved"
+        )
+
+    invoice.status = "approved"
+    invoice.review_note = action_in.review_note
+    invoice.approved_at = datetime.now(timezone.utc)
+    invoice.rejected_at = None
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+@router.post("/invoices/{invoice_id}/reject", response_model=PurchaseInvoiceSchema)
+def reject_purchase_invoice(
+    invoice_id: int,
+    action_in: PurchaseInvoiceReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="Only superuser can reject invoices"
+        )
+
+    invoice = _get_purchase_invoice_for_user(
+        db=db,
+        invoice_id=invoice_id,
+        current_user=current_user,
+    )
+    if invoice.status != "pending_review":
+        raise HTTPException(
+            status_code=400, detail="Only pending_review invoices can be rejected"
+        )
+
+    invoice.status = "rejected"
+    invoice.review_note = action_in.review_note
+    invoice.rejected_at = datetime.now(timezone.utc)
+    invoice.approved_at = None
+    db.add(invoice)
+    db.commit()
+    db.refresh(invoice)
+    return invoice
 
 
 @router.get("/orders", response_model=List[PurchaseOrderSchema])
