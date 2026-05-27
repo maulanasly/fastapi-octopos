@@ -90,6 +90,45 @@
   </div>
 </div>
 
+<!-- Executive Summary Row -->
+<div class="col-12 mb-3">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-chart-pie me-2 text-primary"></i>Executive Summary
+      </h3>
+    </div>
+    <div class="card-body pt-0">
+      <div class="row row-cards">
+        <div class="col-md-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Active Customers</div>
+          <div class="h2 mb-0">{{ executive_summary.active_customers_count }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Points Issued / Redeemed</div>
+          <div class="h2 mb-0">{{ executive_summary.points_issued }} / {{ executive_summary.points_redeemed }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Open Purchase Orders</div>
+          <div class="h2 mb-0">{{ executive_summary.open_purchase_orders_count }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Purchase Received Value</div>
+          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.purchase_received_value) }}</div>
+        </div>
+        <div class="col-md-3 mt-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Reconciled Shifts</div>
+          <div class="h2 mb-0">{{ executive_summary.reconciled_shift_count }}</div>
+        </div>
+        <div class="col-md-3 mt-3">
+          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Avg Cash Variance</div>
+          <div class="h2 mb-0">${{ "%.2f"|format(executive_summary.average_cash_variance) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Main Reporting Data Row -->
 <div class="col-md-7">
   <div class="card border-0 shadow-sm">
@@ -157,6 +196,47 @@
           {% else %}
             <tr>
               <td colspan="3" class="text-center text-secondary py-4">No data available.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Top Customers Row -->
+<div class="col-12 mt-3">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-users me-2 text-primary"></i>Top Customers
+      </h3>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover mb-0">
+        <thead>
+          <tr class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; background-color: #f8fafc;">
+            <th>Customer</th>
+            <th>Email</th>
+            <th class="text-center">Orders</th>
+            <th class="text-end">Spent</th>
+            <th class="text-center">Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if top_customers %}
+            {% for customer in top_customers %}
+            <tr>
+              <td><span class="font-weight-medium text-dark">{{ customer.customer_name }}</span></td>
+              <td class="text-secondary">{{ customer.customer_email or '-' }}</td>
+              <td class="text-center">{{ customer.order_count }}</td>
+              <td class="text-end text-success font-weight-bold">${{ "%.2f"|format(customer.total_spent) }}</td>
+              <td class="text-center">{{ customer.points_balance }}</td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-secondary py-4">No customer purchase data available.</td>
             </tr>
           {% endif %}
         </tbody>

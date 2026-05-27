@@ -1,3 +1,9 @@
+from app.schemas.customer import (
+    Customer,
+    CustomerCreate,
+    CustomerUpdate,
+    LoyaltyTransaction,
+)
 from app.schemas.drawer import (
     DrawerSession,
     DrawerSessionClose,
@@ -26,6 +32,11 @@ from app.schemas.purchase import (
     SupplierUpdate,
 )
 from app.schemas.refund import Refund, RefundCreate, RefundItem, RefundItemCreate
-from app.schemas.report import CategorySalesItem, SalesSummary, TopProductItem
+from app.schemas.report import (
+    CategorySalesItem,
+    SalesSummary,
+    TopCustomerItem,
+    TopProductItem,
+)
 from app.schemas.stock_movement import StockMovement
 from app.schemas.token import Token, TokenPayload

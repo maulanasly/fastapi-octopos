@@ -6,6 +6,7 @@ from sqlalchemy import func
 from starlette.requests import Request
 
 from app.core.database import SessionLocal
+from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
@@ -43,6 +44,37 @@ class ProductAdmin(ModelView, model=Product):
     ]
     column_searchable_list = [Product.name, Product.sku]
     column_sortable_list = [Product.price, Product.stock_quantity]
+
+
+class CustomerAdmin(ModelView, model=Customer):
+    column_list = [
+        Customer.id,
+        Customer.name,
+        Customer.email,
+        Customer.phone,
+        Customer.points_balance,
+        Customer.is_active,
+        Customer.created_at,
+    ]
+    column_searchable_list = [Customer.name, Customer.email, Customer.phone]
+    column_sortable_list = [Customer.id, Customer.points_balance, Customer.created_at]
+
+
+class LoyaltyTransactionAdmin(ModelView, model=LoyaltyTransaction):
+    column_list = [
+        LoyaltyTransaction.id,
+        LoyaltyTransaction.customer,
+        LoyaltyTransaction.order_id,
+        LoyaltyTransaction.transaction_type,
+        LoyaltyTransaction.points_delta,
+        LoyaltyTransaction.balance_after,
+        LoyaltyTransaction.created_at,
+    ]
+    column_searchable_list = [
+        LoyaltyTransaction.transaction_type,
+        LoyaltyTransaction.note,
+    ]
+    column_sortable_list = [LoyaltyTransaction.id, LoyaltyTransaction.created_at]
 
 
 class SupplierAdmin(ModelView, model=Supplier):
@@ -90,6 +122,8 @@ class OrderAdmin(ModelView, model=Order):
     column_list = [
         Order.id,
         Order.user,
+        Order.customer,
+        Order.redeemed_points,
         Order.total_amount,
         Order.status,
         Order.created_at,
@@ -259,6 +293,98 @@ class ReportsAdmin(BaseView):
                 db.query(Product).filter(Product.stock_quantity <= 10).all()
             )
 
+            # 5. Top Customers
+            top_customers = (
+                db.query(
+                    Customer.id.label("customer_id"),
+                    Customer.name.label("customer_name"),
+                    Customer.email.label("customer_email"),
+                    func.count(Order.id).label("order_count"),
+                    func.coalesce(func.sum(Order.total_amount), 0.0).label(
+                        "total_spent"
+                    ),
+                    Customer.points_balance.label("points_balance"),
+                )
+                .join(Order, Order.customer_id == Customer.id)
+                .filter(Order.status == "completed")
+                .group_by(
+                    Customer.id, Customer.name, Customer.email, Customer.points_balance
+                )
+                .order_by(func.sum(Order.total_amount).desc())
+                .limit(5)
+                .all()
+            )
+
+            # 6. Executive Summary
+            active_customers_count = (
+                db.query(func.count(Customer.id))
+                .filter(Customer.is_active == True)  # noqa: E712
+                .scalar()
+            )
+            raw_points_issued = (
+                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
+                .filter(LoyaltyTransaction.points_delta > 0)
+                .scalar()
+            )
+            raw_points_redeemed = (
+                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
+                .filter(
+                    LoyaltyTransaction.transaction_type == "redeem",
+                    LoyaltyTransaction.points_delta < 0,
+                )
+                .scalar()
+            )
+            open_purchase_orders_count = (
+                db.query(func.count(PurchaseOrder.id))
+                .filter(
+                    PurchaseOrder.status.in_(("draft", "ordered", "partially_received"))
+                )
+                .scalar()
+            )
+            received_value_expr = (
+                PurchaseOrderItem.quantity_received * PurchaseOrderItem.unit_cost
+            )
+            raw_purchase_received_value = db.query(
+                func.coalesce(
+                    func.sum(received_value_expr),
+                    0.0,
+                )
+            ).scalar()
+            reconciled_shift_count = db.query(
+                func.count(ShiftReconciliation.id)
+            ).scalar()
+            raw_avg_cash_variance = db.query(
+                func.coalesce(func.avg(ShiftReconciliation.cash_variance), 0.0)
+            ).scalar()
+
+            executive_summary = {
+                "active_customers_count": int(
+                    active_customers_count if active_customers_count is not None else 0
+                ),
+                "points_issued": int(
+                    raw_points_issued if raw_points_issued is not None else 0
+                ),
+                "points_redeemed": int(
+                    abs(raw_points_redeemed) if raw_points_redeemed is not None else 0
+                ),
+                "open_purchase_orders_count": int(
+                    open_purchase_orders_count
+                    if open_purchase_orders_count is not None
+                    else 0
+                ),
+                "purchase_received_value": float(
+                    raw_purchase_received_value
+                    if raw_purchase_received_value is not None
+                    else 0.0
+                ),
+                "reconciled_shift_count": int(
+                    reconciled_shift_count if reconciled_shift_count is not None else 0
+                ),
+                "average_cash_variance": float(
+                    raw_avg_cash_variance if raw_avg_cash_variance is not None else 0.0
+                ),
+            }
+
             return await self.templates.TemplateResponse(
                 request,
                 "reports.html",
@@ -269,6 +395,8 @@ class ReportsAdmin(BaseView):
                     "top_products": top_products,
                     "category_sales": category_sales,
                     "low_stock_products": low_stock_products,
+                    "top_customers": top_customers,
+                    "executive_summary": executive_summary,
                 },
             )
         finally:

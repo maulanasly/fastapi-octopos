@@ -2,11 +2,12 @@ from typing import List
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
+from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
@@ -56,6 +57,17 @@ def create_order(
     total_amount = 0.0
     db_items = []
     movement_inputs = []
+    customer = None
+    redeemed_points = 0
+
+    if order_in.customer_id is not None:
+        customer = (
+            db.query(Customer).filter(Customer.id == order_in.customer_id).first()
+        )
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        if not customer.is_active:
+            raise HTTPException(status_code=400, detail="Customer is inactive")
 
     # Verify stock and calculate total amount
     for item in order_in.items:
@@ -109,10 +121,37 @@ def create_order(
     # Assign drawer_session_id to the new order
     drawer_session_id = active_drawer.id
 
+    max_redeemable_points = int(total_amount)
+    if order_in.redeem_points > 0:
+        if not customer:
+            raise HTTPException(
+                status_code=400, detail="Customer is required to redeem loyalty points"
+            )
+        if order_in.redeem_points > customer.points_balance:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Not enough loyalty points. Available: {customer.points_balance}, "
+                    f"requested: {order_in.redeem_points}"
+                ),
+            )
+        if order_in.redeem_points > max_redeemable_points:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Redeem points exceed order total. Max redeemable points: "
+                    f"{max_redeemable_points}"
+                ),
+            )
+        redeemed_points = order_in.redeem_points
+        total_amount -= float(redeemed_points)
+
     order = Order(
         user_id=current_user.id,
+        customer_id=order_in.customer_id,
         drawer_session_id=drawer_session_id,
         total_amount=total_amount,
+        redeemed_points=redeemed_points,
         status="pending",
     )
     db.add(order)
@@ -135,6 +174,20 @@ def create_order(
                 quantity_delta=movement_input["quantity_delta"],
                 quantity_after=movement_input["quantity_after"],
                 note="Stock deducted by order creation",
+            )
+        )
+
+    if customer and redeemed_points > 0:
+        customer.points_balance -= redeemed_points
+        db.add(customer)
+        db.add(
+            LoyaltyTransaction(
+                customer_id=customer.id,
+                order_id=order.id,
+                transaction_type="redeem",
+                points_delta=-redeemed_points,
+                balance_after=customer.points_balance,
+                note="Points redeemed on order creation",
             )
         )
 
@@ -186,6 +239,35 @@ def add_payment_to_order(
     if total_paid >= order.total_amount:
         order.status = "completed"
         db.add(order)
+        if order.customer_id:
+            customer = (
+                db.query(Customer).filter(Customer.id == order.customer_id).first()
+            )
+            if customer:
+                existing_earn = (
+                    db.query(LoyaltyTransaction)
+                    .filter(
+                        LoyaltyTransaction.order_id == order.id,
+                        LoyaltyTransaction.customer_id == customer.id,
+                        LoyaltyTransaction.transaction_type == "earn",
+                    )
+                    .first()
+                )
+                if not existing_earn:
+                    earned_points = int(order.total_amount)
+                    if earned_points > 0:
+                        customer.points_balance += earned_points
+                        db.add(customer)
+                        db.add(
+                            LoyaltyTransaction(
+                                customer_id=customer.id,
+                                order_id=order.id,
+                                transaction_type="earn",
+                                points_delta=earned_points,
+                                balance_after=customer.points_balance,
+                                note="Points earned on completed order",
+                            )
+                        )
 
     db.commit()
     db.refresh(payment)
@@ -243,6 +325,46 @@ def cancel_order(
                     note="Stock restored by order cancellation",
                 )
             )
+
+    if order.customer_id:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer:
+            if order.redeemed_points > 0:
+                customer.points_balance += order.redeemed_points
+                db.add(
+                    LoyaltyTransaction(
+                        customer_id=customer.id,
+                        order_id=order.id,
+                        transaction_type="adjust",
+                        points_delta=order.redeemed_points,
+                        balance_after=customer.points_balance,
+                        note="Redeemed points restored due to order cancellation",
+                    )
+                )
+
+            earned_points_total = (
+                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
+                .filter(
+                    LoyaltyTransaction.order_id == order.id,
+                    LoyaltyTransaction.customer_id == customer.id,
+                    LoyaltyTransaction.transaction_type == "earn",
+                )
+                .scalar()
+            )
+            earned_points = int(earned_points_total or 0)
+            if earned_points > 0:
+                customer.points_balance -= earned_points
+                db.add(
+                    LoyaltyTransaction(
+                        customer_id=customer.id,
+                        order_id=order.id,
+                        transaction_type="adjust",
+                        points_delta=-earned_points,
+                        balance_after=customer.points_balance,
+                        note="Earned points reversed due to order cancellation",
+                    )
+                )
+            db.add(customer)
 
     order.status = "cancelled"
     db.add(order)

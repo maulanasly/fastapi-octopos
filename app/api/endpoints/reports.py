@@ -8,12 +8,18 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_superuser
 from app.core.database import get_db
+from app.models.customer import Customer
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.refund import Refund
 from app.models.user import User
 from app.schemas.product import Product as ProductSchema
-from app.schemas.report import CategorySalesItem, SalesSummary, TopProductItem
+from app.schemas.report import (
+    CategorySalesItem,
+    SalesSummary,
+    TopCustomerItem,
+    TopProductItem,
+)
 
 router = APIRouter()
 
@@ -156,3 +162,51 @@ def get_low_stock_products(
 ):
     products = db.query(Product).filter(Product.stock_quantity <= threshold).all()
     return products
+
+
+@router.get("/top-customers", response_model=List[TopCustomerItem])
+def get_top_customers(
+    db: Session = Depends(get_db),
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    limit: int = Query(10, ge=1),
+    current_user: User = Depends(get_current_active_superuser),
+):
+    query = (
+        db.query(
+            Customer.id.label("customer_id"),
+            Customer.name.label("customer_name"),
+            Customer.email.label("customer_email"),
+            Customer.points_balance.label("points_balance"),
+            func.count(Order.id).label("order_count"),
+            func.sum(Order.total_amount).label("total_spent"),
+        )
+        .join(Order, Order.customer_id == Customer.id)
+        .filter(Order.status == "completed")
+    )
+
+    if start_date:
+        query = query.filter(Order.created_at >= start_date)
+    if end_date:
+        query = query.filter(Order.created_at <= end_date)
+
+    rows = (
+        query.group_by(
+            Customer.id, Customer.name, Customer.email, Customer.points_balance
+        )
+        .order_by(func.sum(Order.total_amount).desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [
+        TopCustomerItem(
+            customer_id=row.customer_id,
+            customer_name=row.customer_name,
+            customer_email=row.customer_email,
+            order_count=int(row.order_count or 0),
+            total_spent=float(row.total_spent or 0.0),
+            points_balance=int(row.points_balance or 0),
+        )
+        for row in rows
+    ]

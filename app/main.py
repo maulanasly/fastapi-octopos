@@ -17,7 +17,9 @@ from starlette.requests import Request
 
 from app.admin.views import (
     CategoryAdmin,
+    CustomerAdmin,
     DrawerSessionAdmin,
+    LoyaltyTransactionAdmin,
     OrderAdmin,
     OrderItemAdmin,
     ProductAdmin,
@@ -90,6 +92,8 @@ admin = Admin(
 
 admin.add_view(UserAdmin)
 admin.add_view(CategoryAdmin)
+admin.add_view(CustomerAdmin)
+admin.add_view(LoyaltyTransactionAdmin)
 admin.add_view(ProductAdmin)
 admin.add_view(SupplierAdmin)
 admin.add_view(PurchaseOrderAdmin)

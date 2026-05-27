@@ -39,6 +39,8 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 ### Orders & Payments
 
 - Create multi-item orders
+- Optional customer assignment on order
+- Loyalty points redemption on order creation
 - Stock validation and automatic stock deduction on order creation
 - Drawer session required before placing orders
 - Attach payments to orders (supports partial payment)
@@ -55,6 +57,14 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Refund audit trail with reason, cashier, timestamp, and itemized lines
 - Refund listing and detail endpoints with role-based access
 - Inventory movement logging for refund restocking
+
+### Customers & Loyalty
+
+- Customer profile management (name/email/phone/status)
+- Points balance tracking per customer
+- Loyalty transactions ledger (`earn`, `redeem`, `adjust`)
+- Automatic points earning on completed orders
+- Automatic point restoration/reversal on order cancellation
 
 ### Inventory Ledger
 
@@ -83,6 +93,7 @@ Superuser-only APIs for:
 
 - Sales summary (gross revenue, total refunds, net revenue, order count, average order value)
 - Top-selling products
+- Top customers
 - Category sales
 - Low stock products
 - Optional date-range filtering on sales analytics endpoints
@@ -90,7 +101,7 @@ Superuser-only APIs for:
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
-- Admin views for Users, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements
+- Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements
 - Custom reports page at `/admin/reports`
 
 ## Tech Stack
@@ -203,6 +214,16 @@ Base prefix: `/api/v1`
 - `PUT /products/{product_id}`
 - `DELETE /products/{product_id}`
 
+### Customers
+
+- `GET /customers/`
+- `POST /customers/`
+- `GET /customers/{customer_id}`
+- `PUT /customers/{customer_id}`
+- `DELETE /customers/{customer_id}`
+- `GET /customers/{customer_id}/orders`
+- `GET /customers/{customer_id}/loyalty-transactions`
+
 ### Inventory
 
 - `GET /inventory/movements`
@@ -244,6 +265,7 @@ Base prefix: `/api/v1`
 
 - `GET /reports/sales`
 - `GET /reports/top-products`
+- `GET /reports/top-customers`
 - `GET /reports/categories`
 - `GET /reports/low-stock`
 
