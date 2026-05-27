@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_superuser
+from app.api.dependencies import require_permissions
 from app.core.database import get_db
 from app.models.customer import Customer
 from app.models.order import Order, OrderItem
@@ -34,7 +34,7 @@ def get_sales_summary(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     cashier_id: Optional[int] = Query(None, ge=1),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     sales_query = db.query(
         func.coalesce(
@@ -83,7 +83,7 @@ def get_top_products(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     limit: int = Query(10, ge=1),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     query = (
         db.query(
@@ -129,7 +129,7 @@ def get_category_sales(
     db: Session = Depends(get_db),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     query = (
         db.query(
@@ -171,7 +171,7 @@ def get_category_sales(
 def get_low_stock_products(
     db: Session = Depends(get_db),
     threshold: int = Query(10, ge=0),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     products = db.query(Product).filter(Product.stock_quantity <= threshold).all()
     return products
@@ -183,7 +183,7 @@ def get_top_customers(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     limit: int = Query(10, ge=1),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     query = (
         db.query(
@@ -231,7 +231,7 @@ def get_purchase_invoice_summary(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     supplier_id: Optional[int] = Query(None, ge=1),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     query = db.query(PurchaseInvoice)
     if start_date:
@@ -303,7 +303,7 @@ def get_tax_liability_summary(
     db: Session = Depends(get_db),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("reports:view")),
 ):
     query = (
         db.query(

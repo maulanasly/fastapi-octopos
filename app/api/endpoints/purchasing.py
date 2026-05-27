@@ -5,7 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import (
+    get_current_active_user,
+    has_permission,
+    require_permissions,
+)
 from app.core.database import get_db
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
@@ -26,7 +30,7 @@ from app.schemas.purchase import Supplier as SupplierSchema
 from app.schemas.purchase import SupplierCreate, SupplierUpdate
 from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_permissions("purchasing:manage"))])
 
 
 @router.get("/suppliers", response_model=List[SupplierSchema])
@@ -331,9 +335,12 @@ def approve_purchase_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if not current_user.is_superuser:
+    if not has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    ):
         raise HTTPException(
-            status_code=403, detail="Only superuser can approve invoices"
+            status_code=403,
+            detail="Missing permission: purchasing:approve",
         )
 
     invoice = _get_purchase_invoice_for_user(
@@ -363,9 +370,12 @@ def reject_purchase_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    if not current_user.is_superuser:
+    if not has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    ):
         raise HTTPException(
-            status_code=403, detail="Only superuser can reject invoices"
+            status_code=403,
+            detail="Missing permission: purchasing:approve",
         )
 
     invoice = _get_purchase_invoice_for_user(

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
@@ -25,7 +25,7 @@ def get_refunds(
     skip: int = 0,
     limit: int = 100,
     order_id: Optional[int] = Query(None, ge=1),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("refunds:view")),
 ):
     query = (
         db.query(Refund).options(joinedload(Refund.items)).order_by(Refund.id.desc())
@@ -43,7 +43,7 @@ def get_refunds(
 def get_refund(
     refund_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("refunds:view")),
 ):
     refund = (
         db.query(Refund)
@@ -66,7 +66,7 @@ def get_refund(
 def create_refund(
     refund_in: RefundCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("refunds:create")),
 ):
     if not refund_in.items:
         raise HTTPException(

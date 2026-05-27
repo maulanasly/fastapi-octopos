@@ -24,6 +24,7 @@ from app.admin.views import (
     OrderAdmin,
     OrderItemAdmin,
     OrderTaxLineAdmin,
+    PermissionAdmin,
     ProductAdmin,
     PromotionAdmin,
     PurchaseInvoiceAdmin,
@@ -33,12 +34,15 @@ from app.admin.views import (
     RefundAdmin,
     RefundItemAdmin,
     ReportsAdmin,
+    RoleAdmin,
+    RolePermissionAdmin,
     ShiftReconciliationAdmin,
     StockMovementAdmin,
     SupplierAdmin,
     SyncEventLogAdmin,
     TaxRuleAdmin,
     UserAdmin,
+    UserRoleAdmin,
 )
 from app.api.router import api_router
 from app.core.config import settings
@@ -98,6 +102,10 @@ admin = Admin(
 )
 
 admin.add_view(UserAdmin)
+admin.add_view(RoleAdmin)
+admin.add_view(PermissionAdmin)
+admin.add_view(UserRoleAdmin)
+admin.add_view(RolePermissionAdmin)
 admin.add_view(LocalizationSettingAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(CustomerAdmin)

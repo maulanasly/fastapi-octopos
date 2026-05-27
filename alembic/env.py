@@ -21,6 +21,7 @@ import app.models.payment  # noqa: F401 E402
 import app.models.product  # noqa: F401 E402
 import app.models.promotion  # noqa: F401 E402
 import app.models.purchase  # noqa: F401 E402
+import app.models.rbac  # noqa: F401 E402
 import app.models.refresh_token  # noqa: F401 E402
 import app.models.refund  # noqa: F401 E402
 import app.models.shift_reconciliation  # noqa: F401 E402

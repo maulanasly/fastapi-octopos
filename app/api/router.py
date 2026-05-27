@@ -11,6 +11,7 @@ from app.api.endpoints import (
     products,
     promotions,
     purchasing,
+    rbac,
     refunds,
     reports,
     sync,
@@ -33,3 +34,4 @@ api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(drawers.router, prefix="/drawers", tags=["drawers"])
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
 api_router.include_router(taxes.router, prefix="/taxes", tags=["taxes"])
+api_router.include_router(rbac.router, prefix="/rbac", tags=["rbac"])

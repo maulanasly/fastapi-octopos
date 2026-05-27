@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_superuser, get_current_active_user
+from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.core.localization import get_localization_setting
 from app.models.localization import LocalizationSetting as LocalizationSettingModel
@@ -24,7 +24,7 @@ def get_localization_settings(
 def update_localization_settings(
     payload: LocalizationSettingUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_superuser),
+    current_user: User = Depends(require_permissions("settings:manage")),
 ):
     _ = current_user
     setting: LocalizationSettingModel = get_localization_setting(db)

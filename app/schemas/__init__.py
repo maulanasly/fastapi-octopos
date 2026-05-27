@@ -56,6 +56,15 @@ from app.schemas.purchase import (
     SupplierCreate,
     SupplierUpdate,
 )
+from app.schemas.rbac import (
+    Permission,
+    Role,
+    RoleCreate,
+    RoleUpdate,
+    UserPermissionsResponse,
+    UserRoleAssign,
+    UserRolesResponse,
+)
 from app.schemas.refund import Refund, RefundCreate, RefundItem, RefundItemCreate
 from app.schemas.replenishment import (
     PurchaseOrderFromSuggestionsCreate,

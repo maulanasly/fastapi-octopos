@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import require_permissions
 from app.core.database import get_db
 from app.models.product import Category, Product
 from app.models.tax import TaxRule
@@ -72,7 +72,7 @@ def get_tax_rules(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("taxes:read")),
 ):
     return db.query(TaxRule).offset(skip).limit(limit).all()
 
@@ -81,7 +81,7 @@ def get_tax_rules(
 def get_tax_rule(
     tax_rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("taxes:read")),
 ):
     tax_rule = db.query(TaxRule).filter(TaxRule.id == tax_rule_id).first()
     if not tax_rule:
@@ -93,7 +93,7 @@ def get_tax_rule(
 def create_tax_rule(
     tax_in: TaxRuleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("taxes:manage")),
 ):
     tax_data = tax_in.model_dump()
     _validate_tax_scope(db, tax_data)
@@ -112,7 +112,7 @@ def update_tax_rule(
     tax_rule_id: int,
     tax_in: TaxRuleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("taxes:manage")),
 ):
     tax_rule = db.query(TaxRule).filter(TaxRule.id == tax_rule_id).first()
     if not tax_rule:
@@ -145,7 +145,7 @@ def update_tax_rule(
 def deactivate_tax_rule(
     tax_rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("taxes:manage")),
 ):
     tax_rule = db.query(TaxRule).filter(TaxRule.id == tax_rule_id).first()
     if not tax_rule:

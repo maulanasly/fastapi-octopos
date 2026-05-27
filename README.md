@@ -66,6 +66,13 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - Translation-ready message layer with English and Indonesian keys for auth-related errors
 - Shared currency/number/date formatting helpers for dashboard rendering
 
+### Role-Based Access Control (RBAC)
+
+- Role and permission entities with many-to-many assignments
+- Default system roles: `cashier`, `manager`, `admin`
+- Granular permission checks on sensitive modules (reports, taxes, purchasing approvals, localization updates, reservation release)
+- User role assignment and self permission introspection APIs
+
 ### Refunds & Returns
 
 - Create full or partial refunds from completed orders
@@ -149,7 +156,7 @@ Superuser-only APIs for:
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
-- Admin views for Users, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
+- Admin views for Users, Roles, Permissions, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
 - Admin views include Promotions and Tax Rule management
 - Custom reports page at `/admin/reports`
 - Reports dashboard supports period presets (`today`, `7d`, `30d`, `month`, `all`) with aligned sales/refund/invoice summary scope
@@ -300,6 +307,16 @@ Base prefix: `/api/v1`
 - `GET /taxes/{tax_rule_id}`
 - `PUT /taxes/{tax_rule_id}`
 - `DELETE /taxes/{tax_rule_id}`
+
+### RBAC
+
+- `POST /rbac/seed-defaults`
+- `GET /rbac/roles`
+- `POST /rbac/roles`
+- `PUT /rbac/roles/{role_id}`
+- `POST /rbac/users/{user_id}/roles`
+- `GET /rbac/users/{user_id}/roles`
+- `GET /rbac/me/permissions`
 
 ### Purchasing
 

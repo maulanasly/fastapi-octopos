@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import (
+    get_current_active_user,
+    has_permission,
+    require_permissions,
+)
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.customer import Customer, LoyaltyTransaction
@@ -805,11 +809,16 @@ def add_split_payments_to_order(
 @router.post("/release-expired-reservations", response_model=ReservationReleaseSummary)
 def release_expired_reservations(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("orders:release_reservations")),
 ):
-    if not current_user.is_superuser:
+    if not has_permission(
+        db=db,
+        user=current_user,
+        permission_code="orders:release_reservations",
+    ):
         raise HTTPException(
-            status_code=403, detail="Only superuser can release expired reservations"
+            status_code=403,
+            detail="Missing permission: orders:release_reservations",
         )
 
     now = datetime.now(timezone.utc)

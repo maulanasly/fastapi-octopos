@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.limiter import limiter
+from app.core.rbac import assign_default_cashier_role
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -65,6 +66,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         is_superuser=False,
     )
     db.add(user)
+    assign_default_cashier_role(db=db, user=user)
     db.commit()
     db.refresh(user)
     return user
@@ -160,6 +162,7 @@ def google_auth(google_token: GoogleToken, db: Session = Depends(get_db)):
         if not user:
             user = User(email=email, full_name=name, is_active=True)
             db.add(user)
+            assign_default_cashier_role(db=db, user=user)
             db.commit()
             db.refresh(user)
 

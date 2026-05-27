@@ -22,6 +22,7 @@ from app.models.purchase import (
     PurchaseOrderItem,
     Supplier,
 )
+from app.models.rbac import Permission, Role, RolePermission, UserRole
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
@@ -37,6 +38,7 @@ class UserAdmin(ModelView, model=User):
         User.full_name,
         User.is_active,
         User.is_superuser,
+        User.roles,
     ]
     column_searchable_list = [User.email, User.full_name]
 
@@ -54,6 +56,47 @@ class LocalizationSettingAdmin(ModelView, model=LocalizationSetting):
     ]
     can_create = False
     can_delete = False
+
+
+class RoleAdmin(ModelView, model=Role):
+    column_list = [
+        Role.id,
+        Role.name,
+        Role.description,
+        Role.is_system,
+        Role.permissions,
+    ]
+    column_searchable_list = [Role.name, Role.description]
+    column_sortable_list = [Role.id, Role.name]
+
+
+class PermissionAdmin(ModelView, model=Permission):
+    column_list = [
+        Permission.id,
+        Permission.code,
+        Permission.description,
+        Permission.roles,
+    ]
+    column_searchable_list = [Permission.code, Permission.description]
+    column_sortable_list = [Permission.id, Permission.code]
+
+
+class UserRoleAdmin(ModelView, model=UserRole):
+    column_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
+    column_sortable_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
+
+
+class RolePermissionAdmin(ModelView, model=RolePermission):
+    column_list = [
+        RolePermission.id,
+        RolePermission.role_id,
+        RolePermission.permission_id,
+    ]
+    column_sortable_list = [
+        RolePermission.id,
+        RolePermission.role_id,
+        RolePermission.permission_id,
+    ]
 
 
 class CategoryAdmin(ModelView, model=Category):
