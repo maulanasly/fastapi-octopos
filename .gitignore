@@ -131,3 +131,4 @@ dmypy.json
 # sql app
 sql_app.db
 .github/
+sql_app.db.bak_before_alembic_fix_20260616

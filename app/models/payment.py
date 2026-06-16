@@ -1,9 +1,9 @@
 from sqlalchemy import (
     Column,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     UniqueConstraint,
 )
@@ -26,7 +26,7 @@ class Payment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     idempotency_key = Column(String, nullable=True, index=True)
     payment_method = Column(String, nullable=False)  # e.g. "cash", "card", "mobile"
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     order = relationship("Order", back_populates="payments")

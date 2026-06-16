@@ -2,9 +2,9 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -22,7 +22,7 @@ class TaxRule(Base):
     description = Column(Text, nullable=True)
     tax_scope = Column(String, nullable=False, default="order", index=True)
     tax_mode = Column(String, nullable=False, default="exclusive", index=True)
-    rate = Column(Float, nullable=False, default=0.0)
+    rate = Column(Numeric(7, 4), nullable=False, default=0.0)
     category_id = Column(
         Integer, ForeignKey("categories.id"), nullable=True, index=True
     )
@@ -51,9 +51,9 @@ class OrderTaxLine(Base):
     tax_name = Column(String, nullable=False)
     tax_scope = Column(String, nullable=False)
     tax_mode = Column(String, nullable=False)
-    tax_rate = Column(Float, nullable=False)
-    taxable_base = Column(Float, nullable=False, default=0.0)
-    tax_amount = Column(Float, nullable=False, default=0.0)
+    tax_rate = Column(Numeric(7, 4), nullable=False)
+    taxable_base = Column(Numeric(12, 2), nullable=False, default=0.0)
+    tax_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     applied_at = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
