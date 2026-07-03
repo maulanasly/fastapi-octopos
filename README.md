@@ -1,6 +1,10 @@
 # FastAPI OctoPOS
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory management, order/payment flow, drawer sessions, reports, and SQLAdmin dashboard.
+
+> **Note:** Copy `.env.example` to `.env` and update the values before running in production.
 
 ## Table of Contents
 
@@ -11,8 +15,11 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 - [Make Commands](#make-commands)
 - [Environment Variables](#environment-variables)
 - [API Overview](#api-overview)
+- [API Examples](#api-examples)
 - [Admin Panel](#admin-panel)
 - [Database & Migrations](#database--migrations)
+- [Development](#development)
+- [Deployment](#deployment)
 - [License](#license)
 
 ## Features
@@ -220,36 +227,42 @@ Open:
 
 ## Make Commands
 
-Common commands:
-
-```bash
-make help
-make install
-make run
-make migrate
-make makemigration MSG="add-refunds-table"
-make lint
-make check
-```
+| Command | Description |
+|---------|-------------|
+| `make help` | Show all available commands |
+| `make install` | Install project dependencies from requirements.txt |
+| `make run` | Run API server with hot reload at http://127.0.0.1:8000 |
+| `make dev` | Alias for `make run` |
+| `make migrate` | Apply all database migrations |
+| `make migrate-down` | Rollback last migration |
+| `make makemigration MSG="description"` | Create new migration with description |
+| `make lint` | Run pre-commit code quality checks |
+| `make format` | Auto-format code with black and isort |
+| `make test` | Run test suite with pytest |
+| `make pre-commit` | Install pre-commit git hooks |
+| `make clean` | Remove Python cache files |
 
 ## Environment Variables
 
-Configuration is loaded from `.env` (see `app/core/config.py`).
+Configuration is loaded from `.env` (see `app/core/config.py`). Copy `.env.example` to `.env` and update the values before running:
 
-Common variables:
-
-```env
-PROJECT_NAME=FastAPI POS Backend
-API_V1_STR=/api/v1
-SQLALCHEMY_DATABASE_URI=sqlite:///./sql_app.db
-SECRET_KEY=your-secret-key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=11520
-GOOGLE_CLIENT_ID=
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin
-ORDER_RESERVATION_TIMEOUT_MINUTES=15
+```bash
+cp .env.example .env
 ```
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PROJECT_NAME` | Application name | `FastAPI POS Backend` |
+| `API_V1_STR` | API prefix | `/api/v1` |
+| `BACKEND_CORS_ORIGINS` | CORS allowed origins (JSON array) | `["http://localhost:3000", "http://localhost:8080"]` |
+| `SQLALCHEMY_DATABASE_URI` | Database connection string | `sqlite:///./sql_app.db` |
+| `SECRET_KEY` | JWT signing secret (change in production) | Random default (insecure) |
+| `ALGORITHM` | JWT algorithm | `HS256` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime in minutes | `11520` (8 days) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID (optional) | `None` |
+| `ADMIN_USERNAME` | Admin panel username | `admin` |
+| `ADMIN_PASSWORD` | Admin panel password | `admin` (change in production) |
+| `ORDER_RESERVATION_TIMEOUT_MINUTES` | Stock reservation expiry | `15` |
 
 ## API Overview
 
@@ -394,3 +407,134 @@ make migrate
 ## License
 
 MIT License. See [LICENSE](./LICENSE).
+
+## API Examples
+
+### Authentication
+
+**Register a new user:**
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "full_name": "User Name",
+    "password": "secure-password"
+  }'
+```
+
+**Login (get JWT tokens):**
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=user@example.com&password=secure-password"
+```
+
+### Create Order
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/orders/ \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"product_id": 1, "quantity": 2},
+      {"product_id": 2, "quantity": 1}
+    ],
+    "customer_id": 1
+  }'
+```
+
+### Add Payment
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/orders/1/payments \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 50000,
+    "payment_method": "cash"
+  }'
+```
+
+### Sync Events (Offline Clients)
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/sync/events/batch \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "events": [
+      {
+        "client_event_id": "evt-001",
+        "event_type": "order_create",
+        "payload": {
+          "items": [{"product_id": 1, "quantity": 1}],
+          "idempotency_key": "order-001"
+        }
+      }
+    ]
+  }'
+```
+
+## Development
+
+### Project Structure
+
+```text
+app/
+├── api/
+│   └── endpoints/     # Route handlers for each module
+│       ├── auth.py    # Authentication (register, login, refresh, Google OAuth)
+│       ├── customers.py
+│       ├── drawers.py
+│       ├── inventory.py
+│       ├── localization.py
+│       ├── orders.py
+│       ├── products.py
+│       ├── promotions.py
+│       ├── purchasing.py
+│       ├── rbac.py
+│       ├── refunds.py
+│       ├── reports.py
+│       ├── sync.py
+│       └── taxes.py
+├── admin/            # SQLAdmin views
+├── core/           # Shared utilities
+│   ├── config.py     # Pydantic settings
+│   ├── database.py   # SQLAlchemy engine/session
+│   ├── security.py   # Password hashing, JWT utils
+│   ├── limiter.py    # Rate limiting config
+│   ├── rbac.py       # Role/permission helpers
+│   ├── money.py      # Decimal precision helpers
+│   └── localization.py
+├── models/         # SQLAlchemy models
+├── schemas/        # Pydantic schemas
+└── templates/      # SQLAdmin HTML templates
+```
+
+### Testing
+
+Run the test suite:
+
+```bash
+make test
+```
+
+Run all quality checks (lint + tests + compile):
+
+```bash
+make check
+```
+
+## Deployment
+
+For production deployment:
+
+1. Change `SECRET_KEY` to a secure random value
+2. Update `ADMIN_PASSWORD` to a strong password
+3. Set `BACKEND_CORS_ORIGINS` to your frontend domain
+4. Use a production database (PostgreSQL recommended)
+5. Set `GOOGLE_CLIENT_ID` if using Google Sign-In
