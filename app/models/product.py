@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -21,7 +21,7 @@ class Product(Base):
     name = Column(String, index=True, nullable=False)
     sku = Column(String, unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
-    price = Column(Float, nullable=False)
+    price = Column(Numeric(12, 2), nullable=False)
     stock_quantity = Column(Integer, default=0)
     min_stock = Column(Integer, nullable=False, default=0)
     max_stock = Column(Integer, nullable=True)

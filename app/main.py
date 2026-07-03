@@ -15,35 +15,7 @@ from sqladmin.authentication import AuthenticationBackend
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
 
-from app.admin.views import (
-    CategoryAdmin,
-    CustomerAdmin,
-    DrawerSessionAdmin,
-    LocalizationSettingAdmin,
-    LoyaltyTransactionAdmin,
-    OrderAdmin,
-    OrderItemAdmin,
-    OrderTaxLineAdmin,
-    PermissionAdmin,
-    ProductAdmin,
-    PromotionAdmin,
-    PurchaseInvoiceAdmin,
-    PurchaseInvoiceItemAdmin,
-    PurchaseOrderAdmin,
-    PurchaseOrderItemAdmin,
-    RefundAdmin,
-    RefundItemAdmin,
-    ReportsAdmin,
-    RoleAdmin,
-    RolePermissionAdmin,
-    ShiftReconciliationAdmin,
-    StockMovementAdmin,
-    SupplierAdmin,
-    SyncEventLogAdmin,
-    TaxRuleAdmin,
-    UserAdmin,
-    UserRoleAdmin,
-)
+from app.admin import all_admin_views
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
@@ -101,33 +73,8 @@ admin = Admin(
     authentication_backend=authentication_backend,
 )
 
-admin.add_view(UserAdmin)
-admin.add_view(RoleAdmin)
-admin.add_view(PermissionAdmin)
-admin.add_view(UserRoleAdmin)
-admin.add_view(RolePermissionAdmin)
-admin.add_view(LocalizationSettingAdmin)
-admin.add_view(CategoryAdmin)
-admin.add_view(CustomerAdmin)
-admin.add_view(LoyaltyTransactionAdmin)
-admin.add_view(ProductAdmin)
-admin.add_view(PromotionAdmin)
-admin.add_view(SupplierAdmin)
-admin.add_view(PurchaseOrderAdmin)
-admin.add_view(PurchaseOrderItemAdmin)
-admin.add_view(PurchaseInvoiceAdmin)
-admin.add_view(PurchaseInvoiceItemAdmin)
-admin.add_view(OrderAdmin)
-admin.add_view(OrderItemAdmin)
-admin.add_view(TaxRuleAdmin)
-admin.add_view(OrderTaxLineAdmin)
-admin.add_view(RefundAdmin)
-admin.add_view(RefundItemAdmin)
-admin.add_view(ShiftReconciliationAdmin)
-admin.add_view(StockMovementAdmin)
-admin.add_view(SyncEventLogAdmin)
-admin.add_view(ReportsAdmin)
-admin.add_view(DrawerSessionAdmin)
+for admin_view in all_admin_views:
+    admin.add_view(admin_view)
 
 
 @app.get("/")

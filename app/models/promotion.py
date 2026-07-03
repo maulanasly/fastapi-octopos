@@ -2,9 +2,9 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -22,9 +22,9 @@ class Promotion(Base):
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     discount_type = Column(String, nullable=False)  # percentage, fixed
-    discount_value = Column(Float, nullable=False)
-    min_order_amount = Column(Float, nullable=False, default=0.0)
-    max_discount_amount = Column(Float, nullable=True)
+    discount_value = Column(Numeric(12, 2), nullable=False)
+    min_order_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
+    max_discount_amount = Column(Numeric(12, 2), nullable=True)
     applies_to = Column(
         String, nullable=False, default="order"
     )  # order, product, category

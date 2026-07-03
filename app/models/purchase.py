@@ -2,9 +2,9 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
 )
@@ -39,7 +39,7 @@ class PurchaseOrder(Base):
     status = Column(
         String, nullable=False, default="draft", index=True
     )  # draft, ordered, partially_received, received, cancelled
-    total_estimated_amount = Column(Float, nullable=False, default=0.0)
+    total_estimated_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     ordered_at = Column(DateTime(timezone=True), nullable=True)
@@ -61,7 +61,7 @@ class PurchaseOrderItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     quantity_ordered = Column(Integer, nullable=False)
     quantity_received = Column(Integer, nullable=False, default=0)
-    unit_cost = Column(Float, nullable=False)
+    unit_cost = Column(Numeric(12, 2), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product")
@@ -87,9 +87,9 @@ class PurchaseInvoice(Base):
     )  # draft, pending_review, approved, rejected
     invoice_date = Column(DateTime(timezone=True), nullable=True)
     due_date = Column(DateTime(timezone=True), nullable=True)
-    subtotal_amount = Column(Float, nullable=False, default=0.0)
-    total_amount = Column(Float, nullable=False, default=0.0)
-    variance_amount = Column(Float, nullable=False, default=0.0)
+    subtotal_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
+    total_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
+    variance_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     has_quantity_variance = Column(Boolean, nullable=False, default=False)
     has_price_variance = Column(Boolean, nullable=False, default=False)
     notes = Column(Text, nullable=True)
@@ -116,12 +116,12 @@ class PurchaseInvoiceItem(Base):
     )
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     billed_quantity = Column(Integer, nullable=False)
-    billed_unit_cost = Column(Float, nullable=False)
+    billed_unit_cost = Column(Numeric(12, 2), nullable=False)
     expected_quantity = Column(Integer, nullable=False)
-    expected_unit_cost = Column(Float, nullable=False)
+    expected_unit_cost = Column(Numeric(12, 2), nullable=False)
     quantity_variance = Column(Integer, nullable=False, default=0)
-    price_variance = Column(Float, nullable=False, default=0.0)
-    line_total = Column(Float, nullable=False, default=0.0)
+    price_variance = Column(Numeric(12, 2), nullable=False, default=0.0)
+    line_total = Column(Numeric(12, 2), nullable=False, default=0.0)
 
     invoice = relationship("PurchaseInvoice", back_populates="items")
     purchase_order_item = relationship(

@@ -55,6 +55,21 @@ def _normalize_payment_method(payment_method: str) -> str:
     return payment_method.strip().lower()
 
 
+def _validate_drawer_session_status(db: Session, order: Order) -> None:
+    """Validate that the drawer session for an order is still open."""
+    if order.drawer_session_id:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(DrawerSession.id == order.drawer_session_id)
+            .first()
+        )
+        if drawer and drawer.status != "open":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot add payment to an order from a closed drawer session",
+            )
+
+
 def _calculate_settlement_totals(
     db: Session, order: Order
 ) -> tuple[Decimal, Decimal, Decimal]:
@@ -711,17 +726,7 @@ def add_payment_to_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.drawer_session_id:
-        drawer = (
-            db.query(DrawerSession)
-            .filter(DrawerSession.id == order.drawer_session_id)
-            .first()
-        )
-        if drawer and drawer.status != "open":
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot add payment to an order from a closed drawer session",
-            )
+    _validate_drawer_session_status(db=db, order=order)
 
     if order.status in ("cancelled", "completed"):
         raise HTTPException(
@@ -782,17 +787,7 @@ def add_split_payments_to_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if order.drawer_session_id:
-        drawer = (
-            db.query(DrawerSession)
-            .filter(DrawerSession.id == order.drawer_session_id)
-            .first()
-        )
-        if drawer and drawer.status != "open":
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot add payment to an order from a closed drawer session",
-            )
+    _validate_drawer_session_status(db=db, order=order)
 
     if order.status in ("cancelled", "completed"):
         raise HTTPException(

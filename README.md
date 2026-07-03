@@ -194,6 +194,11 @@ alembic/
 
 ## Getting Started
 
+### Prerequisites
+
+- Python 3.10+
+- Make (optional, for convenience commands)
+
 ### 1. Clone repository
 
 ```bash
@@ -205,7 +210,7 @@ cd fastapi-octopos
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
 ### 3. Install dependencies
@@ -214,7 +219,21 @@ source .venv/bin/activate
 make install
 ```
 
-### 4. Run the app
+### 4. Configure environment
+
+Copy `.env.example` and update the values as needed:
+
+```bash
+cp .env.example .env
+```
+
+### 5. Run migrations
+
+```bash
+make migrate
+```
+
+### 6. Run the app
 
 ```bash
 make run
@@ -517,7 +536,9 @@ app/
 
 ### Testing
 
-Run the test suite:
+> **Note:** The test suite is configured but test files are not yet implemented.
+
+To run tests when they are added:
 
 ```bash
 make test

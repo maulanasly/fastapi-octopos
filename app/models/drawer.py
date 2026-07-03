@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -16,9 +16,9 @@ class DrawerSession(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     closed_at = Column(DateTime(timezone=True), nullable=True)
-    starting_cash = Column(Float, default=0.0, nullable=False)
-    ending_cash = Column(Float, nullable=True)
-    expected_cash = Column(Float, default=0.0, nullable=False)
+    starting_cash = Column(Numeric(12, 2), default=0.0, nullable=False)
+    ending_cash = Column(Numeric(12, 2), nullable=True)
+    expected_cash = Column(Numeric(12, 2), default=0.0, nullable=False)
     status = Column(String, default="open", nullable=False)  # "open", "closed"
 
     user = relationship("User")
