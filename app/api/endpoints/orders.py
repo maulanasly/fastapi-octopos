@@ -15,6 +15,7 @@ from app.api.dependencies import (
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.money import quantize_money, to_decimal
+from app.core.validation import validate_drawer_session_status
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
@@ -55,19 +56,10 @@ def _normalize_payment_method(payment_method: str) -> str:
     return payment_method.strip().lower()
 
 
+# Wrapper using the shared validation helper
 def _validate_drawer_session_status(db: Session, order: Order) -> None:
-    """Validate that the drawer session for an order is still open."""
-    if order.drawer_session_id:
-        drawer = (
-            db.query(DrawerSession)
-            .filter(DrawerSession.id == order.drawer_session_id)
-            .first()
-        )
-        if drawer and drawer.status != "open":
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot add payment to an order from a closed drawer session",
-            )
+    """Validate that the drawer session for an order is still open (for payments)."""
+    validate_drawer_session_status(db=db, order=order, action="add payment to")
 
 
 def _calculate_settlement_totals(
@@ -915,17 +907,7 @@ def cancel_order(
     if order.status == "cancelled":
         raise HTTPException(status_code=400, detail="Order is already cancelled")
 
-    if order.drawer_session_id:
-        drawer = (
-            db.query(DrawerSession)
-            .filter(DrawerSession.id == order.drawer_session_id)
-            .first()
-        )
-        if drawer and drawer.status != "open":
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot cancel an order from a closed drawer session",
-            )
+    validate_drawer_session_status(db=db, order=order, action="cancel")
 
     _release_order_reservation(
         db=db,

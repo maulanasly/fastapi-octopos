@@ -55,5 +55,4 @@ class DrawerSession(DrawerSessionBase):
     ending_cash: Optional[float] = None
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}

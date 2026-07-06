@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
-from app.models.drawer import DrawerSession
+from app.core.validation import validate_drawer_session_status
 from app.models.order import Order, OrderItem
 from app.models.product import Product
 from app.models.refund import Refund, RefundItem
@@ -104,17 +104,7 @@ def create_refund(
             status_code=400, detail="Only completed orders can be refunded"
         )
 
-    if order.drawer_session_id:
-        drawer = (
-            db.query(DrawerSession)
-            .filter(DrawerSession.id == order.drawer_session_id)
-            .first()
-        )
-        if drawer and drawer.status != "open":
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot refund an order from a closed drawer session",
-            )
+    validate_drawer_session_status(db=db, order=order, action="refund")
 
     item_quantities = defaultdict(int)
     for item in refund_in.items:
