@@ -1,3 +1,4 @@
+import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Union
@@ -27,10 +28,15 @@ def create_access_token(
 
 
 def create_refresh_token() -> tuple[str, datetime]:
-    """Returns (token_string, expiry_datetime)."""
+    """Returns (raw_token_string, expiry_datetime)."""
     token = secrets.token_urlsafe(48)
     expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     return token, expires_at
+
+
+def hash_refresh_token(token: str) -> str:
+    """SHA-256 hash of a refresh token, what gets persisted in the DB."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

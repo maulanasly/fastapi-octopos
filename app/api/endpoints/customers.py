@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.order import Order
@@ -30,7 +30,7 @@ def get_customers(
 def create_customer(
     customer_in: CustomerCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("customers:manage")),
 ):
     customer = Customer(**customer_in.model_dump())
     db.add(customer)
@@ -56,7 +56,7 @@ def update_customer(
     customer_id: int,
     customer_in: CustomerUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("customers:manage")),
 ):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
@@ -76,7 +76,7 @@ def update_customer(
 def deactivate_customer(
     customer_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("customers:manage")),
 ):
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:

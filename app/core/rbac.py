@@ -1,5 +1,7 @@
 DEFAULT_PERMISSION_DEFINITIONS: dict[str, str] = {
     "products:manage": "Manage products and categories",
+    "customers:manage": "Manage customers",
+    "promotions:manage": "Manage promotions and discounts",
     "orders:manage": "Create and manage orders",
     "payments:manage": "Add order payments",
     "refunds:view": "View refunds",
@@ -33,6 +35,8 @@ DEFAULT_ROLE_DEFINITIONS: dict[str, dict] = {
         "is_system": True,
         "permissions": [
             "products:manage",
+            "customers:manage",
+            "promotions:manage",
             "orders:manage",
             "payments:manage",
             "refunds:view",

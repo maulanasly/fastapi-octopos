@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "FastAPI POS Backend"
     API_V1_STR: str = "/api/v1"
+    ENVIRONMENT: str = "development"  # development | production
 
     # CORS — set explicit origins in production (e.g. ["https://yourapp.com"])
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
@@ -33,6 +34,22 @@ class Settings(BaseSettings):
     ORDER_RESERVATION_TIMEOUT_MINUTES: int = 15
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+
+    def fail_closed(self) -> None:
+        """Refuse to run with default/dummy credentials in production."""
+        if self.ENVIRONMENT != "production":
+            return
+        insecure = []
+        if self.SECRET_KEY in {
+            "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
+        }:
+            insecure.append("SECRET_KEY is the FastAPI tutorial default")
+        if self.ADMIN_PASSWORD == "admin":
+            insecure.append("ADMIN_PASSWORD is the default 'admin'")
+        if insecure:
+            raise RuntimeError(
+                "Refusing to start in production mode: " + "; ".join(insecure)
+            )
 
 
 settings = Settings()

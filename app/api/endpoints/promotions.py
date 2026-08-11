@@ -4,7 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
@@ -99,7 +99,7 @@ def get_promotion(
 def create_promotion(
     promotion_in: PromotionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("promotions:manage")),
 ):
     promotion_data = promotion_in.model_dump()
     promotion_data["code"] = promotion_data["code"].strip().upper()
@@ -126,7 +126,7 @@ def update_promotion(
     promotion_id: int,
     promotion_in: PromotionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("promotions:manage")),
 ):
     promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
     if not promotion:
@@ -171,7 +171,7 @@ def update_promotion(
 def deactivate_promotion(
     promotion_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("promotions:manage")),
 ):
     promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
     if not promotion:

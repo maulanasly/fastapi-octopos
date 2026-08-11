@@ -718,6 +718,11 @@ def add_payment_to_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    if not current_user.is_superuser and order.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to add payment to this order"
+        )
+
     _validate_drawer_session_status(db=db, order=order)
 
     if order.status in ("cancelled", "completed"):
@@ -778,6 +783,11 @@ def add_split_payments_to_order(
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    if not current_user.is_superuser and order.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to add payment to this order"
+        )
 
     _validate_drawer_session_status(db=db, order=order)
 

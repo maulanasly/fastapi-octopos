@@ -15,6 +15,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     get_password_hash,
+    hash_refresh_token,
     verify_password,
 )
 from app.models.refresh_token import RefreshToken
@@ -36,7 +37,9 @@ def _issue_tokens(user: User, db: Session) -> dict:
     access_token = create_access_token(user.id, expires_delta=access_token_expires)
 
     raw_refresh, expires_at = create_refresh_token()
-    db_refresh = RefreshToken(token=raw_refresh, user_id=user.id, expires_at=expires_at)
+    db_refresh = RefreshToken(
+        token=hash_refresh_token(raw_refresh), user_id=user.id, expires_at=expires_at
+    )
     db.add(db_refresh)
     db.commit()
 
@@ -50,7 +53,8 @@ def _issue_tokens(user: User, db: Session) -> dict:
 @router.post(
     "/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED
 )
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user with email and password.
     """
@@ -94,7 +98,10 @@ def login_access_token(
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_access_token(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def refresh_access_token(
+    request: Request, payload: RefreshTokenRequest, db: Session = Depends(get_db)
+):
     """
     Exchange a valid refresh token for a new access + refresh token pair.
     The old refresh token is revoked.
@@ -102,7 +109,7 @@ def refresh_access_token(payload: RefreshTokenRequest, db: Session = Depends(get
     db_token = (
         db.query(RefreshToken)
         .filter(
-            RefreshToken.token == payload.refresh_token,
+            RefreshToken.token == hash_refresh_token(payload.refresh_token),
             RefreshToken.revoked == False,  # noqa: E712
         )  # noqa: E712
         .first()
@@ -122,6 +129,7 @@ def refresh_access_token(payload: RefreshTokenRequest, db: Session = Depends(get
 
     # Revoke the used token (rotation)
     db_token.revoked = True
+    db_token.revoked_at = datetime.now(timezone.utc)
     db.add(db_token)
 
     return _issue_tokens(user, db)
@@ -134,17 +142,21 @@ def logout(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
     """
     db_token = (
         db.query(RefreshToken)
-        .filter(RefreshToken.token == payload.refresh_token)
+        .filter(RefreshToken.token == hash_refresh_token(payload.refresh_token))
         .first()
     )
     if db_token:
         db_token.revoked = True
+        db_token.revoked_at = datetime.now(timezone.utc)
         db.add(db_token)
         db.commit()
 
 
 @router.post("/google", response_model=Token)
-def google_auth(google_token: GoogleToken, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def google_auth(
+    request: Request, google_token: GoogleToken, db: Session = Depends(get_db)
+):
     """
     Verify Google ID token and return a local access + refresh token pair.
     """

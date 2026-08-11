@@ -1,8 +1,11 @@
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -11,15 +14,18 @@ from sqladmin import Admin
 
 # pyrefly: ignore [missing-import]
 from sqladmin.authentication import AuthenticationBackend
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 # pyrefly: ignore [missing-import]
-from starlette.requests import Request
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.admin import all_admin_views
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import Base, engine
 from app.core.limiter import limiter
+
+settings.fail_closed()
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
@@ -32,12 +38,43 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    same_site="lax",
+    https_only=settings.ENVIRONMENT == "production",
+)
+app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"detail": jsonable_encoder(exc.errors())},
+    )
+
+
+@app.exception_handler(IntegrityError)
+async def integrity_error_handler(request: Request, exc: IntegrityError):
+    return JSONResponse(
+        status_code=409,
+        content={"detail": "Resource conflict or duplicate entry"},
+    )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal database error"},
+    )
+
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

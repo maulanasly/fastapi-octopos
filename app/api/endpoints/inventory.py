@@ -4,7 +4,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
@@ -27,7 +27,7 @@ def get_inventory_movements(
     purchase_order_id: Optional[int] = Query(None, ge=1),
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("inventory:view")),
 ):
     query = db.query(StockMovement).order_by(StockMovement.id.desc())
 
@@ -53,7 +53,7 @@ def get_replenishment_suggestions(
     lookback_days: int = Query(30, ge=1, le=365),
     product_id: Optional[int] = Query(None, ge=1),
     only_reorder_needed: bool = Query(True),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("inventory:view")),
 ):
     query = db.query(Product).order_by(Product.id.asc())
     if product_id is not None:

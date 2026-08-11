@@ -3,7 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.models.product import Category, Product
 from app.models.stock_movement import StockMovement
@@ -33,7 +33,7 @@ def get_categories(
 def create_category(
     category_in: CategoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("products:manage")),
 ):
     category = Category(**category_in.model_dump())
     db.add(category)
@@ -60,7 +60,7 @@ def get_products(
 def create_product(
     product_in: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("products:manage")),
 ):
     # check category if provided
     if product_in.category_id:
@@ -97,7 +97,7 @@ def update_product(
     product_id: int,
     product_in: ProductUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("products:manage")),
 ):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
@@ -134,7 +134,7 @@ def update_product(
 def delete_product(
     product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_permissions("products:manage")),
 ):
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
