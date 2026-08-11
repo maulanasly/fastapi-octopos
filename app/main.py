@@ -22,13 +22,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.admin import all_admin_views
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.database import Base, engine
+from app.core.database import engine
 from app.core.limiter import limiter
 
 settings.fail_closed()
-
-# Create tables if they don't exist
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json"

@@ -229,9 +229,13 @@ cp .env.example .env
 
 ### 5. Run migrations
 
+The schema is managed exclusively by Alembic (the app no longer auto-creates tables at startup).
+
 ```bash
 make migrate
 ```
+
+> **Upgrading a database created before the migration squash:** the migration history was compacted into a single `0001_initial_schema` migration. Stamp existing databases with `alembic stamp 0001` after confirming their schema matches the current models (or re-run `alembic upgrade head` on a fresh database).
 
 ### 6. Run the app
 
@@ -273,6 +277,7 @@ cp .env.example .env
 |----------|-------------|---------|
 | `PROJECT_NAME` | Application name | `FastAPI POS Backend` |
 | `API_V1_STR` | API prefix | `/api/v1` |
+| `ENVIRONMENT` | `development` or `production` — production refuses default secrets | `development` |
 | `BACKEND_CORS_ORIGINS` | CORS allowed origins (JSON array) | `["http://localhost:3000", "http://localhost:8080"]` |
 | `SQLALCHEMY_DATABASE_URI` | Database connection string | `sqlite:///./sql_app.db` |
 | `SECRET_KEY` | JWT signing secret (change in production) | Random default (insecure) |
