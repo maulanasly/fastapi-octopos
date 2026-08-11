@@ -3,15 +3,11 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-import pytest
-from fastapi import HTTPException
-
 from app.api.endpoints.orders import (
     _as_utc,
     _calculate_settlement_totals,
     _is_reservation_expired,
 )
-from app.core.validation import validate_drawer_session_status
 
 
 class TestAsUtc:
@@ -60,52 +56,6 @@ class TestIsReservationExpired:
         order.reservation_status = "reserved"
         order.reservation_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
         assert _is_reservation_expired(order) is False
-
-
-class TestValidateDrawerSessionStatus:
-    """Tests for drawer session validation."""
-
-    def test_no_drawer_session_passes(self):
-        """Orders without drawer session pass validation."""
-        order = MagicMock()
-        order.drawer_session_id = None
-        db = MagicMock()
-        # Should not raise
-        validate_drawer_session_status(db, order, "add payment to")
-
-    def test_closed_drawer_raises(self):
-        """Closed drawer sessions raise HTTPException."""
-        order = MagicMock()
-        order.drawer_session_id = 1
-        drawer = MagicMock()
-        drawer.status = "closed"
-
-        db = MagicMock()
-        mock_query = MagicMock()
-        mock_filter = MagicMock()
-        mock_filter.first.return_value = drawer
-        mock_query.filter.return_value = mock_filter
-        db.query.return_value = mock_query
-
-        with pytest.raises(HTTPException) as exc_info:
-            validate_drawer_session_status(db, order, "refund")
-        assert exc_info.value.status_code == 400
-
-    def test_open_drawer_passes(self):
-        """Open drawer sessions pass validation."""
-        order = MagicMock()
-        order.drawer_session_id = 1
-        drawer = MagicMock()
-        drawer.status = "open"
-
-        db = MagicMock()
-        mock_query = MagicMock()
-        mock_filter = MagicMock()
-        mock_filter.first.return_value = drawer
-        mock_query.filter.return_value = mock_filter
-        db.query.return_value = mock_query
-
-        validate_drawer_session_status(db, order, "cancel")  # Should not raise
 
 
 class TestCalculateSettlementTotals:

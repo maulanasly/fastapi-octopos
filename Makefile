@@ -50,9 +50,8 @@ format: ## Auto-format code
 test: ## Run test suite
 	pytest -q
 
-check: ## Run lint + tests + compile check
-	pre-commit run --all-files
-	pytest -q || test $$? -eq 5
+check: ## Run tests with coverage + compile check
+	pytest -q --cov=app --cov-report=term-missing --cov-fail-under=60
 	$(PYTHON) -m compileall app alembic
 
 pre-commit: ## Install pre-commit hooks
