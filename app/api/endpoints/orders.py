@@ -14,7 +14,7 @@ from app.api.dependencies import (
 )
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.money import quantize_money, to_decimal
+from app.core.money import money_to_float, quantize_money, to_decimal
 from app.core.validation import validate_drawer_session_status
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
@@ -661,32 +661,30 @@ def get_order_receipt(
         ReceiptOrderItem(
             product_id=item.product_id,
             quantity=item.quantity,
-            unit_price=float(quantize_money(item.unit_price)),
-            line_total=float(
-                quantize_money(to_decimal(item.unit_price) * item.quantity)
-            ),
+            unit_price=money_to_float(item.unit_price),
+            line_total=money_to_float(to_decimal(item.unit_price) * item.quantity),
         )
         for item in order.items
     ]
     subtotal_amount = (
-        float(order.subtotal_amount)
+        money_to_float(order.subtotal_amount)
         if order.subtotal_amount is not None
-        else float(sum(item.line_total for item in item_lines))
+        else money_to_float(sum(item.line_total for item in item_lines))
     )
 
     return OrderReceipt(
         order_id=order.id,
         created_at=order.created_at,
-        subtotal_amount=round(subtotal_amount, 2),
-        discount_amount=round(float(order.discount_amount or 0.0), 2),
+        subtotal_amount=subtotal_amount,
+        discount_amount=money_to_float(order.discount_amount),
         redeemed_points=int(order.redeemed_points or 0),
-        taxable_base_amount=round(float(order.taxable_base_amount or 0.0), 2),
-        tax_total_amount=round(float(order.tax_total_amount or 0.0), 2),
-        grand_total_amount=round(float(order.grand_total_amount or 0.0), 2),
-        total_amount=round(float(order.total_amount or 0.0), 2),
-        paid_amount=round(float(order.paid_amount or 0.0), 2),
-        change_amount=round(float(order.change_amount or 0.0), 2),
-        remaining_amount=round(float(order.remaining_amount or 0.0), 2),
+        taxable_base_amount=money_to_float(order.taxable_base_amount),
+        tax_total_amount=money_to_float(order.tax_total_amount),
+        grand_total_amount=money_to_float(order.grand_total_amount),
+        total_amount=money_to_float(order.total_amount),
+        paid_amount=money_to_float(order.paid_amount),
+        change_amount=money_to_float(order.change_amount),
+        remaining_amount=money_to_float(order.remaining_amount),
         status=order.status,
         reservation_status=order.reservation_status,
         items=item_lines,

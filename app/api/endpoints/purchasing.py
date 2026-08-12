@@ -11,6 +11,7 @@ from app.api.dependencies import (
     require_permissions,
 )
 from app.core.database import get_db
+from app.core.money import money_to_float
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
 from app.models.purchase import (
@@ -232,7 +233,7 @@ def create_purchase_invoice(
         )
         billed_quantity = billed_item.billed_quantity
         billed_unit_cost = billed_item.billed_unit_cost
-        expected_unit_cost = float(po_item.unit_cost)
+        expected_unit_cost = money_to_float(po_item.unit_cost)
 
         cumulative_billed_quantity = previously_billed_quantity + billed_quantity
         quantity_variance = billed_quantity - expected_quantity

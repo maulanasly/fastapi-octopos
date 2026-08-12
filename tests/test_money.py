@@ -1,7 +1,7 @@
 """Tests for money utility functions."""
 from decimal import Decimal
 
-from app.core.money import quantize_money, to_decimal
+from app.core.money import money_to_float, quantize_money, to_decimal
 
 
 class TestToDecimal:
@@ -71,3 +71,20 @@ class TestQuantizeMoney:
         """Large monetary values are handled correctly."""
         result = quantize_money(Decimal("999999999999.999"))
         assert result == Decimal("1000000000000.00")
+
+
+class TestMoneyToFloat:
+    """Tests for money_to_float boundary conversion."""
+
+    def test_returns_quantized_float(self):
+        """Value is quantized to two decimals before float conversion."""
+        assert money_to_float(Decimal("10.005")) == 10.01
+        assert money_to_float("3.14159") == 3.14
+
+    def test_none_returns_zero(self):
+        """None defaults to zero."""
+        assert money_to_float(None) == 0.0
+
+    def test_negative_values(self):
+        """Negative amounts round correctly."""
+        assert money_to_float("-7.125") == -7.13

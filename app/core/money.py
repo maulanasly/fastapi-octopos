@@ -16,3 +16,8 @@ def to_decimal(value: MoneyInput, default: str = "0") -> Decimal:
 
 def quantize_money(value: MoneyInput) -> Decimal:
     return to_decimal(value).quantize(_MONEY_QUANT, rounding=ROUND_HALF_UP)
+
+
+def money_to_float(value: MoneyInput, default: str = "0") -> float:
+    """Quantize a money value and return it as a float (API boundary only)."""
+    return float(quantize_money(to_decimal(value, default)))

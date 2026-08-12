@@ -1,4 +1,5 @@
 from collections import defaultdict
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
+from app.core.money import quantize_money
 from app.core.validation import validate_drawer_session_status
 from app.models.order import Order, OrderItem
 from app.models.product import Product
@@ -140,7 +142,7 @@ def create_refund(
 
     refund_items: List[RefundItem] = []
     movement_inputs = []
-    total_amount = 0.0
+    total_amount = Decimal("0")
 
     for order_item_id, quantity in item_quantities.items():
         order_item: OrderItem = order_item_map[order_item_id]
@@ -167,7 +169,7 @@ def create_refund(
         product.stock_quantity += quantity
         db.add(product)
 
-        total_amount += float(order_item.unit_price) * quantity
+        total_amount += quantize_money(order_item.unit_price) * quantity
         refund_items.append(
             RefundItem(
                 order_item_id=order_item.id,

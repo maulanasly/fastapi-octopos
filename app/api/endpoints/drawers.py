@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
+from app.core.money import money_to_float, to_decimal
 from app.models.drawer import DrawerSession
 from app.models.order import Order
 from app.models.payment import Payment
@@ -141,16 +142,12 @@ def reconcile_and_close_drawer(
     raw_cash_sales_total = payment_base_query.filter(
         func.lower(Payment.payment_method) == "cash"
     ).scalar()
-    cash_sales_total = float(
-        raw_cash_sales_total if raw_cash_sales_total is not None else 0.0
-    )
+    cash_sales_total = money_to_float(raw_cash_sales_total)
 
     raw_non_cash_sales_total = payment_base_query.filter(
         func.lower(Payment.payment_method) != "cash"
     ).scalar()
-    non_cash_sales_total = float(
-        raw_non_cash_sales_total if raw_non_cash_sales_total is not None else 0.0
-    )
+    non_cash_sales_total = money_to_float(raw_non_cash_sales_total)
 
     raw_refunds_total = (
         db.query(func.coalesce(func.sum(Refund.total_amount), 0.0))
@@ -158,16 +155,14 @@ def reconcile_and_close_drawer(
         .filter(Order.drawer_session_id == drawer.id)
         .scalar()
     )
-    refunds_total = float(raw_refunds_total if raw_refunds_total is not None else 0.0)
+    refunds_total = money_to_float(raw_refunds_total)
 
     raw_gross_sales_total = (
         db.query(func.coalesce(func.sum(Order.total_amount), 0.0))
         .filter(Order.drawer_session_id == drawer.id, Order.status == "completed")
         .scalar()
     )
-    gross_sales_total = float(
-        raw_gross_sales_total if raw_gross_sales_total is not None else 0.0
-    )
+    gross_sales_total = money_to_float(raw_gross_sales_total)
 
     raw_completed_order_count = (
         db.query(func.count(Order.id))
@@ -178,10 +173,11 @@ def reconcile_and_close_drawer(
         raw_completed_order_count if raw_completed_order_count is not None else 0
     )
 
-    expected_cash = float(drawer.starting_cash) + cash_sales_total - refunds_total
+    cash_pool = to_decimal(drawer.starting_cash) + to_decimal(cash_sales_total)
+    expected_cash = money_to_float(cash_pool - to_decimal(refunds_total))
     expected_non_cash = non_cash_sales_total
     counted_non_cash = (
-        float(reconcile_in.counted_non_cash)
+        money_to_float(reconcile_in.counted_non_cash)
         if reconcile_in.counted_non_cash is not None
         else expected_non_cash
     )
