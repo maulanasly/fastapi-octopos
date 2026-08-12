@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.money import quantize_money
 from app.core.validation import validate_drawer_session_status
+from app.models.customer import Customer, LoyaltyTransaction
 from app.models.order import Order, OrderItem
 from app.models.product import Product
 from app.models.refund import Refund, RefundItem
@@ -168,6 +169,24 @@ def create_refund(
                 note="Stock restored by refund",
             )
         )
+
+    if order.customer_id:
+        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        if customer:
+            points_to_reverse = min(int(total_amount), customer.points_balance)
+            if points_to_reverse > 0:
+                customer.points_balance -= points_to_reverse
+                db.add(customer)
+                db.add(
+                    LoyaltyTransaction(
+                        customer_id=customer.id,
+                        order_id=order.id,
+                        transaction_type="adjust",
+                        points_delta=-points_to_reverse,
+                        balance_after=customer.points_balance,
+                        note="Earned points reversed due to refund",
+                    )
+                )
 
     db.commit()
 

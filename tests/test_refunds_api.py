@@ -137,3 +137,95 @@ def test_unknown_order_item_rejected(
     resp = _refund(client, manager_headers, order, order_item_id=99999, quantity=1)
     assert resp.status_code == 400
     assert "not found in order" in resp.json()["detail"]
+
+
+def _customer_order_flow(
+    client, manager_headers, make_product, open_drawer, customer, quantity=2
+):
+    product = make_product(
+        manager_headers, name="Pts Item", sku="SKU-PTS", price=50.0, stock=10
+    )
+    open_drawer(manager_headers)
+    order = client.post(
+        "/api/v1/orders/",
+        headers=manager_headers,
+        json={
+            **order_payload(product["id"], quantity=quantity),
+            "customer_id": customer["id"],
+        },
+    )
+    assert order.status_code == 200, order.text
+    order = order.json()
+    paid = client.post(
+        f"/api/v1/orders/{order['id']}/payments",
+        headers=manager_headers,
+        json={"payment_method": "cash", "amount": 100.0},
+    )
+    assert paid.status_code == 200, paid.text
+    return product, order
+
+
+def test_refund_reverses_earned_points_pro_rata(
+    client, manager_headers, make_product, open_drawer
+):
+    customer = client.post(
+        "/api/v1/customers/",
+        headers=manager_headers,
+        json={"name": "Points Jane", "email": "points-jane@example.com"},
+    ).json()
+    _, order = _customer_order_flow(
+        client, manager_headers, make_product, open_drawer, customer
+    )
+
+    after_completion = client.get(
+        f"/api/v1/customers/{customer['id']}", headers=manager_headers
+    ).json()
+    assert after_completion["points_balance"] == 100
+
+    resp = _refund(client, manager_headers, order, order["items"][0]["id"], quantity=1)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["total_amount"] == 50.0
+
+    after_refund = client.get(
+        f"/api/v1/customers/{customer['id']}", headers=manager_headers
+    ).json()
+    assert after_refund["points_balance"] == 50
+
+    txns = client.get(
+        f"/api/v1/customers/{customer['id']}/loyalty-transactions",
+        headers=manager_headers,
+    ).json()
+    adjust = [t for t in txns if t["transaction_type"] == "adjust"]
+    assert len(adjust) == 1
+    assert adjust[0]["points_delta"] == -50
+    assert adjust[0]["order_id"] == order["id"]
+
+
+def test_refund_points_reversal_never_goes_negative(
+    client, manager_headers, make_product, open_drawer
+):
+    customer = client.post(
+        "/api/v1/customers/",
+        headers=manager_headers,
+        json={"name": "Points Ken", "email": "points-ken@example.com"},
+    ).json()
+    _, order = _customer_order_flow(
+        client, manager_headers, make_product, open_drawer, customer
+    )
+
+    balance = client.get(
+        f"/api/v1/customers/{customer['id']}", headers=manager_headers
+    ).json()["points_balance"]
+    assert balance == 100
+
+    first = _refund(client, manager_headers, order, order["items"][0]["id"], quantity=1)
+    assert first.status_code == 200, first.text
+    second = _refund(
+        client, manager_headers, order, order["items"][0]["id"], quantity=1
+    )
+    assert second.status_code == 200, second.text
+
+    after = client.get(
+        f"/api/v1/customers/{customer['id']}", headers=manager_headers
+    ).json()
+    assert after["points_balance"] == 0
