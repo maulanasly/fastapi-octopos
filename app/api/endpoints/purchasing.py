@@ -232,7 +232,7 @@ def create_purchase_invoice(
         )
         billed_quantity = billed_item.billed_quantity
         billed_unit_cost = billed_item.billed_unit_cost
-        expected_unit_cost = po_item.unit_cost
+        expected_unit_cost = float(po_item.unit_cost)
 
         cumulative_billed_quantity = previously_billed_quantity + billed_quantity
         quantity_variance = billed_quantity - expected_quantity

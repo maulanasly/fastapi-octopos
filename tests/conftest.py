@@ -119,7 +119,17 @@ def assign_role(db):
 
 @pytest.fixture()
 def make_product(client):
-    def _make(headers, name="Test Product", sku="SKU-TEST", price=100.0, stock=10):
+    def _make(
+        headers,
+        name="Test Product",
+        sku="SKU-TEST",
+        price=100.0,
+        stock=10,
+        min_stock=0,
+        max_stock=None,
+        reorder_point=0,
+        lead_time_days=0,
+    ):
         cat_resp = client.post(
             "/api/v1/products/categories",
             headers=headers,
@@ -134,6 +144,10 @@ def make_product(client):
                 "sku": sku,
                 "price": price,
                 "stock_quantity": stock,
+                "min_stock": min_stock,
+                "max_stock": max_stock,
+                "reorder_point": reorder_point,
+                "lead_time_days": lead_time_days,
                 "category_id": cat_resp.json()["id"],
             },
         )

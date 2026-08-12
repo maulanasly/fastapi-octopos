@@ -51,7 +51,7 @@ test: ## Run test suite
 	pytest -q
 
 check: ## Run tests with coverage + compile check
-	pytest -q --cov=app --cov-report=term-missing --cov-fail-under=60
+	pytest -q --cov=app --cov-report=term-missing --cov-fail-under=70
 	$(PYTHON) -m compileall app alembic
 
 pre-commit: ## Install pre-commit hooks
