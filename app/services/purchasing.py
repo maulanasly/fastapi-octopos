@@ -317,7 +317,8 @@ def create_purchase_order(
         )
 
     total_estimated_amount = sum(
-        item.quantity_ordered * item.unit_cost for item in purchase_order_in.items
+        quantize_money(to_decimal(item.quantity_ordered) * to_decimal(item.unit_cost))
+        for item in purchase_order_in.items
     )
 
     purchase_order = PurchaseOrder(
