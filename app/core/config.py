@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # Admin
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "admin"
+    ADMIN_SESSION_HOURS: int = 12
 
     # Order reservation
     ORDER_RESERVATION_TIMEOUT_MINUTES: int = 15

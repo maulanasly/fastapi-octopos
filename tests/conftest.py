@@ -17,6 +17,7 @@ os.environ[
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, text  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
@@ -25,7 +26,14 @@ from app.core.database import Base, SessionLocal  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 TEST_DB_URL = os.environ["SQLALCHEMY_DATABASE_URI"]
 
-test_engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
+# One persistent connection for the whole session: with StaticPool the
+# engine's connection is never re-created, so the shared in-memory DB
+# survives worker-thread session churn from sqladmin.
+test_engine = create_engine(
+    TEST_DB_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 
 
 class _AuthFactory:

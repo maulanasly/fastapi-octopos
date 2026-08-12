@@ -124,9 +124,32 @@ def get_category_sales_data(
 
 def get_low_stock_products_data(
     db: Session,
-    threshold: int = 10,
+    threshold: Optional[int] = None,
 ):
-    return db.query(Product).filter(Product.stock_quantity <= threshold).all()
+    """Products at or below stock threshold.
+
+    When threshold is None, use each product's own reorder_point (falling
+    back to min_stock), and a default of 10 when both are unset/zero.
+    """
+    query = db.query(Product)
+    if threshold is not None:
+        query = query.filter(Product.stock_quantity <= threshold)
+    else:
+        effective_threshold = func.coalesce(
+            func.nullif(
+                case(
+                    (
+                        Product.reorder_point >= Product.min_stock,
+                        Product.reorder_point,
+                    ),
+                    else_=Product.min_stock,
+                ),
+                0,
+            ),
+            10,
+        )
+        query = query.filter(Product.stock_quantity <= effective_threshold)
+    return query.order_by(Product.stock_quantity.asc()).all()
 
 
 def get_top_customers_data(

@@ -1,6 +1,8 @@
 # pyrefly: ignore [missing-import]
 import asyncio
+import secrets
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request
@@ -26,8 +28,9 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.admin import all_admin_views
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import SessionLocal, engine
 from app.core.limiter import limiter
+from app.core.security import verify_password
 
 settings.fail_closed()
 
@@ -119,26 +122,95 @@ async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
+def _admin_session_expiry() -> str:
+    expires = datetime.now(timezone.utc) + timedelta(hours=settings.ADMIN_SESSION_HOURS)
+    return expires.isoformat()
+
+
 # Setup SQLAdmin Authentication
 class AdminAuth(AuthenticationBackend):
+    """Admin authentication backed by real application users.
+
+    Credentials are verified against the :class:`User` table with the same
+    password hashing as the API. Only active superusers may sign in.
+    A plaintext ADMIN_USERNAME/ADMIN_PASSWORD fallback is honoured ONLY in
+    non-production environments, to bootstrap the first admin account.
+    """
+
     async def login(self, request: Request) -> bool:
         form = await request.form()
         username, password = form["username"], form["password"]
 
-        # Super simple hardcoded admin auth for development
-        if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
-            request.session.update({"token": "admin-token"})
-            return True
-        return False
+        if settings.ENVIRONMENT != "production":
+            if (username == settings.ADMIN_USERNAME) and (
+                password == settings.ADMIN_PASSWORD
+            ):
+                request.session.update(
+                    {
+                        "admin_token": secrets.token_urlsafe(48),
+                        "admin_expires_at": _admin_session_expiry(),
+                    }
+                )
+                return True
+
+        from app.models.user import User
+
+        db = SessionLocal()
+        try:
+            user = (
+                db.query(User)
+                .filter(User.email == username, User.is_active.is_(True))
+                .first()
+            )
+            if not user or not user.hashed_password:
+                return False
+            if not verify_password(password, user.hashed_password):
+                return False
+            if not user.is_superuser:
+                return False
+        finally:
+            db.close()
+
+        request.session.update(
+            {
+                "admin_token": secrets.token_urlsafe(48),
+                "admin_user_id": user.id,
+                "admin_expires_at": _admin_session_expiry(),
+            }
+        )
+        return True
 
     async def logout(self, request: Request) -> bool:
         request.session.clear()
         return True
 
     async def authenticate(self, request: Request) -> bool:
-        token = request.session.get("token")
+        token = request.session.get("admin_token")
         if not token:
             return False
+
+        expires_at = request.session.get("admin_expires_at")
+        if not expires_at:
+            return False
+        try:
+            expires_dt = datetime.fromisoformat(expires_at)
+        except ValueError:
+            return False
+        if expires_dt <= datetime.now(timezone.utc):
+            request.session.clear()
+            return False
+
+        if "admin_user_id" in request.session:
+            from app.models.user import User
+
+            db = SessionLocal()
+            try:
+                user = db.get(User, int(request.session["admin_user_id"]))
+                if not user or not user.is_active or not user.is_superuser:
+                    request.session.clear()
+                    return False
+            finally:
+                db.close()
         return True
 
 
