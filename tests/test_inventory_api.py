@@ -104,6 +104,28 @@ def test_replenishment_suggestion_below_reorder_point(
     assert rows[0]["recommended_order_quantity"] == 7
 
 
+def test_replenishment_triggers_when_below_min_stock(
+    client, cashier_headers, make_product, manager_headers
+):
+    make_product(
+        manager_headers,
+        name="Above Reorder Below Min",
+        sku="SKU-ARBM",
+        stock=7,
+        min_stock=10,
+        reorder_point=5,
+    )
+
+    rows = client.get(
+        "/api/v1/inventory/replenishment-suggestions",
+        headers=cashier_headers,
+    ).json()
+    assert len(rows) == 1
+    assert rows[0]["sku"] == "SKU-ARBM"
+    assert rows[0]["should_reorder"] is True
+    assert rows[0]["recommended_order_quantity"] == 3
+
+
 def test_replenishment_honors_product_filter(
     client, cashier_headers, make_product, manager_headers
 ):

@@ -55,7 +55,9 @@ def build_replenishment_suggestions(
         should_reorder = any(
             (
                 product.stock_quantity <= reorder_point,
+                product.stock_quantity <= min_stock,
                 projected_stock_at_lead_time <= reorder_point,
+                projected_stock_at_lead_time <= min_stock,
             )
         )
 
