@@ -24,6 +24,7 @@ class ProductBase(BaseModel):
     sku: str
     description: Optional[str] = None
     price: float
+    unit_cost: Optional[float] = None
     stock_quantity: int = Field(0, ge=0)
     min_stock: int = Field(0, ge=0)
     max_stock: Optional[int] = Field(None, ge=0)

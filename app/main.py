@@ -1,4 +1,8 @@
 # pyrefly: ignore [missing-import]
+import asyncio
+from contextlib import asynccontextmanager
+
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -27,8 +31,47 @@ from app.core.limiter import limiter
 
 settings.fail_closed()
 
+
+async def _reservation_expiry_loop() -> None:
+    """Periodically release expired order reservations in the background."""
+    while True:
+        await asyncio.sleep(settings.RESERVATION_AUTO_EXPIRE_INTERVAL_SECONDS)
+        await asyncio.to_thread(_release_expired_reservations_sync)
+
+
+def _release_expired_reservations_sync() -> None:
+    from app.core.database import SessionLocal
+    from app.models.user import User
+    from app.services.orders import release_expired_reservations_for_user
+
+    db = SessionLocal()
+    try:
+        user = (
+            db.query(User)
+            .filter(User.is_superuser.is_(True), User.is_active.is_(True))
+            .order_by(User.id.asc())
+            .first()
+        )
+        if user:
+            release_expired_reservations_for_user(db=db, user_id=user.id)
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = None
+    if settings.RESERVATION_AUTO_EXPIRE_ENABLED:
+        task = asyncio.create_task(_reservation_expiry_loop())
+    yield
+    if task:
+        task.cancel()
+
+
 app = FastAPI(
-    title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan,
 )
 
 app.state.limiter = limiter

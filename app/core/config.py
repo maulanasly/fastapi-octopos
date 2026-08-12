@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     # Order reservation
     ORDER_RESERVATION_TIMEOUT_MINUTES: int = 15
+    RESERVATION_AUTO_EXPIRE_ENABLED: bool = False
+    RESERVATION_AUTO_EXPIRE_INTERVAL_SECONDS: int = 300
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

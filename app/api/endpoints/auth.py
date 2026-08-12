@@ -33,6 +33,11 @@ class GoogleToken(BaseModel):
 
 def _issue_tokens(user: User, db: Session) -> dict:
     """Create and persist an access + refresh token pair for a user."""
+    now = datetime.now(timezone.utc)
+    db.query(RefreshToken).filter(RefreshToken.expires_at < now).delete(
+        synchronize_session=False
+    )
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(user.id, expires_delta=access_token_expires)
 

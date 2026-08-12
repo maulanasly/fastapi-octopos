@@ -349,3 +349,49 @@ def test_cashier_cannot_approve_invoices(
         json={},
     )
     assert resp.status_code == 403
+
+
+def test_approve_invoice_updates_product_unit_cost(
+    client, manager_headers, make_product
+):
+    product = make_product(manager_headers, name="Cost Basis", sku="SKU-CB", price=10.0)
+    supplier = _make_supplier(client, manager_headers)
+    po = _make_po(client, manager_headers, supplier["id"], product["id"], unit_cost=5.0)
+    client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/mark-ordered", headers=manager_headers
+    )
+    _receive_all(client, manager_headers, po)
+
+    created = client.post(
+        "/api/v1/purchasing/invoices",
+        headers=manager_headers,
+        json={
+            "purchase_order_id": po["id"],
+            "invoice_number": "INV-COST",
+            "items": [
+                {
+                    "purchase_order_item_id": po["items"][0]["id"],
+                    "billed_quantity": 10,
+                    "billed_unit_cost": 6.5,
+                }
+            ],
+        },
+    )
+    assert created.status_code == 200, created.text
+    invoice = created.json()
+    client.post(
+        f"/api/v1/purchasing/invoices/{invoice['id']}/submit-review",
+        headers=manager_headers,
+        json={},
+    )
+
+    approved = client.post(
+        f"/api/v1/purchasing/invoices/{invoice['id']}/approve",
+        headers=manager_headers,
+        json={},
+    )
+    assert approved.status_code == 200, approved.text
+
+    products = client.get("/api/v1/products/", headers=manager_headers).json()
+    updated = next(p for p in products if p["id"] == product["id"])
+    assert updated["unit_cost"] == 6.5

@@ -32,6 +32,8 @@ class ShiftReconciliation(BaseModel):
     cash_sales_total: float
     non_cash_sales_total: float
     refunds_total: float
+    cash_refunds_total: float
+    non_cash_refunds_total: float
     expected_cash: float
     counted_cash: float
     cash_variance: float

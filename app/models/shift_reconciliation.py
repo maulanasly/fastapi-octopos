@@ -22,6 +22,8 @@ class ShiftReconciliation(Base):
     cash_sales_total = Column(Numeric(12, 2), nullable=False, default=0.0)
     non_cash_sales_total = Column(Numeric(12, 2), nullable=False, default=0.0)
     refunds_total = Column(Numeric(12, 2), nullable=False, default=0.0)
+    cash_refunds_total = Column(Numeric(12, 2), nullable=False, default=0.0)
+    non_cash_refunds_total = Column(Numeric(12, 2), nullable=False, default=0.0)
     expected_cash = Column(Numeric(12, 2), nullable=False, default=0.0)
     counted_cash = Column(Numeric(12, 2), nullable=False, default=0.0)
     cash_variance = Column(Numeric(12, 2), nullable=False, default=0.0)

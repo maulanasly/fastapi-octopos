@@ -48,10 +48,57 @@ def test_refund_restores_stock(client, manager_headers, make_product, open_drawe
     refund = resp.json()
     assert refund["total_amount"] == 100.0
     assert refund["order_id"] == order["id"]
+    assert refund["payment_method"] == "cash"
 
     products = client.get("/api/v1/products/", headers=manager_headers).json()
     updated = next(p for p in products if p["id"] == product["id"])
     assert updated["stock_quantity"] == 10
+
+
+def _card_completed_order(client, manager_headers, make_product, open_drawer):
+    product = make_product(
+        manager_headers, name="Card Ref", sku="SKU-CRD", price=50.0, stock=10
+    )
+    open_drawer(manager_headers)
+    order = client.post(
+        "/api/v1/orders/",
+        headers=manager_headers,
+        json=order_payload(product["id"], quantity=1),
+    )
+    assert order.status_code == 200, order.text
+    order = order.json()
+    paid = client.post(
+        f"/api/v1/orders/{order['id']}/payments",
+        headers=manager_headers,
+        json={"payment_method": "card", "amount": 50.0},
+    )
+    assert paid.status_code == 200, paid.text
+    return product, order
+
+
+def test_refund_infers_payment_method_from_single_payment_order(
+    client, manager_headers, make_product, open_drawer
+):
+    _, order = _card_completed_order(client, manager_headers, make_product, open_drawer)
+
+    resp = _refund(client, manager_headers, order, order["items"][0]["id"], quantity=1)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["payment_method"] == "card"
+
+
+def test_refund_explicit_payment_method_stored(
+    client, manager_headers, make_product, open_drawer
+):
+    _, order = _completed_order(client, manager_headers, make_product, open_drawer)
+
+    payload = {
+        "order_id": order["id"],
+        "payment_method": "card",
+        "items": [{"order_item_id": order["items"][0]["id"], "quantity": 1}],
+    }
+    resp = client.post("/api/v1/refunds/", headers=manager_headers, json=payload)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["payment_method"] == "card"
 
 
 def test_refund_idempotency_returns_same_refund(

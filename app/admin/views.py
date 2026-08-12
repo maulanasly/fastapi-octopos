@@ -125,6 +125,7 @@ class ProductAdmin(ModelView, model=Product):
         Product.name,
         Product.sku,
         Product.price,
+        Product.unit_cost,
         Product.stock_quantity,
         Product.min_stock,
         Product.max_stock,

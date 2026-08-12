@@ -89,3 +89,39 @@ def test_logout_revokes_refresh_token(client, auth_factory):
 def test_protected_endpoint_requires_auth(client):
     resp = client.get("/api/v1/orders/")
     assert resp.status_code == 401
+
+
+def test_login_cleans_up_expired_refresh_tokens(client, auth_factory, db):
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.refresh_token import RefreshToken
+
+    user = auth_factory.register("token-cleanup@example.com")
+
+    expired = RefreshToken(
+        token="expired-hash-1",
+        user_id=user["id"],
+        expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+    )
+    active_old = RefreshToken(
+        token="active-hash-1",
+        user_id=user["id"],
+        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
+    db.add_all([expired, active_old])
+    db.commit()
+
+    login = client.post(
+        "/api/v1/auth/token",
+        data={"username": "token-cleanup@example.com", "password": "TestPass123"},
+    )
+    assert login.status_code == 200
+
+    remaining_hashes = {
+        token.token
+        for token in db.query(RefreshToken)
+        .filter(RefreshToken.user_id == user["id"])
+        .all()
+    }
+    assert "expired-hash-1" not in remaining_hashes
+    assert "active-hash-1" in remaining_hashes

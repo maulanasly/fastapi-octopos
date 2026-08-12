@@ -60,6 +60,14 @@ def create_refund(
 
     validate_drawer_session_status(db=db, order=order, action="refund")
 
+    if refund_in.payment_method:
+        payment_method = refund_in.payment_method
+    else:
+        payment_methods = {payment.payment_method for payment in order.payments}
+        payment_method = (
+            payment_methods.pop().lower() if len(payment_methods) == 1 else "cash"
+        )
+
     item_quantities = defaultdict(int)
     for item in refund_in.items:
         item_quantities[item.order_item_id] += item.quantity
@@ -144,6 +152,7 @@ def create_refund(
         order_id=order.id,
         user_id=current_user.id,
         idempotency_key=refund_in.idempotency_key,
+        payment_method=payment_method,
         reason=refund_in.reason,
         total_amount=total_amount,
     )

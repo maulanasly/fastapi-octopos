@@ -755,6 +755,13 @@ def release_expired_reservations(
     db: Session,
     current_user: User,
 ) -> ReservationReleaseSummary:
+    return release_expired_reservations_for_user(db=db, user_id=current_user.id)
+
+
+def release_expired_reservations_for_user(
+    db: Session,
+    user_id: int,
+) -> ReservationReleaseSummary:
     now = datetime.now(timezone.utc)
     candidate_orders = (
         db.query(Order)
@@ -780,7 +787,7 @@ def release_expired_reservations(
         _release_order_reservation(
             db=db,
             order=order,
-            user_id=current_user.id,
+            user_id=user_id,
             movement_type="reservation_release",
             note="Stock restored by expired reservation release",
         )

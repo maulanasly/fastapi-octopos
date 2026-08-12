@@ -254,6 +254,13 @@ def approve_purchase_invoice(
     invoice.approved_at = datetime.now(timezone.utc)
     invoice.rejected_at = None
     db.add(invoice)
+
+    for item in invoice.items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if product:
+            product.unit_cost = item.billed_unit_cost
+            db.add(product)
+
     db.commit()
     db.refresh(invoice)
     return invoice

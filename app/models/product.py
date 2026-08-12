@@ -22,6 +22,7 @@ class Product(Base):
     sku = Column(String, unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
     price = Column(Numeric(12, 2), nullable=False)
+    unit_cost = Column(Numeric(12, 2), nullable=True)
     stock_quantity = Column(Integer, default=0)
     min_stock = Column(Integer, nullable=False, default=0)
     max_stock = Column(Integer, nullable=True)

@@ -246,3 +246,38 @@ def test_insufficient_stock_rejected(
     )
     assert resp.status_code == 400
     assert "Not enough stock" in resp.json()["detail"]
+
+
+def test_release_expired_reservations_for_user_releases_stock(
+    client, cashier_headers, manager_headers, make_product, open_drawer, db
+):
+    from datetime import datetime, timedelta, timezone
+
+    from app.models.order import Order
+    from app.models.user import User
+    from app.services.orders import release_expired_reservations_for_user
+
+    product = make_product(
+        manager_headers, name="Expiring", sku="SKU-EXP", price=10.0, stock=5
+    )
+    open_drawer(cashier_headers)
+    order = _create_checked_out_order(
+        client, cashier_headers, product["id"], quantity=2
+    )
+
+    db_order = db.get(Order, order["id"])
+    db_order.reservation_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db.add(db_order)
+    db.commit()
+
+    manager = db.query(User).filter(User.email == "manager@example.com").one()
+    summary = release_expired_reservations_for_user(db=db, user_id=manager.id)
+    assert summary.released_count == 1
+    assert summary.released_order_ids == [order["id"]]
+
+    db.refresh(db_order)
+    assert db_order.reservation_status == "released"
+
+    products = client.get("/api/v1/products/", headers=cashier_headers).json()
+    updated = next(p for p in products if p["id"] == product["id"])
+    assert updated["stock_quantity"] == 5
