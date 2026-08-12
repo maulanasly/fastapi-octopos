@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, timezone
 
 # pyrefly: ignore [missing-import]
 from sqladmin import BaseView, ModelView, expose
-from sqlalchemy import case, func
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
@@ -29,6 +28,15 @@ from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
 from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
+from app.services.reports import (
+    get_category_sales_data,
+    get_executive_summary_data,
+    get_invoice_summary_data,
+    get_low_stock_products_data,
+    get_sales_summary_data,
+    get_top_customers_data,
+    get_top_products_data,
+)
 
 
 class UserAdmin(ModelView, model=User):
@@ -41,6 +49,7 @@ class UserAdmin(ModelView, model=User):
         User.roles,
     ]
     column_searchable_list = [User.email, User.full_name]
+    can_delete = False
 
 
 class LocalizationSettingAdmin(ModelView, model=LocalizationSetting):
@@ -84,6 +93,9 @@ class PermissionAdmin(ModelView, model=Permission):
 class UserRoleAdmin(ModelView, model=UserRole):
     column_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
     column_sortable_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class RolePermissionAdmin(ModelView, model=RolePermission):
@@ -97,6 +109,9 @@ class RolePermissionAdmin(ModelView, model=RolePermission):
         RolePermission.role_id,
         RolePermission.permission_id,
     ]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class CategoryAdmin(ModelView, model=Category):
@@ -173,6 +188,9 @@ class LoyaltyTransactionAdmin(ModelView, model=LoyaltyTransaction):
         LoyaltyTransaction.note,
     ]
     column_sortable_list = [LoyaltyTransaction.id, LoyaltyTransaction.created_at]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class SupplierAdmin(ModelView, model=Supplier):
@@ -201,6 +219,9 @@ class PurchaseOrderAdmin(ModelView, model=PurchaseOrder):
     ]
     column_searchable_list = [PurchaseOrder.status]
     column_sortable_list = [PurchaseOrder.created_at, PurchaseOrder.received_at]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class PurchaseOrderItemAdmin(ModelView, model=PurchaseOrderItem):
@@ -214,6 +235,9 @@ class PurchaseOrderItemAdmin(ModelView, model=PurchaseOrderItem):
     ]
     column_searchable_list = [PurchaseOrderItem.purchase_order_id]
     column_sortable_list = [PurchaseOrderItem.id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class PurchaseInvoiceAdmin(ModelView, model=PurchaseInvoice):
@@ -236,6 +260,9 @@ class PurchaseInvoiceAdmin(ModelView, model=PurchaseInvoice):
         PurchaseInvoice.total_amount,
         PurchaseInvoice.variance_amount,
     ]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class PurchaseInvoiceItemAdmin(ModelView, model=PurchaseInvoiceItem):
@@ -257,6 +284,9 @@ class PurchaseInvoiceItemAdmin(ModelView, model=PurchaseInvoiceItem):
         PurchaseInvoiceItem.purchase_order_item_id,
     ]
     column_sortable_list = [PurchaseInvoiceItem.id, PurchaseInvoiceItem.line_total]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class OrderAdmin(ModelView, model=Order):
@@ -282,6 +312,9 @@ class OrderAdmin(ModelView, model=Order):
     ]
     column_sortable_list = [Order.created_at, Order.total_amount]
     column_searchable_list = [Order.id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class OrderItemAdmin(ModelView, model=OrderItem):
@@ -293,6 +326,9 @@ class OrderItemAdmin(ModelView, model=OrderItem):
         OrderItem.unit_price,
     ]
     column_searchable_list = [OrderItem.order_id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class DrawerSessionAdmin(ModelView, model=DrawerSession):
@@ -307,6 +343,9 @@ class DrawerSessionAdmin(ModelView, model=DrawerSession):
     ]
     column_searchable_list = [DrawerSession.status]
     column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class ShiftReconciliationAdmin(ModelView, model=ShiftReconciliation):
@@ -324,6 +363,9 @@ class ShiftReconciliationAdmin(ModelView, model=ShiftReconciliation):
     ]
     column_searchable_list = [ShiftReconciliation.drawer_session_id]
     column_sortable_list = [ShiftReconciliation.created_at, ShiftReconciliation.id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class RefundAdmin(ModelView, model=Refund):
@@ -336,6 +378,9 @@ class RefundAdmin(ModelView, model=Refund):
     ]
     column_searchable_list = [Refund.order_id]
     column_sortable_list = [Refund.created_at, Refund.total_amount]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class RefundItemAdmin(ModelView, model=RefundItem):
@@ -348,6 +393,9 @@ class RefundItemAdmin(ModelView, model=RefundItem):
         RefundItem.unit_price,
     ]
     column_searchable_list = [RefundItem.refund_id, RefundItem.order_item_id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class StockMovementAdmin(ModelView, model=StockMovement):
@@ -365,6 +413,9 @@ class StockMovementAdmin(ModelView, model=StockMovement):
     ]
     column_searchable_list = [StockMovement.movement_type, StockMovement.note]
     column_sortable_list = [StockMovement.created_at, StockMovement.id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class SyncEventLogAdmin(ModelView, model=SyncEventLog):
@@ -386,6 +437,9 @@ class SyncEventLogAdmin(ModelView, model=SyncEventLog):
         SyncEventLog.status,
     ]
     column_sortable_list = [SyncEventLog.processed_at, SyncEventLog.id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class TaxRuleAdmin(ModelView, model=TaxRule):
@@ -421,6 +475,9 @@ class OrderTaxLineAdmin(ModelView, model=OrderTaxLine):
     ]
     column_searchable_list = [OrderTaxLine.tax_name, OrderTaxLine.tax_scope]
     column_sortable_list = [OrderTaxLine.applied_at, OrderTaxLine.id]
+    can_create = False
+    can_edit = False
+    can_delete = False
 
 
 class ReportsAdmin(BaseView):
@@ -469,265 +526,36 @@ class ReportsAdmin(BaseView):
                 end_date = None
 
             # 1. Sales Summary
-            summary_query = db.query(
-                func.coalesce(
-                    func.sum(func.coalesce(Order.subtotal_amount, Order.total_amount)),
-                    0.0,
-                ),
-                func.coalesce(func.sum(Order.discount_amount), 0.0),
-                func.coalesce(func.sum(Order.total_amount), 0.0),
-                func.count(Order.id),
-            ).filter(Order.status == "completed")
-            refunds_query = (
-                db.query(func.coalesce(func.sum(Refund.total_amount), 0.0))
-                .join(Order, Refund.order_id == Order.id)
-                .filter(Order.status == "completed")
+            sales_summary = get_sales_summary_data(
+                db=db, start_date=start_date, end_date=end_date
             )
-            if start_date is not None:
-                summary_query = summary_query.filter(Order.created_at >= start_date)
-                refunds_query = refunds_query.filter(Refund.created_at >= start_date)
-            if end_date is not None:
-                summary_query = summary_query.filter(Order.created_at <= end_date)
-                refunds_query = refunds_query.filter(Refund.created_at <= end_date)
-
-            (
-                gross_revenue,
-                total_discounts,
-                total_revenue,
-                order_count,
-            ) = summary_query.first()
-            raw_total_refunds = refunds_query.scalar()
-            total_refunds = raw_total_refunds if raw_total_refunds is not None else 0.0
-            net_revenue = float(total_revenue or 0.0) - float(total_refunds)
-            average_order_value = (
-                total_revenue / order_count if order_count > 0 else 0.0
-            )
-            sales_summary = {
-                "gross_revenue": gross_revenue,
-                "total_discounts": total_discounts,
-                "total_revenue": total_revenue,
-                "total_refunds": total_refunds,
-                "net_revenue": net_revenue,
-                "order_count": order_count,
-                "average_order_value": average_order_value,
-            }
 
             # 2. Top Selling Products
-            top_products_query = (
-                db.query(
-                    Product.id.label("product_id"),
-                    Product.name.label("product_name"),
-                    Product.sku.label("product_sku"),
-                    func.sum(OrderItem.quantity).label("total_quantity_sold"),
-                    func.sum(OrderItem.quantity * OrderItem.unit_price).label(
-                        "total_revenue"
-                    ),
-                )
-                .select_from(OrderItem)
-                .join(Product, OrderItem.product_id == Product.id)
-                .join(Order, OrderItem.order_id == Order.id)
-                .filter(Order.status == "completed")
-            )
-            if start_date is not None:
-                top_products_query = top_products_query.filter(
-                    Order.created_at >= start_date
-                )
-            if end_date is not None:
-                top_products_query = top_products_query.filter(
-                    Order.created_at <= end_date
-                )
-            top_products = (
-                top_products_query.group_by(Product.id)
-                .order_by(func.sum(OrderItem.quantity).desc())
-                .limit(10)
-                .all()
+            top_products = get_top_products_data(
+                db=db, start_date=start_date, end_date=end_date, limit=10
             )
 
             # 3. Sales by Category
-            category_sales_query = (
-                db.query(
-                    Category.id.label("category_id"),
-                    func.coalesce(Category.name, "Uncategorized").label(
-                        "category_name"
-                    ),
-                    func.sum(OrderItem.quantity).label("total_quantity_sold"),
-                    func.sum(OrderItem.quantity * OrderItem.unit_price).label(
-                        "total_revenue"
-                    ),
-                )
-                .select_from(OrderItem)
-                .join(Product, OrderItem.product_id == Product.id)
-                .join(Order, OrderItem.order_id == Order.id)
-                .outerjoin(Category, Product.category_id == Category.id)
-                .filter(Order.status == "completed")
-                .group_by(Category.id, Category.name)
-                .order_by(func.sum(OrderItem.quantity * OrderItem.unit_price).desc())
+            category_sales = get_category_sales_data(
+                db=db, start_date=start_date, end_date=end_date
             )
-            if start_date is not None:
-                category_sales_query = category_sales_query.filter(
-                    Order.created_at >= start_date
-                )
-            if end_date is not None:
-                category_sales_query = category_sales_query.filter(
-                    Order.created_at <= end_date
-                )
-            category_sales = category_sales_query.all()
 
             # 4. Low Stock Products (threshold <= 10)
-            low_stock_products = (
-                db.query(Product).filter(Product.stock_quantity <= 10).all()
-            )
+            low_stock_products = get_low_stock_products_data(db=db, threshold=10)
 
             # 5. Top Customers
-            top_customers_query = (
-                db.query(
-                    Customer.id.label("customer_id"),
-                    Customer.name.label("customer_name"),
-                    Customer.email.label("customer_email"),
-                    func.count(Order.id).label("order_count"),
-                    func.coalesce(func.sum(Order.total_amount), 0.0).label(
-                        "total_spent"
-                    ),
-                    Customer.points_balance.label("points_balance"),
-                )
-                .join(Order, Order.customer_id == Customer.id)
-                .filter(Order.status == "completed")
-            )
-            if start_date is not None:
-                top_customers_query = top_customers_query.filter(
-                    Order.created_at >= start_date
-                )
-            if end_date is not None:
-                top_customers_query = top_customers_query.filter(
-                    Order.created_at <= end_date
-                )
-            top_customers = (
-                top_customers_query.group_by(
-                    Customer.id,
-                    Customer.name,
-                    Customer.email,
-                    Customer.points_balance,
-                )
-                .order_by(func.sum(Order.total_amount).desc())
-                .limit(5)
-                .all()
+            top_customers = get_top_customers_data(
+                db=db, start_date=start_date, end_date=end_date, limit=5
             )
 
-            invoice_summary_query = db.query(PurchaseInvoice)
-            if start_date is not None:
-                invoice_summary_query = invoice_summary_query.filter(
-                    PurchaseInvoice.created_at >= start_date
-                )
-            if end_date is not None:
-                invoice_summary_query = invoice_summary_query.filter(
-                    PurchaseInvoice.created_at <= end_date
-                )
-            (
-                invoice_count,
-                invoice_pending_review_count,
-                invoice_approved_total,
-                invoice_billed_total,
-                invoice_variance_total,
-            ) = invoice_summary_query.with_entities(
-                func.count(PurchaseInvoice.id),
-                func.coalesce(
-                    func.sum(
-                        case((PurchaseInvoice.status == "pending_review", 1), else_=0)
-                    ),
-                    0,
-                ),
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (
-                                PurchaseInvoice.status == "approved",
-                                PurchaseInvoice.total_amount,
-                            ),
-                            else_=0.0,
-                        )
-                    ),
-                    0.0,
-                ),
-                func.coalesce(func.sum(PurchaseInvoice.total_amount), 0.0),
-                func.coalesce(func.sum(PurchaseInvoice.variance_amount), 0.0),
-            ).first()
+            invoice_summary = get_invoice_summary_data(
+                db=db, start_date=start_date, end_date=end_date
+            )
 
             # 6. Executive Summary
-            active_customers_count = (
-                db.query(func.count(Customer.id))
-                .filter(Customer.is_active == True)  # noqa: E712
-                .scalar()
+            executive_summary = get_executive_summary_data(
+                db=db, invoice_summary=invoice_summary
             )
-            raw_points_issued = (
-                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
-                .filter(LoyaltyTransaction.points_delta > 0)
-                .scalar()
-            )
-            raw_points_redeemed = (
-                db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
-                .filter(
-                    LoyaltyTransaction.transaction_type == "redeem",
-                    LoyaltyTransaction.points_delta < 0,
-                )
-                .scalar()
-            )
-            open_purchase_orders_count = (
-                db.query(func.count(PurchaseOrder.id))
-                .filter(
-                    PurchaseOrder.status.in_(("draft", "ordered", "partially_received"))
-                )
-                .scalar()
-            )
-            received_value_expr = (
-                PurchaseOrderItem.quantity_received * PurchaseOrderItem.unit_cost
-            )
-            raw_purchase_received_value = db.query(
-                func.coalesce(
-                    func.sum(received_value_expr),
-                    0.0,
-                )
-            ).scalar()
-            reconciled_shift_count = db.query(
-                func.count(ShiftReconciliation.id)
-            ).scalar()
-            raw_avg_cash_variance = db.query(
-                func.coalesce(func.avg(ShiftReconciliation.cash_variance), 0.0)
-            ).scalar()
-
-            executive_summary = {
-                "gross_revenue": float(gross_revenue or 0.0),
-                "total_discounts": float(total_discounts or 0.0),
-                "active_customers_count": int(
-                    active_customers_count if active_customers_count is not None else 0
-                ),
-                "points_issued": int(
-                    raw_points_issued if raw_points_issued is not None else 0
-                ),
-                "points_redeemed": int(
-                    abs(raw_points_redeemed) if raw_points_redeemed is not None else 0
-                ),
-                "open_purchase_orders_count": int(
-                    open_purchase_orders_count
-                    if open_purchase_orders_count is not None
-                    else 0
-                ),
-                "purchase_received_value": float(
-                    raw_purchase_received_value
-                    if raw_purchase_received_value is not None
-                    else 0.0
-                ),
-                "reconciled_shift_count": int(
-                    reconciled_shift_count if reconciled_shift_count is not None else 0
-                ),
-                "average_cash_variance": float(
-                    raw_avg_cash_variance if raw_avg_cash_variance is not None else 0.0
-                ),
-                "invoice_count": int(invoice_count or 0),
-                "invoice_pending_review_count": int(invoice_pending_review_count or 0),
-                "invoice_approved_total": float(invoice_approved_total or 0.0),
-                "invoice_billed_total": float(invoice_billed_total or 0.0),
-                "invoice_variance_total": float(invoice_variance_total or 0.0),
-            }
 
             localized = {
                 "net_revenue": format_currency(
@@ -746,12 +574,12 @@ class ReportsAdmin(BaseView):
                     localization.number_format,
                 ),
                 "gross_revenue": format_currency(
-                    float(executive_summary["gross_revenue"]),
+                    float(sales_summary["gross_revenue"]),
                     localization.currency,
                     localization.number_format,
                 ),
                 "total_discounts": format_currency(
-                    float(executive_summary["total_discounts"]),
+                    float(sales_summary["total_discounts"]),
                     localization.currency,
                     localization.number_format,
                 ),
