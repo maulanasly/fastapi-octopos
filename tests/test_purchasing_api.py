@@ -207,6 +207,46 @@ def test_invoice_review_and_approval_flow(client, manager_headers, make_product)
     assert summary["invoice_count"] == 1
 
 
+def test_invoice_fractional_unit_cost_no_float_drift(
+    client, manager_headers, make_product
+):
+    product = make_product(manager_headers, name="Frac Cost", sku="SKU-FRC", price=10.0)
+    supplier = _make_supplier(client, manager_headers)
+    po = _make_po(
+        client,
+        manager_headers,
+        supplier["id"],
+        product["id"],
+        quantity=3,
+        unit_cost=0.1,
+    )
+    client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/mark-ordered", headers=manager_headers
+    )
+    _receive_all(client, manager_headers, po, quantity=3)
+
+    created = client.post(
+        "/api/v1/purchasing/invoices",
+        headers=manager_headers,
+        json={
+            "purchase_order_id": po["id"],
+            "invoice_number": "INV-FRC",
+            "items": [
+                {
+                    "purchase_order_item_id": po["items"][0]["id"],
+                    "billed_quantity": 3,
+                    "billed_unit_cost": 0.1,
+                }
+            ],
+        },
+    )
+    assert created.status_code == 200, created.text
+    invoice = created.json()
+    assert invoice["total_amount"] == 0.3
+    assert invoice["variance_amount"] == 0.0
+    assert invoice["has_price_variance"] is False
+
+
 def test_invoice_price_variance_flagged(client, manager_headers, make_product):
     product = make_product(manager_headers, name="Variance", sku="SKU-VAR", price=10.0)
     supplier = _make_supplier(client, manager_headers)

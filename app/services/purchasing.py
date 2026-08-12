@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List
 
 from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.money import money_to_float
+from app.core.money import quantize_money, to_decimal
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
 from app.models.purchase import (
@@ -115,8 +116,8 @@ def create_purchase_invoice(
     existing_billed_map = {row[0]: int(row[1] or 0) for row in existing_billed_rows}
 
     invoice_items: List[PurchaseInvoiceItem] = []
-    subtotal_amount = 0.0
-    variance_amount = 0.0
+    subtotal_amount = Decimal("0")
+    variance_amount = Decimal("0")
     has_quantity_variance = False
     has_price_variance = False
 
@@ -136,14 +137,16 @@ def create_purchase_invoice(
             po_item.quantity_received - previously_billed_quantity, 0
         )
         billed_quantity = billed_item.billed_quantity
-        billed_unit_cost = billed_item.billed_unit_cost
-        expected_unit_cost = money_to_float(po_item.unit_cost)
+        billed_unit_cost = quantize_money(to_decimal(billed_item.billed_unit_cost))
+        expected_unit_cost = quantize_money(to_decimal(po_item.unit_cost))
 
         cumulative_billed_quantity = previously_billed_quantity + billed_quantity
         quantity_variance = billed_quantity - expected_quantity
         price_variance = billed_unit_cost - expected_unit_cost
-        line_total = billed_quantity * billed_unit_cost
-        expected_line_total = expected_quantity * expected_unit_cost
+        line_total = quantize_money(to_decimal(billed_quantity) * billed_unit_cost)
+        expected_line_total = quantize_money(
+            to_decimal(expected_quantity) * expected_unit_cost
+        )
         line_variance_amount = line_total - expected_line_total
 
         if any(
