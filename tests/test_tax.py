@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.api.endpoints.orders import _get_scope_subtotal, _is_tax_rule_active
+from app.services.orders import _get_scope_subtotal, _is_tax_rule_active
 
 
 class TestIsTaxRuleActive:

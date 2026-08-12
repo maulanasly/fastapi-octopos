@@ -7,8 +7,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
-from app.api.endpoints.orders import add_payment_to_order, create_order
-from app.api.endpoints.refunds import create_refund
 from app.core.database import get_db
 from app.models.sync_event import SyncEventLog
 from app.models.user import User
@@ -21,6 +19,8 @@ from app.schemas.sync import (
     SyncEventIn,
     SyncEventResult,
 )
+from app.services.orders import add_payment_to_order, create_order
+from app.services.refunds import create_refund
 
 router = APIRouter()
 

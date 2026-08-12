@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-from app.api.endpoints.orders import (
+from app.services.orders import (
     _as_utc,
     _calculate_settlement_totals,
     _is_reservation_expired,
