@@ -126,6 +126,52 @@ def test_replenishment_triggers_when_below_min_stock(
     assert rows[0]["recommended_order_quantity"] == 3
 
 
+def test_replenishment_caps_target_at_max_stock(
+    client, cashier_headers, make_product, manager_headers
+):
+    make_product(
+        manager_headers,
+        name="Capped High",
+        sku="SKU-CAPH",
+        stock=3,
+        min_stock=10,
+        max_stock=50,
+        reorder_point=5,
+    )
+
+    rows = client.get(
+        "/api/v1/inventory/replenishment-suggestions",
+        headers=cashier_headers,
+    ).json()
+    assert len(rows) == 1
+    assert rows[0]["sku"] == "SKU-CAPH"
+    assert rows[0]["should_reorder"] is True
+    assert rows[0]["recommended_order_quantity"] == 7
+
+
+def test_replenishment_caps_target_below_min_stock_target(
+    client, cashier_headers, make_product, manager_headers
+):
+    make_product(
+        manager_headers,
+        name="Capped Low",
+        sku="SKU-CAPL",
+        stock=3,
+        min_stock=10,
+        max_stock=8,
+        reorder_point=5,
+    )
+
+    rows = client.get(
+        "/api/v1/inventory/replenishment-suggestions",
+        headers=cashier_headers,
+    ).json()
+    assert len(rows) == 1
+    assert rows[0]["sku"] == "SKU-CAPL"
+    assert rows[0]["should_reorder"] is True
+    assert rows[0]["recommended_order_quantity"] == 5
+
+
 def test_replenishment_honors_product_filter(
     client, cashier_headers, make_product, manager_headers
 ):

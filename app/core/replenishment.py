@@ -63,7 +63,7 @@ def build_replenishment_suggestions(
 
         suggested_target_stock = max(min_stock, reorder_point + lead_time_demand)
         if max_stock is not None and max_stock > 0:
-            suggested_target_stock = max(suggested_target_stock, max_stock)
+            suggested_target_stock = min(suggested_target_stock, max_stock)
 
         recommended_order_quantity = 0
         if should_reorder:
