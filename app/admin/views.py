@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
 # pyrefly: ignore [missing-import]
-from sqladmin import BaseView, ModelView, expose
+from sqladmin import BaseView, Flash, ModelView, action, expose
+from starlette.exceptions import HTTPException
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 from app.core.database import SessionLocal
 from app.core.localization import format_currency, get_localization_setting
@@ -37,6 +39,9 @@ from app.services.reports import (
     get_top_customers_data,
     get_top_products_data,
 )
+
+REPORTS_CACHE_SECONDS = 120
+_reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
 
 
 class UserAdmin(ModelView, model=User):
@@ -77,6 +82,16 @@ class RoleAdmin(ModelView, model=Role):
     ]
     column_searchable_list = [Role.name, Role.description]
     column_sortable_list = [Role.id, Role.name]
+
+    async def check_can_edit(self, request: Request, model: Role) -> bool:
+        if getattr(model, "is_system", False):
+            return False
+        return True
+
+    async def check_can_delete(self, request: Request, model: Role) -> bool:
+        if getattr(model, "is_system", False):
+            return False
+        return True
 
 
 class PermissionAdmin(ModelView, model=Permission):
@@ -140,6 +155,95 @@ class ProductAdmin(ModelView, model=Product):
         Product.reorder_point,
         Product.lead_time_days,
     ]
+
+    # Stock is ledger-managed via the stock-adjustment action below; never
+    # edit it directly through the create/edit forms.
+    form_excluded_columns = [Product.stock_quantity]
+
+    @action(
+        "adjust-stock",
+        label="Record Stock Adjustment",
+        confirmation_message=(
+            "A StockMovement ledger entry will be recorded. Continue?"
+        ),
+    )
+    async def adjust_stock_action(self, request: Request):
+        pk = request.query_params.get("pks", "").split(",")[0]
+        return RedirectResponse(
+            url=f"/admin/product/adjust-stock?pk={pk}", status_code=303
+        )
+
+    @expose("/adjust-stock", methods=["GET", "POST"])
+    async def adjust_stock_page(self, request: Request):
+        pk = request.query_params.get("pk")
+        if not pk:
+            raise HTTPException(status_code=404)
+        db = self.session_maker()
+        try:
+            product = db.get(Product, int(pk))
+            if not product:
+                raise HTTPException(status_code=404)
+
+            if request.method == "POST":
+                form = await request.form()
+                try:
+                    delta = int(form.get("delta"))
+                except (TypeError, ValueError):
+                    Flash.error(
+                        request, "Delta must be a whole number.", "Invalid input"
+                    )
+                    return RedirectResponse(
+                        url=f"/admin/product/adjust-stock?pk={pk}", status_code=303
+                    )
+
+                note = (form.get("note") or "").strip()
+                if delta == 0:
+                    Flash.warning(request, "Delta of zero records no movement.")
+                    return RedirectResponse(
+                        url=f"/admin/product/adjust-stock?pk={pk}", status_code=303
+                    )
+
+                quantity_before = product.stock_quantity or 0
+                quantity_after = quantity_before + delta
+                if quantity_after < 0:
+                    Flash.error(
+                        request, "Stock cannot go below zero.", "Insufficient stock"
+                    )
+                    return RedirectResponse(
+                        url=f"/admin/product/adjust-stock?pk={pk}", status_code=303
+                    )
+
+                product.stock_quantity = quantity_after
+                db.add(
+                    StockMovement(
+                        product_id=product.id,
+                        user_id=request.session.get("admin_user_id"),
+                        movement_type="manual_adjustment",
+                        quantity_before=quantity_before,
+                        quantity_delta=delta,
+                        quantity_after=quantity_after,
+                        note=note or "Manual stock adjustment from admin",
+                    )
+                )
+                db.commit()
+                Flash.success(
+                    request,
+                    f"Stock adjusted from {quantity_before} to {quantity_after}.",
+                )
+                return RedirectResponse(
+                    url=f"/admin/product/details/{product.id}", status_code=303
+                )
+
+            return await self.templates.TemplateResponse(
+                request,
+                "product_adjust_stock.html",
+                context={
+                    "product": product,
+                    "title": f"Adjust Stock: {product.name}",
+                },
+            )
+        finally:
+            db.close()
 
 
 class PromotionAdmin(ModelView, model=Promotion):
@@ -295,6 +399,17 @@ class OrderAdmin(ModelView, model=Order):
         Order.id,
         Order.user,
         Order.customer,
+        Order.status,
+        Order.promotion,
+        Order.grand_total_amount,
+        Order.paid_amount,
+        Order.remaining_amount,
+        Order.created_at,
+    ]
+    column_details_list = [
+        Order.id,
+        Order.user,
+        Order.customer,
         Order.promotion,
         Order.subtotal_amount,
         Order.discount_amount,
@@ -341,6 +456,10 @@ class DrawerSessionAdmin(ModelView, model=DrawerSession):
         DrawerSession.starting_cash,
         DrawerSession.ending_cash,
         DrawerSession.status,
+    ]
+    column_filters = [
+        DrawerSession.status,
+        DrawerSession.user_id,
     ]
     column_searchable_list = [DrawerSession.status]
     column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
@@ -485,126 +604,184 @@ class ReportsAdmin(BaseView):
     name = "Reports Dashboard"
     icon = "fa-solid fa-chart-line"
 
-    @expose("/reports", methods=["GET"])
-    async def reports_page(self, request: Request):
-        db = SessionLocal()
-        try:
-            localization = get_localization_setting(db)
-            now = datetime.now(timezone.utc)
-            period = request.query_params.get("period", "30d")
-            period_labels = {
+    def _period_range(self, now: datetime, period: str) -> tuple:
+        if period == "today":
+            start_date = datetime(
+                year=now.year,
+                month=now.month,
+                day=now.day,
+                tzinfo=timezone.utc,
+            )
+        elif period == "7d":
+            start_date = now - timedelta(days=7)
+        elif period == "30d":
+            start_date = now - timedelta(days=30)
+        elif period == "month":
+            start_date = datetime(
+                year=now.year,
+                month=now.month,
+                day=1,
+                tzinfo=timezone.utc,
+            )
+        else:
+            start_date = None
+        return start_date, None
+
+    def _build_report_data(self, db, period: str, localization) -> dict:
+        now = datetime.now(timezone.utc)
+        if period not in ("today", "7d", "30d", "month"):
+            period = "all"
+        start_date, end_date = self._period_range(now, period)
+
+        sales_summary = get_sales_summary_data(
+            db=db, start_date=start_date, end_date=end_date
+        )
+        top_products = get_top_products_data(
+            db=db, start_date=start_date, end_date=end_date, limit=10
+        )
+        category_sales = get_category_sales_data(
+            db=db, start_date=start_date, end_date=end_date
+        )
+        low_stock_products = get_low_stock_products_data(db=db)
+        top_customers = get_top_customers_data(
+            db=db, start_date=start_date, end_date=end_date, limit=5
+        )
+        invoice_summary = get_invoice_summary_data(
+            db=db, start_date=start_date, end_date=end_date
+        )
+        executive_summary = get_executive_summary_data(
+            db=db, invoice_summary=invoice_summary
+        )
+
+        localized = {
+            "net_revenue": format_currency(
+                float(sales_summary["net_revenue"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "total_refunds": format_currency(
+                float(sales_summary["total_refunds"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "average_order_value": format_currency(
+                float(sales_summary["average_order_value"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "gross_revenue": format_currency(
+                float(sales_summary["gross_revenue"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "total_discounts": format_currency(
+                float(sales_summary["total_discounts"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "purchase_received_value": format_currency(
+                float(executive_summary["purchase_received_value"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "average_cash_variance": format_currency(
+                float(executive_summary["average_cash_variance"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "invoice_approved_total": format_currency(
+                float(executive_summary["invoice_approved_total"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "invoice_variance_total": format_currency(
+                float(executive_summary["invoice_variance_total"]),
+                localization.currency,
+                localization.number_format,
+            ),
+        }
+
+        top_products_view = [
+            {
+                "product_name": row.product_name,
+                "product_sku": row.product_sku,
+                "total_quantity_sold": row.total_quantity_sold,
+                "total_revenue": row.total_revenue,
+                "total_revenue_formatted": format_currency(
+                    float(row.total_revenue or 0.0),
+                    localization.currency,
+                    localization.number_format,
+                ),
+            }
+            for row in top_products
+        ]
+        category_sales_view = [
+            {
+                "category_name": row.category_name,
+                "total_quantity_sold": row.total_quantity_sold,
+                "total_revenue": row.total_revenue,
+                "total_revenue_formatted": format_currency(
+                    float(row.total_revenue or 0.0),
+                    localization.currency,
+                    localization.number_format,
+                ),
+            }
+            for row in category_sales
+        ]
+        top_customers_view = [
+            {
+                "customer_name": row.customer_name,
+                "customer_email": row.customer_email,
+                "order_count": row.order_count,
+                "total_spent": row.total_spent,
+                "total_spent_formatted": format_currency(
+                    float(row.total_spent or 0.0),
+                    localization.currency,
+                    localization.number_format,
+                ),
+                "points_balance": row.points_balance,
+            }
+            for row in top_customers
+        ]
+
+        return {
+            "period_label": {
                 "today": "Today",
                 "7d": "Last 7 Days",
                 "30d": "Last 30 Days",
                 "month": "This Month",
                 "all": "All Time",
-            }
-            if period == "today":
-                start_date = datetime(
-                    year=now.year,
-                    month=now.month,
-                    day=now.day,
-                    tzinfo=timezone.utc,
-                )
-                end_date = None
-            elif period == "7d":
-                start_date = now - timedelta(days=7)
-                end_date = None
-            elif period == "30d":
-                start_date = now - timedelta(days=30)
-                end_date = None
-            elif period == "month":
-                start_date = datetime(
-                    year=now.year,
-                    month=now.month,
-                    day=1,
-                    tzinfo=timezone.utc,
-                )
-                end_date = None
+            }[period],
+            "localized": localized,
+            "sales_summary": sales_summary,
+            "top_products": top_products_view,
+            "category_sales": category_sales_view,
+            "low_stock_products": low_stock_products,
+            "top_customers": top_customers_view,
+            "executive_summary": executive_summary,
+        }
+
+    @expose("/reports", methods=["GET"])
+    async def reports_page(self, request: Request):
+        db = SessionLocal()
+        try:
+            localization = get_localization_setting(db)
+            period = request.query_params.get("period", "30d")
+
+            cache_key = (period, localization.currency, localization.number_format)
+            cached = _reports_cache.get(cache_key)
+            now = datetime.now(timezone.utc).timestamp()
+            if cached and now - cached[0] < REPORTS_CACHE_SECONDS:
+                data = cached[1]
             else:
-                period = "all"
-                start_date = None
-                end_date = None
-
-            # 1. Sales Summary
-            sales_summary = get_sales_summary_data(
-                db=db, start_date=start_date, end_date=end_date
-            )
-
-            # 2. Top Selling Products
-            top_products = get_top_products_data(
-                db=db, start_date=start_date, end_date=end_date, limit=10
-            )
-
-            # 3. Sales by Category
-            category_sales = get_category_sales_data(
-                db=db, start_date=start_date, end_date=end_date
-            )
-
-            # 4. Low Stock Products (threshold <= 10)
-            low_stock_products = get_low_stock_products_data(db=db, threshold=10)
-
-            # 5. Top Customers
-            top_customers = get_top_customers_data(
-                db=db, start_date=start_date, end_date=end_date, limit=5
-            )
-
-            invoice_summary = get_invoice_summary_data(
-                db=db, start_date=start_date, end_date=end_date
-            )
-
-            # 6. Executive Summary
-            executive_summary = get_executive_summary_data(
-                db=db, invoice_summary=invoice_summary
-            )
-
-            localized = {
-                "net_revenue": format_currency(
-                    float(sales_summary["net_revenue"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "total_refunds": format_currency(
-                    float(sales_summary["total_refunds"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "average_order_value": format_currency(
-                    float(sales_summary["average_order_value"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "gross_revenue": format_currency(
-                    float(sales_summary["gross_revenue"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "total_discounts": format_currency(
-                    float(sales_summary["total_discounts"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "purchase_received_value": format_currency(
-                    float(executive_summary["purchase_received_value"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "average_cash_variance": format_currency(
-                    float(executive_summary["average_cash_variance"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "invoice_approved_total": format_currency(
-                    float(executive_summary["invoice_approved_total"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-                "invoice_variance_total": format_currency(
-                    float(executive_summary["invoice_variance_total"]),
-                    localization.currency,
-                    localization.number_format,
-                ),
-            }
+                data = self._build_report_data(db, period, localization)
+                _reports_cache[cache_key] = (
+                    now,
+                    {
+                        k: (v.copy() if isinstance(v, dict) else v)
+                        for k, v in data.items()
+                    },
+                )
 
             return await self.templates.TemplateResponse(
                 request,
@@ -613,15 +790,15 @@ class ReportsAdmin(BaseView):
                     "request": request,
                     "title": "Reports Dashboard",
                     "period": period,
-                    "period_label": period_labels[period],
+                    "period_label": data["period_label"],
                     "localization": localization,
-                    "localized": localized,
-                    "sales_summary": sales_summary,
-                    "top_products": top_products,
-                    "category_sales": category_sales,
-                    "low_stock_products": low_stock_products,
-                    "top_customers": top_customers,
-                    "executive_summary": executive_summary,
+                    "localized": data["localized"],
+                    "sales_summary": data["sales_summary"],
+                    "top_products": data["top_products"],
+                    "category_sales": data["category_sales"],
+                    "low_stock_products": data["low_stock_products"],
+                    "top_customers": data["top_customers"],
+                    "executive_summary": data["executive_summary"],
                 },
             )
         finally:

@@ -164,10 +164,16 @@ Superuser-only APIs for:
 ### Admin Dashboard
 
 - SQLAdmin panel at `/admin`
+- Admin login authenticates against real app users: only active superusers may sign in (sessions expire after `ADMIN_SESSION_HOURS`, default 12h). In non-production environments the legacy `ADMIN_USERNAME`/`ADMIN_PASSWORD` credentials still work, to bootstrap the first admin account.
+- To promote your first user to superuser in production: `UPDATE users SET is_superuser = 1 WHERE email = '...'` (or promote via the admin UI once another superuser exists)
 - Admin views for Users, Roles, Permissions, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
 - Admin views include Promotions and Tax Rule management
 - Custom reports page at `/admin/reports`
 - Reports dashboard supports period presets (`today`, `7d`, `30d`, `month`, `all`) with aligned sales/refund/invoice summary scope
+- Reports are cached per period/locale (2 min TTL); amounts are rendered with the configured currency locale
+- Low-stock warning uses each product's `reorder_point`/`min_stock` (default 10) instead of a hardcoded threshold
+- Product stock is ledger-managed: `stock_quantity` is excluded from the create/edit forms; use the "Record Stock Adjustment" action on a product row to apply a delta and write an audited `StockMovement` entry
+- System roles (`is_system`) cannot be edited or deleted from the admin UI
 
 ## Tech Stack
 
