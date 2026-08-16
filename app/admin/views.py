@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 
 # pyrefly: ignore [missing-import]
 from sqladmin import BaseView, Flash, ModelView, action, expose
+from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
 from sqlalchemy.orm import joinedload
 from starlette.exceptions import HTTPException
-
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -19,13 +19,8 @@ from app.models.localization import LocalizationSetting
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
-from app.models.purchase import (
-    PurchaseInvoice,
-    PurchaseInvoiceItem,
-    PurchaseOrder,
-    PurchaseOrderItem,
-    Supplier,
-)
+from app.models.purchase import (PurchaseInvoice, PurchaseInvoiceItem,
+                                 PurchaseOrder, PurchaseOrderItem, Supplier)
 from app.models.rbac import Permission, Role, RolePermission, UserRole
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
@@ -33,15 +28,13 @@ from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
 from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
-from app.services.reports import (
-    get_category_sales_data,
-    get_executive_summary_data,
-    get_invoice_summary_data,
-    get_low_stock_products_data,
-    get_sales_summary_data,
-    get_top_customers_data,
-    get_top_products_data,
-)
+from app.services.reports import (get_category_sales_data,
+                                  get_executive_summary_data,
+                                  get_invoice_summary_data,
+                                  get_low_stock_products_data,
+                                  get_sales_summary_data,
+                                  get_top_customers_data,
+                                  get_top_products_data)
 
 REPORTS_CACHE_SECONDS = 120
 _reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
@@ -490,8 +483,8 @@ class DrawerSessionAdmin(LabeledRelationsMixin, ModelView, model=DrawerSession):
         DrawerSession.status,
     ]
     column_filters = [
-        DrawerSession.status,
-        DrawerSession.user_id,
+        AllUniqueStringValuesFilter(DrawerSession.status),
+        ForeignKeyFilter(DrawerSession.user_id, User.email, foreign_model=User),
     ]
     column_searchable_list = [DrawerSession.status]
     column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
