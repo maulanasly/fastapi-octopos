@@ -10,6 +10,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from app.admin.color_field import ColorField
 from app.admin.formatting import LabeledRelationsMixin
 from app.core.audit import log_action
 from app.core.database import SessionLocal
@@ -153,6 +154,7 @@ class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
         Category.color,
     ]
     column_searchable_list = [Category.name]
+    form_overrides = {"color": ColorField}
 
 
 class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
