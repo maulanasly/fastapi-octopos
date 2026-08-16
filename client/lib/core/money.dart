@@ -18,6 +18,9 @@ int centsFromApi(num? value) => (value ?? 0) * 100 ~/ 1;
 String _currency = 'USD';
 String _numberFormat = 'en_US';
 
+/// Active display currency code (e.g. 'USD', 'IDR').
+String get currentCurrency => _currency;
+
 /// Sets the active display currency and number format (e.g. `IDR` /
 /// `id_ID`). Falls back to `USD` / `en_US` defaults until called.
 void configureMoney({required String currency, required String numberFormat}) {

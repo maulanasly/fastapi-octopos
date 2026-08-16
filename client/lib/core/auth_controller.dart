@@ -14,17 +14,18 @@ class AuthState {
   final String? email;
   final String? fullName;
   final Set<String> permissions;
+  final bool sessionExpired;
 
   const AuthState({
     this.status = AuthStatus.unknown,
     this.email,
     this.fullName,
     this.permissions = const {},
+    this.sessionExpired = false,
   });
 
   /// Display name for the signed-in user (full name, fallback email).
-  String? get displayName =>
-      (fullName?.isNotEmpty ?? false) ? fullName : email;
+  String? get displayName => (fullName?.isNotEmpty ?? false) ? fullName : email;
 
   bool has(String permission) => permissions.contains(permission);
 
@@ -33,11 +34,13 @@ class AuthState {
     String? email,
     String? fullName,
     Set<String>? permissions,
+    bool? sessionExpired,
   }) => AuthState(
     status: status ?? this.status,
     email: email ?? this.email,
     fullName: fullName ?? this.fullName,
     permissions: permissions ?? this.permissions,
+    sessionExpired: sessionExpired ?? this.sessionExpired,
   );
 }
 
@@ -97,6 +100,13 @@ class AuthController extends Notifier<AuthState> {
     await api.logout();
     configureMoney(currency: 'USD', numberFormat: 'en_US');
     state = const AuthState(status: AuthStatus.signedOut);
+  }
+
+  /// Called when a refresh attempt fails: the session is over and the user
+  /// should be told, not silently dumped to the login screen.
+  void forceSignOut() {
+    configureMoney(currency: 'USD', numberFormat: 'en_US');
+    state = const AuthState(status: AuthStatus.signedOut, sessionExpired: true);
   }
 
   /// Applies the backend display settings (currency, number format) to the

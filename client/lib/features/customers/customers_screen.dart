@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/errors.dart';
 import '../../core/strings.dart';
 import '../../core/models.dart';
 
@@ -74,9 +75,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       setState(() => _future = ref.read(customerRepositoryProvider).list());
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Create failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, ref.read(stringsProvider)))),
+        );
       }
     }
   }

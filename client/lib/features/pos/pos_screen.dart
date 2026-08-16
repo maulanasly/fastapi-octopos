@@ -129,6 +129,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: TextField(
+            autofocus: true,
+            textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: s.of('searchProducts'),
               prefixIcon: const Icon(Icons.search),
@@ -136,6 +138,16 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               isDense: true,
             ),
             onChanged: (v) => setState(() => _search = v),
+            // Barcode scanners type into the focused field and send Enter:
+            // add the best match to the cart.
+            onSubmitted: (_) {
+              final matches = _filtered(catalog.products);
+              if (matches.isNotEmpty) {
+                ref
+                    .read(cartControllerProvider.notifier)
+                    .addProduct(matches.first);
+              }
+            },
           ),
         ),
         SizedBox(
