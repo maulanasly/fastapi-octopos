@@ -26,7 +26,9 @@ Or directly inside `client/`:
 flutter run -d chrome --web-port=3001
 ```
 
-Point the app at a different backend with:
+The app defaults to `http://127.0.0.1:8000/api/v1` (127.0.0.1, not
+`localhost`: Chrome resolves `localhost` to IPv6 `::1` first, and the
+dev backend binds IPv4 only). Point the app at a different backend with:
 
 ```bash
 flutter run -d chrome --web-port=3001 \
