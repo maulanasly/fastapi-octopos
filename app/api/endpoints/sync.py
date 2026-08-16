@@ -1,7 +1,8 @@
 import json
-from typing import Any, Dict, List
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from app.api.dependencies import get_current_active_user
 from app.core.database import get_db
 from app.models.sync_event import SyncEventLog
 from app.models.user import User
+from app.schemas.catalog_delta import CatalogDelta
 from app.schemas.order import OrderCreate
 from app.schemas.payment import PaymentCreate
 from app.schemas.refund import RefundCreate
@@ -18,9 +20,12 @@ from app.schemas.sync import (
     SyncBatchResponse,
     SyncEventIn,
     SyncEventResult,
+    SyncEventStatus,
+    SyncEventStatusList,
 )
 from app.services.orders import add_payment_to_order, create_order
 from app.services.refunds import create_refund
+from app.services.sync import get_catalog_delta, get_event_logs
 
 router = APIRouter()
 
@@ -65,6 +70,40 @@ def _process_event(
             "order_create, order_add_payment, refund_create"
         ),
     )
+
+
+@router.get("/catalog", response_model=CatalogDelta)
+def get_sync_catalog(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    since: Optional[datetime] = Query(
+        None, description="Only rows updated after this ISO timestamp"
+    ),
+):
+    """Pull-side delta sync: catalog changes since the given watermark.
+
+    First-time terminals omit ``since`` to receive the full catalog.
+    """
+    return get_catalog_delta(db=db, since=since)
+
+
+@router.get("/events", response_model=SyncEventStatusList)
+def get_sync_event_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    user_id: Optional[int] = Query(None, description="Filter by terminal user id"),
+    status: Optional[str] = Query(None, description="Filter by event status"),
+    skip: int = 0,
+    limit: int = 100,
+):
+    """Status of processed offline events (per terminal)."""
+    if user_id is not None and (
+        not current_user.is_superuser and user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to view other users' events"
+        )
+    return get_event_logs(db=db, user_id=user_id, status=status, skip=skip, limit=limit)
 
 
 @router.post("/events/batch", response_model=SyncBatchResponse)

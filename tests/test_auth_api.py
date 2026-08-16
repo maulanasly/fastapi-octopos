@@ -125,3 +125,71 @@ def test_login_cleans_up_expired_refresh_tokens(client, auth_factory, db):
     }
     assert "expired-hash-1" not in remaining_hashes
     assert "active-hash-1" in remaining_hashes
+
+
+def test_register_rejects_weak_password(client):
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "weak@example.com", "password": "short", "full_name": "W"},
+    )
+    assert resp.status_code == 422, resp.text
+
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "weak2@example.com",
+            "password": "alllettersonly",
+            "full_name": "W",
+        },
+    )
+    assert resp.status_code == 422, resp.text
+
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={"email": "weak3@example.com", "password": "12345678", "full_name": "W"},
+    )
+    assert resp.status_code == 422, resp.text
+
+
+def test_login_lockout_after_max_attempts(client, auth_factory):
+    auth_factory.register("lockout@example.com", password="TestPass123")
+    for _ in range(5):
+        resp = client.post(
+            "/api/v1/auth/token",
+            data={"username": "lockout@example.com", "password": "wrongpass"},
+        )
+        assert resp.status_code == 400, resp.text
+
+    # Now locked: correct password still rejected with 423
+    resp = client.post(
+        "/api/v1/auth/token",
+        data={"username": "lockout@example.com", "password": "TestPass123"},
+    )
+    assert resp.status_code == 423, resp.text
+
+
+def test_successful_login_resets_failed_attempts(client, auth_factory):
+    auth_factory.register("reset@example.com", password="TestPass123")
+    for _ in range(2):
+        client.post(
+            "/api/v1/auth/token",
+            data={"username": "reset@example.com", "password": "wrongpass"},
+        )
+    # one correct login resets the counter
+    resp = client.post(
+        "/api/v1/auth/token",
+        data={"username": "reset@example.com", "password": "TestPass123"},
+    )
+    assert resp.status_code == 200, resp.text
+    for _ in range(4):
+        resp = client.post(
+            "/api/v1/auth/token",
+            data={"username": "reset@example.com", "password": "wrongpass"},
+        )
+        assert resp.status_code == 400, resp.text
+    # still not locked (5 fresh attempts needed after reset)
+    resp = client.post(
+        "/api/v1/auth/token",
+        data={"username": "reset@example.com", "password": "TestPass123"},
+    )
+    assert resp.status_code == 200, resp.text

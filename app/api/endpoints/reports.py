@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import require_permissions
 from app.core.database import get_db
+from app.models.drawer import DrawerSession
 from app.models.order import Order
 from app.models.tax import OrderTaxLine as OrderTaxLineModel
 from app.models.user import User
@@ -15,16 +16,20 @@ from app.schemas.product import Product as ProductSchema
 from app.schemas.purchase import PurchaseInvoiceSummary
 from app.schemas.report import (
     CategorySalesItem,
+    DailyClose,
     SalesSummary,
+    ShiftReport,
     TopCustomerItem,
     TopProductItem,
 )
 from app.schemas.tax import TaxLiabilityItem, TaxLiabilitySummary
 from app.services.reports import (
     get_category_sales_data,
+    get_daily_close_data,
     get_invoice_summary_data,
     get_low_stock_products_data,
     get_sales_summary_data,
+    get_shift_report_data,
     get_top_customers_data,
     get_top_products_data,
 )
@@ -200,3 +205,79 @@ def get_tax_liability_summary(
         total_tax_amount=float(total_tax_amount),
         items=items,
     )
+
+
+@router.get("/shift/{reconciliation_id}", response_model=ShiftReport)
+def get_shift_report(
+    reconciliation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions("reports:view")),
+):
+    """Z-report for one closed drawer shift."""
+    data = get_shift_report_data(db=db, reconciliation_id=reconciliation_id)
+    if data is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Reconciliation not found")
+    rec = data["reconciliation"]
+    drawer = data["drawer"]
+    return ShiftReport(
+        reconciliation_id=rec.id,
+        drawer_session_id=rec.drawer_session_id,
+        opened_at=drawer.opened_at if drawer else None,
+        closed_at=drawer.closed_at if drawer else None,
+        operator_name=data["operator_name"],
+        closed_by_name=data["closed_by_name"],
+        starting_cash=float(drawer.starting_cash or 0.0) if drawer else 0.0,
+        expected_cash=float(rec.expected_cash or 0.0),
+        counted_cash=float(rec.counted_cash or 0.0),
+        cash_variance=float(rec.cash_variance or 0.0),
+        expected_non_cash=float(rec.expected_non_cash or 0.0),
+        counted_non_cash=float(rec.counted_non_cash or 0.0),
+        non_cash_variance=float(rec.non_cash_variance or 0.0),
+        cash_sales_total=float(rec.cash_sales_total or 0.0),
+        non_cash_sales_total=float(rec.non_cash_sales_total or 0.0),
+        refunds_total=float(rec.refunds_total or 0.0),
+        gross_sales_total=float(rec.gross_sales_total or 0.0),
+        net_sales_total=float(rec.net_sales_total or 0.0),
+        completed_order_count=int(rec.completed_order_count or 0),
+        payment_breakdown=data["payment_breakdown"],
+    )
+
+
+@router.get("/daily-close", response_model=DailyClose)
+def get_daily_close(
+    db: Session = Depends(get_db),
+    report_date: Optional[datetime] = Query(
+        None, description="ISO date (defaults to today)"
+    ),
+    current_user: User = Depends(require_permissions("reports:view")),
+):
+    """End-of-day report: every shift closed on the given day + totals."""
+    data = get_daily_close_data(db=db, report_date=report_date)
+    shifts = []
+    for rec in data["shifts"]:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(DrawerSession.id == rec.drawer_session_id)
+            .first()
+        )
+        shifts.append(
+            {
+                "reconciliation_id": rec.id,
+                "drawer_session_id": rec.drawer_session_id,
+                "opened_at": drawer.opened_at if drawer else None,
+                "closed_at": drawer.closed_at if drawer else None,
+                "operator_name": drawer.user.full_name
+                if drawer and drawer.user
+                else None,
+                "cash_sales_total": float(rec.cash_sales_total or 0.0),
+                "non_cash_sales_total": float(rec.non_cash_sales_total or 0.0),
+                "refunds_total": float(rec.refunds_total or 0.0),
+                "gross_sales_total": float(rec.gross_sales_total or 0.0),
+                "net_sales_total": float(rec.net_sales_total or 0.0),
+                "completed_order_count": int(rec.completed_order_count or 0),
+                "cash_variance": float(rec.cash_variance or 0.0),
+            }
+        )
+    return DailyClose(date=data["date"], totals=data["totals"], shifts=shifts)

@@ -36,6 +36,21 @@ class Settings(BaseSettings):
     RESERVATION_AUTO_EXPIRE_ENABLED: bool = False
     RESERVATION_AUTO_EXPIRE_INTERVAL_SECONDS: int = 300
 
+    # Tax
+    # Rate for the migration-seeded default tax rule (0 keeps new installs tax-free
+    # until an operator configures rules; set per jurisdiction, e.g. 7.25).
+    DEFAULT_TAX_RATE: float = 0.0
+    DEFAULT_TAX_NAME: str = "VAT"
+
+    # Login lockout
+    LOGIN_MAX_ATTEMPTS: int = 5
+    LOGIN_LOCKOUT_MINUTES: int = 15
+
+    # Auto purchase orders
+    REPLENISHMENT_AUTO_PO_ENABLED: bool = False
+    REPLENISHMENT_CHECK_INTERVAL_SECONDS: int = 3600
+    REPLENISHMENT_LOOKBACK_DAYS: int = 30
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     def fail_closed(self) -> None:
@@ -49,6 +64,12 @@ class Settings(BaseSettings):
             insecure.append("SECRET_KEY is the FastAPI tutorial default")
         if self.ADMIN_PASSWORD == "admin":
             insecure.append("ADMIN_PASSWORD is the default 'admin'")
+        if self.ORDER_RESERVATION_TIMEOUT_MINUTES > 0 and not (
+            self.RESERVATION_AUTO_EXPIRE_ENABLED
+        ):
+            insecure.append(
+                "RESERVATION_AUTO_EXPIRE_ENABLED is off but orders reserve stock"
+            )
         if insecure:
             raise RuntimeError(
                 "Refusing to start in production mode: " + "; ".join(insecure)

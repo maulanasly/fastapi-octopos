@@ -1,15 +1,109 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.models.customer import Customer, LoyaltyTransaction
+from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
+from app.models.payment import Payment
 from app.models.product import Category, Product
 from app.models.purchase import PurchaseInvoice, PurchaseOrder, PurchaseOrderItem
 from app.models.refund import Refund
 from app.models.shift_reconciliation import ShiftReconciliation
+
+
+def get_shift_report_data(db: Session, reconciliation_id: int) -> dict:
+    """Full shift report for one drawer reconciliation."""
+    reconciliation = (
+        db.query(ShiftReconciliation)
+        .filter(ShiftReconciliation.id == reconciliation_id)
+        .first()
+    )
+    if not reconciliation:
+        return None
+    drawer = (
+        db.query(DrawerSession)
+        .filter(DrawerSession.id == reconciliation.drawer_session_id)
+        .first()
+    )
+    operator = None
+    closer = None
+    if drawer:
+        operator = drawer.user
+        closer = reconciliation.closed_by_user
+
+    payment_rows = (
+        db.query(
+            Payment.payment_method,
+            func.count(Payment.id),
+            func.coalesce(func.sum(Payment.amount), 0.0),
+        )
+        .join(Order, Payment.order_id == Order.id)
+        .filter(Order.drawer_session_id == reconciliation.drawer_session_id)
+        .group_by(Payment.payment_method)
+        .order_by(Payment.payment_method.asc())
+        .all()
+    )
+
+    return {
+        "reconciliation": reconciliation,
+        "drawer": drawer,
+        "operator_name": operator.full_name if operator else None,
+        "closed_by_name": closer.full_name if closer else None,
+        "payment_breakdown": [
+            {
+                "payment_method": row[0],
+                "count": int(row[1]),
+                "amount": float(row[2]),
+            }
+            for row in payment_rows
+        ],
+    }
+
+
+def get_daily_close_data(db: Session, report_date: Optional[datetime]) -> dict:
+    """All shift reconciliations closed on a given day + day totals."""
+    if report_date is None:
+        report_date = datetime.now().astimezone()
+    start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+
+    shifts = (
+        db.query(ShiftReconciliation)
+        .join(DrawerSession, DrawerSession.id == ShiftReconciliation.drawer_session_id)
+        .filter(
+            DrawerSession.closed_at.isnot(None),
+            DrawerSession.closed_at >= start,
+            DrawerSession.closed_at < end,
+        )
+        .order_by(DrawerSession.closed_at.asc())
+        .all()
+    )
+
+    totals = {
+        "gross_sales_total": 0.0,
+        "net_sales_total": 0.0,
+        "cash_sales_total": 0.0,
+        "non_cash_sales_total": 0.0,
+        "refunds_total": 0.0,
+        "cash_variance": 0.0,
+        "non_cash_variance": 0.0,
+        "completed_order_count": 0,
+        "shift_count": len(shifts),
+    }
+    for shift in shifts:
+        totals["gross_sales_total"] += float(shift.gross_sales_total or 0)
+        totals["net_sales_total"] += float(shift.net_sales_total or 0)
+        totals["cash_sales_total"] += float(shift.cash_sales_total or 0)
+        totals["non_cash_sales_total"] += float(shift.non_cash_sales_total or 0)
+        totals["refunds_total"] += float(shift.refunds_total or 0)
+        totals["cash_variance"] += float(shift.cash_variance or 0)
+        totals["non_cash_variance"] += float(shift.non_cash_variance or 0)
+        totals["completed_order_count"] += int(shift.completed_order_count or 0)
+
+    return {"date": report_date.date().isoformat(), "totals": totals, "shifts": shifts}
 
 
 def get_sales_summary_data(

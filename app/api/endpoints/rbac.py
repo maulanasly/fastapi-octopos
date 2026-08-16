@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user, require_permissions
+from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.rbac import (
     DEFAULT_PERMISSION_DEFINITIONS,
@@ -74,6 +75,14 @@ def create_role(
             )
         role.permissions = permissions
         db.add(role)
+    log_action(
+        db=db,
+        action="rbac.role_create",
+        user_id=current_user.id,
+        resource_type="role",
+        resource_id=role.id,
+        details={"name": role.name, "permission_codes": payload.permission_codes},
+    )
     db.commit()
     db.refresh(role)
     return role
@@ -147,6 +156,14 @@ def assign_user_roles(
 
     user.roles = roles
     db.add(user)
+    log_action(
+        db=db,
+        action="rbac.role_assign",
+        user_id=current_user.id,
+        resource_type="user",
+        resource_id=user.id,
+        details={"role_ids": payload.role_ids},
+    )
     db.commit()
     db.refresh(user)
     return UserRolesResponse(user_id=user.id, roles=user.roles)

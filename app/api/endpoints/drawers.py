@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user
+from app.core.audit import log_action
 from app.core.database import get_db
 from app.models.drawer import DrawerSession
 from app.models.shift_reconciliation import ShiftReconciliation
@@ -143,6 +144,17 @@ def reconcile_and_close_drawer(
     drawer.status = "closed"
     db.add(drawer)
 
+    log_action(
+        db=db,
+        action="drawer.reconcile",
+        user_id=current_user.id,
+        resource_type="drawer_session",
+        resource_id=drawer.id,
+        details={
+            "expected_cash": str(reconciliation.expected_cash),
+            "counted_cash": str(reconcile_in.counted_cash),
+        },
+    )
     db.commit()
     db.refresh(reconciliation)
     return reconciliation

@@ -15,7 +15,11 @@ def _rule_payload(name="VAT", rate=10.0, tax_scope="order"):
 def test_cashier_can_read_rules(client, cashier_headers):
     resp = client.get("/api/v1/taxes/", headers=cashier_headers)
     assert resp.status_code == 200, resp.text
-    assert resp.json() == []
+    # migration 0004 seeds one default (0%) VAT rule
+    rules = resp.json()
+    assert len(rules) == 1
+    assert rules[0]["name"] == "VAT"
+    assert float(rules[0]["rate"]) == 0.0
 
 
 def test_cashier_cannot_create_rule(client, cashier_headers):
@@ -79,8 +83,8 @@ def test_product_scope_rule_applied_to_order(
     body = order.json()
     assert body["tax_total_amount"] == 10.0
     assert body["grand_total_amount"] == 110.0
-    assert len(body["tax_lines"]) == 1
-    assert body["tax_lines"][0]["tax_name"] == "VAT 10"
+    # migration-seeded 0% VAT rule also applies; product rule must be present
+    assert any(line["tax_name"] == "VAT 10" for line in body["tax_lines"])
 
 
 def test_cash_payment_accepted_for_taxed_order(
