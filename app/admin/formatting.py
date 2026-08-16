@@ -1,24 +1,34 @@
-"""Admin relationship-column formatting: render human-readable labels
-instead of raw SQLAlchemy object representations.
+"""Admin relationship formatting: render human-readable labels instead of
+raw SQLAlchemy object representations.
 
 Each :class:`sqladmin.ModelView` that mixes in
 :class:`LabeledRelationsMixin` gets its relationship columns (from
 ``column_list`` / ``column_details_list``) auto-formatted via
-:data:`RELATION_LABELS`.
+:data:`RELATION_LABELS`. Editable views additionally use
+:class:`LabeledFormConverter`, so relationship dropdowns in the create/edit
+forms show the same labels instead of object reprs.
 """
 from typing import Any, Callable, Dict, List, Tuple, Union
 
+import anyio
+
+# pyrefly: ignore [missing-import]
+from sqladmin.forms import ModelConverter
+from sqladmin.helpers import is_async_session_maker
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy import select
 from sqlalchemy.orm import InstrumentedAttribute
 
-from app.models.customer import Customer
+from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
+from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
 from app.models.purchase import PurchaseInvoice, PurchaseOrder, Supplier
 from app.models.rbac import Permission, Role
 from app.models.shift_reconciliation import ShiftReconciliation
-from app.models.tax import TaxRule
+from app.models.stock_movement import StockMovement
+from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
 
 RelationLabelSpec = Union[Tuple[str, ...], Callable[[Any], str]]
@@ -37,6 +47,11 @@ RELATION_LABELS: Dict[type, RelationLabelSpec] = {
     PurchaseOrder: lambda obj: f"PO #{obj.id}",
     PurchaseInvoice: lambda obj: obj.invoice_number or f"Invoice #{obj.id}",
     ShiftReconciliation: lambda obj: f"Recon #{obj.id}",
+    Order: lambda obj: f"Order #{obj.id}",
+    OrderItem: lambda obj: f"Order Item #{obj.id}",
+    StockMovement: lambda obj: f"Movement #{obj.id}",
+    LoyaltyTransaction: lambda obj: f"Loyalty #{obj.id}",
+    OrderTaxLine: lambda obj: f"Tax Line #{obj.id}",
 }
 
 
@@ -86,6 +101,31 @@ def _build_relation_formatters(
     return formatters
 
 
+class LabeledFormConverter(ModelConverter):
+    """sqladmin form converter rendering relationship dropdown labels from
+    :data:`RELATION_LABELS` instead of raw ``str(obj)`` representations.
+    """
+
+    async def _prepare_select_options(self, prop, session_maker):
+        target_model = prop.mapper.class_
+        stmt = select(target_model)
+
+        if is_async_session_maker(session_maker):
+            async with session_maker() as session:
+                objects = await session.execute(stmt)
+                return [
+                    (str(self._get_identifier_value(obj)), _label(obj))
+                    for obj in objects.scalars().unique().all()
+                ]
+        else:
+            with session_maker() as session:
+                objects = await anyio.to_thread.run_sync(session.execute, stmt)
+                return [
+                    (str(self._get_identifier_value(obj)), _label(obj))
+                    for obj in objects.scalars().unique().all()
+                ]
+
+
 class LabeledRelationsMixin:
     """Mixin adding relationship-label formatting to a sqladmin ModelView.
 
@@ -96,6 +136,10 @@ class LabeledRelationsMixin:
 
     ``Order.customer`` renders as the customer name, ``Order.user`` as the
     user email, etc., instead of ``<Customer object at 0x...>``.
+
+    Editable views (``can_create`` or ``can_edit``) also get
+    :class:`LabeledFormConverter` so relationship selects in the create/edit
+    forms render labels instead of object reprs.
     """
 
     def __init__(self, *args, **kwargs):
@@ -111,4 +155,6 @@ class LabeledRelationsMixin:
                 **dict(getattr(self, "column_formatters_detail", {}) or {}),
                 **_build_relation_formatters(model, detail_columns + list_columns),
             }
+            if getattr(self, "can_create", True) or getattr(self, "can_edit", True):
+                self.form_converter = LabeledFormConverter
         super().__init__(*args, **kwargs)

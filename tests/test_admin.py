@@ -272,3 +272,76 @@ def test_admin_stock_movement_list_renders_product_and_user(
     assert "label-mgr2@example.com" in page.text
     assert "<Product" not in page.text
     assert "<User" not in page.text
+
+
+def test_admin_product_create_form_renders_category_label(
+    client, auth_factory, assign_role
+):
+    """Create form dropdowns show relation labels (category name) not object reprs."""
+    user = auth_factory.register("form-label-mgr@example.com")
+    assign_role(user["id"], "manager")
+    headers = auth_factory.login("form-label-mgr@example.com")
+    cat_resp = client.post(
+        "/api/v1/products/categories",
+        headers=headers,
+        json={"name": "Form Fancy Category", "description": "x"},
+    )
+    assert cat_resp.status_code == 200, cat_resp.text
+
+    _login(client)
+    page = client.get("/admin/product/create")
+    assert page.status_code == 200
+    assert "Form Fancy Category" in page.text
+    assert "<Category" not in page.text
+
+
+def test_admin_product_edit_form_renders_category_label(
+    client, db, auth_factory, assign_role
+):
+    """Edit form pre-selects the relation with a label, not an object repr."""
+    from app.models.product import Category, Product
+
+    user = auth_factory.register("edit-form-label@example.com")
+    assign_role(user["id"], "manager")
+    headers = auth_factory.login("edit-form-label@example.com")
+    cat_resp = client.post(
+        "/api/v1/products/categories",
+        headers=headers,
+        json={"name": "Edit Fancy Category", "description": "x"},
+    )
+    assert cat_resp.status_code == 200, cat_resp.text
+    category_id = cat_resp.json()["id"]
+    product = Product(
+        name="Edit Form Widget",
+        sku="SKU-EDIT-FORM-1",
+        price=3.5,
+        stock_quantity=2,
+        category_id=category_id,
+    )
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+
+    _login(client)
+    page = client.get(f"/admin/product/edit/{product.id}")
+    assert page.status_code == 200
+    assert "Edit Fancy Category" in page.text
+    assert "<Category" not in page.text
+
+
+def test_admin_role_edit_form_renders_permission_codes(client, db):
+    """To-many relationship selects show labels (permission codes) in forms."""
+    from app.models.rbac import Permission, Role
+
+    _login(client)
+    role = Role(name="form-label-role", description="editable", is_system=False)
+    perm = db.query(Permission).filter(Permission.code == "orders:manage").one()
+    role.permissions.append(perm)
+    db.add(role)
+    db.commit()
+    db.refresh(role)
+
+    page = client.get(f"/admin/role/edit/{role.id}")
+    assert page.status_code == 200
+    assert "orders:manage" in page.text
+    assert "<Permission" not in page.text
