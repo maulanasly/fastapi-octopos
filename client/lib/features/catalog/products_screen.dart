@@ -291,17 +291,6 @@ class _ProductThumb extends StatelessWidget {
   }
 }
 
-const _swatchPalette = <String>[
-  '#E8F5E9', // green
-  '#E3F2FD', // blue
-  '#FFF3E0', // orange
-  '#FCE4EC', // pink
-  '#F3E5F5', // purple
-  '#E0F2F1', // teal
-  '#FFFDE7', // yellow
-  '#EFEBE9', // brown
-];
-
 /// Category management dialog: create categories and set their colors.
 class CategoriesDialog extends ConsumerStatefulWidget {
   const CategoriesDialog({super.key});
@@ -348,7 +337,9 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final hex in _swatchPalette)
+            for (final hex
+                in ref.watch(categoryColorPaletteProvider).value ??
+                    const <String>[])
               InkWell(
                 onTap: () => Navigator.of(ctx).pop(hex),
                 child: Container(
@@ -401,7 +392,9 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
             Wrap(
               spacing: 8,
               children: [
-                for (final hex in _swatchPalette)
+                for (final hex
+                    in ref.watch(categoryColorPaletteProvider).value ??
+                        const <String>[])
                   InkWell(
                     onTap: () => setState(() => _color = hex),
                     child: Container(

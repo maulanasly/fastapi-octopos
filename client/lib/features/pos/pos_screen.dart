@@ -7,11 +7,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/colors.dart';
-import '../../core/config.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../drawer/drawer_controller.dart';
+import 'product_tile.dart';
 import 'cart_controller.dart';
 import 'catalog_controller.dart';
 import 'checkout_sheet.dart';
@@ -174,105 +174,20 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   padding: const EdgeInsets.all(8),
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 200,
-                    childAspectRatio: 1.15,
+                    childAspectRatio: 0.9,
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 8,
                   ),
                   itemCount: products.length,
-                  itemBuilder: (context, i) =>
-                      _productTile(context, products[i]),
+                  itemBuilder: (context, i) => ProductTile(
+                    product: products[i],
+                    onTap: () => ref
+                        .read(cartControllerProvider.notifier)
+                        .addProduct(products[i]),
+                  ),
                 ),
         ),
       ],
-    );
-  }
-
-  Widget _productTile(BuildContext context, Product product) {
-    final s = ref.watch(stringsProvider);
-    final outOfStock = product.stockQuantity <= 0;
-    final categoryColor = colorFromHex(product.category?.color);
-    final imageUrl = product.imageUrl;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: outOfStock
-          ? Theme.of(context).colorScheme.surfaceContainerHighest
-          : null,
-      child: InkWell(
-        onTap: outOfStock
-            ? null
-            : () =>
-                  ref.read(cartControllerProvider.notifier).addProduct(product),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              height: 4,
-              color:
-                  categoryColor ??
-                  (outOfStock
-                      ? Theme.of(context).colorScheme.surfaceContainerHighest
-                      : Theme.of(context).colorScheme.outlineVariant),
-            ),
-            AspectRatio(
-              aspectRatio: 4 / 3,
-              child: imageUrl != null
-                  ? Image.network(
-                      '${AppConfig.mediaBaseUrl}$imageUrl',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          _ProductMonogram(product: product),
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return _ProductMonogram(
-                          product: product,
-                          showIcon: true,
-                        );
-                      },
-                    )
-                  : _ProductMonogram(product: product),
-            ),
-            // Fixed bottom label bar: the name is always visible and the
-            // tile height stays uniform regardless of the image.
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-              color: categoryColor != null
-                  ? softBackground(categoryColor)
-                  : Theme.of(context).colorScheme.surfaceContainerLow,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: categoryColor != null
-                          ? textColorOn(softBackground(categoryColor))
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatCents(product.priceCents),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    s.of('inStock', args: {'count': product.stockQuantity}),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: outOfStock
-                          ? Theme.of(context).colorScheme.error
-                          : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -287,7 +202,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           child: Row(
             children: [
               Text(
-                'Cart (${cart.itemCount})',
+                s.of('cartCount', args: {'count': cart.itemCount}),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
@@ -313,7 +228,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ),
         Expanded(
           child: cart.isEmpty
-              ? const Center(child: Text('Cart is empty'))
+              ? Center(child: Text(s.of('cartEmpty')))
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: cart.lines.length,
@@ -366,7 +281,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           child: Row(
             children: [
               Text(
-                'Total: ${formatCents(cart.subtotalCents)}',
+                '${s.of('total')}: ${formatCents(cart.subtotalCents)}',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const Spacer(),
@@ -696,39 +611,6 @@ class _CategoryChip extends StatelessWidget {
       selectedColor: color,
       checkmarkColor: textColorOn(color),
       side: BorderSide(color: selected ? color : color.withValues(alpha: 0.4)),
-    );
-  }
-}
-
-/// Monogram fallback (category-colored) for products without an image.
-class _ProductMonogram extends StatelessWidget {
-  const _ProductMonogram({required this.product, this.showIcon = false});
-
-  final Product product;
-  final bool showIcon;
-
-  @override
-  Widget build(BuildContext context) {
-    final color =
-        colorFromHex(product.category?.color) ??
-        Theme.of(context).colorScheme.surfaceContainerHighest;
-    return Container(
-      color: color,
-      alignment: Alignment.center,
-      child: showIcon
-          ? Icon(
-              Icons.image_outlined,
-              size: 32,
-              color: textColorOn(color).withValues(alpha: 0.6),
-            )
-          : Text(
-              product.name.isEmpty ? '?' : product.name[0].toUpperCase(),
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: textColorOn(color),
-              ),
-            ),
     );
   }
 }

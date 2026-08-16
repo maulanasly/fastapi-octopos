@@ -1,8 +1,10 @@
 """Unit tests for the admin category color picker field."""
 
+import re
+
 from wtforms import Form
 
-from app.admin.color_field import ColorField
+from app.admin.color_field import CATEGORY_COLOR_PALETTE, ColorField
 
 
 class _MultiDict:
@@ -40,6 +42,21 @@ def test_widget_renders_color_input_and_sync_script():
     assert f'id="{form.color.id}"' in html
     assert "data-clear-color" in html
     assert "addEventListener" in html
+
+
+def test_widget_renders_palette_swatches():
+    form = _ColorForm(data={"color": "#D1FAE5"})
+    html = form.color()
+    assert f'data-palette-color="{form.color.id}"' in html
+    assert 'data-value="#D1FAE5"' in html
+    for tone in CATEGORY_COLOR_PALETTE:
+        assert f'data-value="{tone}"' in html
+
+
+def test_palette_is_valid_hex_and_large_enough():
+    assert len(CATEGORY_COLOR_PALETTE) >= 8
+    for tone in CATEGORY_COLOR_PALETTE:
+        assert re.match(r"^#[0-9A-Fa-f]{6}$", tone), tone
 
 
 def test_process_formdata_normalizes_hex():

@@ -14,6 +14,26 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
   (ref) => CatalogRepository(ref.watch(apiClientProvider)),
 );
 
+/// Curated category color palette from the backend (fallback list for
+/// offline use keeps the same tones).
+final categoryColorPaletteProvider =
+    FutureProvider<List<String>>((ref) async {
+  try {
+    return await ref.watch(catalogRepositoryProvider).categoryColorPalette();
+  } catch (_) {
+    return const [
+      '#E8F5E9',
+      '#E3F2FD',
+      '#FFF3E0',
+      '#FCE4EC',
+      '#F3E5F5',
+      '#E0F2F1',
+      '#FFFDE7',
+      '#EFEBE9',
+    ];
+  }
+});
+
 final orderRepositoryProvider = Provider<OrderRepository>(
   (ref) => OrderRepository(ref.watch(apiClientProvider)),
 );
@@ -94,6 +114,13 @@ class CatalogRepository {
       },
     );
     return Category.fromJson(resp.data!);
+  }
+
+  /// Curated category color palette (single source of truth with the admin).
+  Future<List<String>> categoryColorPalette() async {
+    final resp =
+        await api.dio.get<List<dynamic>>('/products/categories/colors');
+    return resp.data!.cast<String>();
   }
 
   /// Sets (or clears, with null) a category's display color.
