@@ -361,9 +361,13 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
     from app.models.payment import Payment
     from app.models.product import Category, Product
     from app.models.promotion import Promotion
-    from app.models.purchase import (PurchaseInvoice, PurchaseInvoiceItem,
-                                     PurchaseOrder, PurchaseOrderItem,
-                                     Supplier)
+    from app.models.purchase import (
+        PurchaseInvoice,
+        PurchaseInvoiceItem,
+        PurchaseOrder,
+        PurchaseOrderItem,
+        Supplier,
+    )
     from app.models.refund import Refund, RefundItem
     from app.models.stock_movement import StockMovement
     from app.models.tax import OrderTaxLine, TaxRule
@@ -538,3 +542,393 @@ def test_admin_drawer_session_list_and_filter_render(client, db, auth_factory):
     resp = client.get("/admin/drawer-session/list?status=open")
     assert resp.status_code == 200
     assert "drawer-boss@example.com" in resp.text
+
+
+def _workflow_admin(client, auth_factory, db, email):
+    user = auth_factory.register(email)
+    _make_superuser(db, user["id"])
+    _login(client, username=email, password="TestPass123")
+    return user["id"]
+
+
+def _seed_low_stock(db, supplier_name="Workflow Supplier"):
+    from decimal import Decimal
+
+    from app.models.product import Category, Product
+    from app.models.purchase import Supplier
+
+    supplier = Supplier(name=supplier_name)
+    category = Category(name="Workflow Cat", description="x")
+    product = Product(
+        name="Workflow Widget",
+        sku="SKU-WF-1",
+        price=10.0,
+        unit_cost=Decimal("4.00"),
+        stock_quantity=2,
+        min_stock=1,
+        max_stock=20,
+        reorder_point=5,
+        lead_time_days=3,
+        category=category,
+    )
+    db.add_all([supplier, category, product])
+    db.commit()
+    db.refresh(product)
+    return supplier, product
+
+
+def test_workflows_hub_renders(client, auth_factory, db):
+    _workflow_admin(client, auth_factory, db, "workflow-boss@example.com")
+    resp = client.get("/admin/workflows")
+    assert resp.status_code == 200
+    assert "Restock" in resp.text
+    assert "Invoicing" in resp.text
+    assert "Close Drawer" in resp.text
+    assert "Refund" in resp.text
+
+
+def test_menu_sidebar_renders_categories(client, auth_factory, db):
+    """Sidebar groups views under workflow categories."""
+    _workflow_admin(client, auth_factory, db, "menu-boss@example.com")
+    resp = client.get("/admin/")
+    assert resp.status_code == 200
+    for label in (
+        "Workflows",
+        "Sales",
+        "Purchasing",
+        "Inventory",
+        "Customers",
+        "Access Control",
+        "Operations",
+        "System",
+        "Reports",
+    ):
+        assert label in resp.text
+
+
+def test_restock_workflow_generates_and_receives(client, auth_factory, db):
+    """Full restock wizard: auto-generate PO, receive items, stock updates."""
+    from decimal import Decimal
+
+    from app.models.product import Product
+    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
+    from app.models.stock_movement import StockMovement
+
+    user_id = _workflow_admin(client, auth_factory, db, "restock-boss@example.com")
+    supplier, product = _seed_low_stock(db)
+    # Give the product supplier history so the auto-PO picks it. The history
+    # PO must not be pending, otherwise the product is skipped.
+    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id, status="received")
+    db.add(po)
+    db.flush()
+    db.add(
+        PurchaseOrderItem(
+            purchase_order_id=po.id,
+            product_id=product.id,
+            quantity_ordered=1,
+            quantity_received=1,
+            unit_cost=Decimal("4.00"),
+        )
+    )
+    db.commit()
+
+    page = client.get("/admin/workflows/restock")
+    assert page.status_code == 200
+    assert "Workflow Widget" in page.text
+
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={"step": "generate", "lookback_days": "30"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=receive" in resp.headers["location"]
+
+    new_po = (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.id != po.id)
+        .order_by(PurchaseOrder.id.desc())
+        .first()
+    )
+    assert new_po is not None
+    assert new_po.status == "draft"
+
+    page = client.get(f"/admin/workflows/restock?step=receive&po_id={new_po.id}")
+    assert page.status_code == 200
+    assert f"PO #{new_po.id}" in page.text
+
+    po_item = new_po.items[0]
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={
+            "step": "receive",
+            "po_id": str(new_po.id),
+            f"qty_{po_item.id}": str(po_item.quantity_ordered),
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=done" in resp.headers["location"]
+
+    db.expire_all()
+    assert db.get(Product, product.id).stock_quantity == 2 + po_item.quantity_ordered
+    new_po = db.get(PurchaseOrder, new_po.id)
+    assert new_po.status == "received"
+    movement = (
+        db.query(StockMovement)
+        .filter(StockMovement.purchase_order_id == new_po.id)
+        .one()
+    )
+    assert movement.quantity_before == 2
+    assert movement.quantity_delta == po_item.quantity_ordered
+    assert movement.quantity_after == 2 + po_item.quantity_ordered
+
+
+def test_restock_workflow_generate_empty_when_healthy(client, auth_factory, db):
+    _workflow_admin(client, auth_factory, db, "restock2-boss@example.com")
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={"step": "generate", "lookback_days": "30"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    page = client.get("/admin/workflows/restock?step=receive")
+    assert page.status_code == 200
+    assert "No draft purchase orders to receive" in page.text
+
+
+def test_invoice_workflow_creates_and_approves(client, auth_factory, db):
+    """Create an invoice from a received PO, then approve it."""
+    from decimal import Decimal
+
+    from app.models.purchase import PurchaseInvoice, PurchaseOrder, PurchaseOrderItem
+
+    user_id = _workflow_admin(client, auth_factory, db, "invoice-boss@example.com")
+    supplier, product = _seed_low_stock(db)
+    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id)
+    db.add(po)
+    db.flush()
+    po_item = PurchaseOrderItem(
+        purchase_order_id=po.id,
+        product_id=product.id,
+        quantity_ordered=10,
+        quantity_received=10,
+        unit_cost=Decimal("4.00"),
+    )
+    db.add(po_item)
+    db.commit()
+
+    resp = client.post(
+        "/admin/workflows/invoice",
+        data={"step": "select", "po_id": str(po.id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=create" in resp.headers["location"]
+
+    page = client.get(f"/admin/workflows/invoice?step=create&po_id={po.id}")
+    assert page.status_code == 200
+    assert "Workflow Widget" in page.text
+
+    resp = client.post(
+        f"/admin/workflows/invoice?step=create&po_id={po.id}",
+        data={
+            "step": "create",
+            "invoice_number": "INV-WF-001",
+            f"bill_qty_{po_item.id}": "10",
+            f"bill_cost_{po_item.id}": "4.00",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    invoice_id = int(resp.headers["location"].split("invoice_id=")[1])
+    invoice = db.get(PurchaseInvoice, invoice_id)
+    assert invoice is not None
+    assert invoice.status == "draft"
+    assert invoice.total_amount == 40
+
+    page = client.get(f"/admin/workflows/invoice?step=review&invoice_id={invoice_id}")
+    assert page.status_code == 200
+    assert "INV-WF-001" in page.text
+
+    resp = client.post(
+        f"/admin/workflows/invoice?step=review&invoice_id={invoice_id}",
+        data={"step": "review", "action": "submit", "review_note": "ready"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(PurchaseInvoice, invoice_id).status == "pending_review"
+
+    page = client.get(f"/admin/workflows/invoice?step=review&invoice_id={invoice_id}")
+    assert "Approve" in page.text
+
+    resp = client.post(
+        f"/admin/workflows/invoice?step=review&invoice_id={invoice_id}",
+        data={"step": "review", "action": "approve", "review_note": "looks good"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(PurchaseInvoice, invoice_id).status == "approved"
+
+
+def test_close_drawer_workflow_reconciles(client, auth_factory, db):
+    """Close an open drawer with counted cash; reconciliation recorded."""
+    from app.models.drawer import DrawerSession
+    from app.models.shift_reconciliation import ShiftReconciliation
+
+    user_id = _workflow_admin(client, auth_factory, db, "drawer2-boss@example.com")
+    drawer = DrawerSession(user_id=user_id, starting_cash=100.0)
+    db.add(drawer)
+    db.commit()
+
+    resp = client.post(
+        "/admin/workflows/close-drawer",
+        data={"step": "select", "drawer_id": str(drawer.id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=count" in resp.headers["location"]
+
+    page = client.get(f"/admin/workflows/close-drawer?step=count&drawer_id={drawer.id}")
+    assert page.status_code == 200
+    assert "Expected cash" in page.text
+
+    resp = client.post(
+        f"/admin/workflows/close-drawer?step=count&drawer_id={drawer.id}",
+        data={
+            "step": "count",
+            "counted_cash": "95.5",
+            "counted_non_cash": "0",
+            "notes": "end of day",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    drawer = db.get(DrawerSession, drawer.id)
+    assert drawer.status == "closed"
+    assert drawer.ending_cash == 95.5
+    recon = (
+        db.query(ShiftReconciliation)
+        .filter(ShiftReconciliation.drawer_session_id == drawer.id)
+        .one()
+    )
+    assert recon.cash_variance == -4.5
+    assert recon.closed_by_user_id == user_id
+
+
+def test_refund_workflow_records_refund(client, auth_factory, db):
+    """Refund items from a completed order; stock restored."""
+    from decimal import Decimal
+
+    from app.models.customer import Customer
+    from app.models.order import Order, OrderItem
+    from app.models.product import Product
+    from app.models.refund import Refund
+    from app.models.stock_movement import StockMovement
+
+    supplier, product = _seed_low_stock(db)
+    product.stock_quantity = 20
+    db.commit()
+
+    user_id = _workflow_admin(client, auth_factory, db, "refund-boss@example.com")
+    customer = Customer(name="Refund Customer")
+    db.add(customer)
+    db.flush()
+    order = Order(user_id=user_id, customer_id=customer.id, status="completed")
+    db.add(order)
+    db.flush()
+    order_item = OrderItem(
+        order_id=order.id,
+        product_id=product.id,
+        quantity=3,
+        unit_price=Decimal("10.00"),
+    )
+    db.add(order_item)
+    db.commit()
+
+    resp = client.post(
+        "/admin/workflows/refund",
+        data={"step": "select", "order_id": str(order.id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=items" in resp.headers["location"]
+
+    page = client.get(f"/admin/workflows/refund?step=items&order_id={order.id}")
+    assert page.status_code == 200
+    assert "Workflow Widget" in page.text
+
+    resp = client.post(
+        f"/admin/workflows/refund?step=items&order_id={order.id}",
+        data={
+            "step": "items",
+            "reason": "damaged",
+            "payment_method": "cash",
+            f"refund_qty_{order_item.id}": "1",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=done" in resp.headers["location"]
+
+    db.expire_all()
+    refund = (
+        db.query(Refund)
+        .filter(Refund.order_id == order.id)
+        .order_by(Refund.id.desc())
+        .first()
+    )
+    assert refund is not None
+    assert refund.items[0].quantity == 1
+    assert db.get(Product, product.id).stock_quantity == 21
+    movement = (
+        db.query(StockMovement).filter(StockMovement.refund_id == refund.id).one()
+    )
+    assert movement.quantity_delta == 1
+
+
+def test_refund_workflow_rejects_over_refund(client, auth_factory, db):
+    """Refunding more than ordered is rejected with a flash and no record."""
+    from decimal import Decimal
+
+    from app.models.customer import Customer
+    from app.models.order import Order, OrderItem
+    from app.models.refund import Refund
+
+    supplier, product = _seed_low_stock(db)
+    product.stock_quantity = 20
+    db.commit()
+
+    user_id = _workflow_admin(client, auth_factory, db, "refund2-boss@example.com")
+    customer = Customer(name="Refund Customer 2")
+    db.add(customer)
+    db.flush()
+    order = Order(user_id=user_id, customer_id=customer.id, status="completed")
+    db.add(order)
+    db.flush()
+    order_item = OrderItem(
+        order_id=order.id,
+        product_id=product.id,
+        quantity=2,
+        unit_price=Decimal("10.00"),
+    )
+    db.add(order_item)
+    db.commit()
+
+    resp = client.post(
+        f"/admin/workflows/refund?step=items&order_id={order.id}",
+        data={
+            "step": "items",
+            "reason": "oops",
+            "payment_method": "cash",
+            f"refund_qty_{order_item.id}": "99",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=items" in resp.headers["location"]
+    db.expire_all()
+    assert db.query(Refund).filter(Refund.order_id == order.id).count() == 0

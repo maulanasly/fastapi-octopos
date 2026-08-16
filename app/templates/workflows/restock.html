@@ -1,0 +1,132 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-boxes-stacked me-2 text-primary"></i>Restock Workflow
+      </h3>
+      <a href="/admin/workflows" class="btn btn-outline-secondary btn-sm">All workflows</a>
+    </div>
+    <div class="card-body">
+      <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item {% if step == 'generate' %}active{% endif %}">
+          {% if step != 'generate' %}<a href="/admin/workflows/restock?step=generate">1. Generate POs</a>{% else %}1. Generate POs{% endif %}
+        </li>
+        <li class="breadcrumb-item {% if step == 'receive' %}active{% endif %}">
+          {% if step != 'receive' %}<a href="/admin/workflows/restock?step=receive">2. Receive</a>{% else %}2. Receive{% endif %}
+        </li>
+        <li class="breadcrumb-item {% if step == 'done' %}active{% endif %}">3. Done</li>
+      </ol>
+
+      {% if step == 'generate' %}
+      <h6 class="text-secondary small text-uppercase mb-3">Products below reorder point</h6>
+      <table class="table table-sm table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th><th>Product</th><th>SKU</th><th>Stock</th><th>Reorder Point</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in low_stock %}
+          <tr>
+            <td>{{ product.id }}</td>
+            <td>{{ product.name }}</td>
+            <td>{{ product.sku }}</td>
+            <td>{{ product.stock_quantity }}</td>
+            <td>{{ product.reorder_point }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-secondary">Nothing below the reorder point. Inventory looks healthy.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <form method="post" action="">
+        <input type="hidden" name="step" value="generate" />
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label" for="lookback_days">Sales lookback (days)</label>
+            <input class="form-control" type="number" id="lookback_days" name="lookback_days" value="30" min="1" />
+          </div>
+          <div class="col-md-9">
+            <button type="submit" class="btn btn-primary" {% if not low_stock %}disabled{% endif %}>
+              <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Generate Purchase Orders
+            </button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+
+      {% if step == 'receive' %}
+      <h6 class="text-secondary small text-uppercase mb-3">Receive a draft purchase order</h6>
+      {% if selected_po %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="receive" />
+        <input type="hidden" name="po_id" value="{{ selected_po.id }}" />
+        <table class="table table-sm table-bordered">
+          <thead>
+            <tr>
+              <th colspan="4">PO #{{ selected_po.id }} &mdash; {{ selected_po.supplier.name if selected_po.supplier else 'Unknown supplier' }}</th>
+            </tr>
+            <tr><th>Product</th><th>Ordered</th><th>Unit Cost</th><th>Received Quantity</th></tr>
+          </thead>
+          <tbody>
+            {% for item in selected_po.items %}
+            <tr>
+              <td>{{ item.product.name if item.product else '?' }}</td>
+              <td>{{ item.quantity_ordered }}</td>
+              <td>{{ item.unit_cost }}</td>
+              <td>
+                <input class="form-control form-control-sm" type="number" name="qty_{{ item.id }}" value="{{ item.quantity_ordered - item.quantity_received }}" min="0" max="{{ item.quantity_ordered - item.quantity_received }}" />
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-check me-1"></i>Receive Items
+        </button>
+        <a href="/admin/workflows/restock?step=receive" class="btn btn-light ms-2">Choose another PO</a>
+      </form>
+      {% elif draft_pos %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="select_po" />
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label" for="po_id">Purchase Order</label>
+            <select class="form-select" id="po_id" name="po_id" required>
+              {% for po in draft_pos %}
+              <option value="{{ po.id }}">PO #{{ po.id }} &mdash; {{ po.supplier.name if po.supplier else 'Unknown supplier' }} ({{ po.items|length }} items)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-7">
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-arrow-right me-1"></i>Select PO
+            </button>
+          </div>
+        </div>
+      </form>
+      {% else %}
+      <p class="text-secondary">No draft purchase orders to receive. <a href="/admin/workflows/restock?step=generate">Generate POs first</a>.</p>
+      {% endif %}
+      {% endif %}
+
+      {% if step == 'done' %}
+      <div class="alert alert-success py-2">
+        <i class="fa-solid fa-circle-check me-1"></i>
+        Purchase order <a href="/admin/purchase-order/details/{{ done_po_id }}">#{{ done_po_id }}</a> received —
+        stock movements recorded and product quantities updated.
+      </div>
+      <div class="d-flex gap-2">
+        <a href="/admin/workflows/restock?step=receive" class="btn btn-primary">Receive another PO</a>
+        <a href="/admin/workflows/invoice" class="btn btn-outline-primary">
+          <i class="fa-solid fa-file-invoice-dollar me-1"></i>Continue to Invoicing
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

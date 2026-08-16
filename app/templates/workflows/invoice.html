@@ -1,0 +1,153 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-file-invoice-dollar me-2 text-success"></i>Invoicing Workflow
+      </h3>
+      <a href="/admin/workflows" class="btn btn-outline-secondary btn-sm">All workflows</a>
+    </div>
+    <div class="card-body">
+      <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item {% if step == 'select' %}active{% endif %}">
+          {% if step != 'select' %}<a href="/admin/workflows/invoice?step=select">1. Select PO</a>{% else %}1. Select PO{% endif %}
+        </li>
+        <li class="breadcrumb-item {% if step == 'create' %}active{% endif %}">2. Create Invoice</li>
+        <li class="breadcrumb-item {% if step == 'review' %}active{% endif %}">3. Review</li>
+      </ol>
+
+      {% if step == 'select' %}
+      <h6 class="text-secondary small text-uppercase mb-3">Purchase orders with unbilled received items</h6>
+      {% if eligible_pos %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="select" />
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label" for="po_id">Purchase Order</label>
+            <select class="form-select" id="po_id" name="po_id" required>
+              {% for po, remaining in eligible_pos %}
+              <option value="{{ po.id }}">PO #{{ po.id }} &mdash; {{ po.supplier.name if po.supplier else 'Unknown supplier' }} ({{ remaining }} units to bill)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-7">
+            <button type="submit" class="btn btn-success">
+              <i class="fa-solid fa-arrow-right me-1"></i>Create Invoice
+            </button>
+          </div>
+        </div>
+      </form>
+      {% else %}
+      <p class="text-secondary">No received items waiting to be billed. <a href="/admin/workflows/restock">Run the restock workflow</a> first.</p>
+      {% endif %}
+      {% endif %}
+
+      {% if step == 'create' and po %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="create" />
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label" for="invoice_number">Invoice Number</label>
+            <input class="form-control" type="text" id="invoice_number" name="invoice_number" required placeholder="e.g. INV-2026-0001" />
+          </div>
+        </div>
+        <table class="table table-sm table-bordered">
+          <thead>
+            <tr>
+              <th colspan="5">PO #{{ po.id }} &mdash; {{ po.supplier.name if po.supplier else 'Unknown supplier' }}</th>
+            </tr>
+            <tr>
+              <th>Product</th><th>Received</th><th>To Bill</th><th>Billed Qty</th><th>Billed Unit Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in invoice_items %}
+            <tr>
+              <td>{{ row.po_item.product.name if row.po_item.product else '?' }}</td>
+              <td>{{ row.po_item.quantity_received }}</td>
+              <td>{{ row.remaining }}</td>
+              <td>
+                <input class="form-control form-control-sm" type="number" name="bill_qty_{{ row.po_item.id }}" value="{{ row.remaining }}" min="0" max="{{ row.remaining }}" />
+              </td>
+              <td>
+                <input class="form-control form-control-sm" type="number" name="bill_cost_{{ row.po_item.id }}" value="{{ row.po_item.unit_cost }}" min="0" step="0.01" />
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button type="submit" class="btn btn-success">
+          <i class="fa-solid fa-file-circle-plus me-1"></i>Create Invoice
+        </button>
+        <a href="/admin/workflows/invoice?step=select" class="btn btn-light ms-2">Back</a>
+      </form>
+      {% endif %}
+
+      {% if step == 'review' and invoice %}
+      <table class="table table-sm table-bordered">
+        <thead>
+          <tr>
+            <th colspan="5">
+              Invoice <a href="/admin/purchase-invoice/details/{{ invoice.id }}">#{{ invoice.id }}</a> ({{ invoice.invoice_number }})
+              &mdash; {{ invoice.supplier.name if invoice.supplier else 'Unknown supplier' }}
+              &middot; status: <span class="badge bg-secondary">{{ invoice.status }}</span>
+            </th>
+          </tr>
+          <tr><th>Product</th><th>Billed Qty</th><th>Unit Cost</th><th>Line Total</th></tr>
+        </thead>
+        <tbody>
+          {% for item in invoice.items %}
+          <tr>
+            <td>{{ item.product.name if item.product else '?' }}</td>
+            <td>{{ item.billed_quantity }}</td>
+            <td>{{ item.billed_unit_cost }}</td>
+            <td>{{ item.line_total }}</td>
+          </tr>
+          {% endfor %}
+          <tr>
+            <td colspan="3" class="text-end"><strong>Total</strong></td>
+            <td><strong>{{ invoice.total_amount }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      {% if invoice.status == 'draft' %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="review" />
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label" for="review_note">Note</label>
+            <input class="form-control" type="text" id="review_note" name="review_note" placeholder="Optional note" />
+          </div>
+        </div>
+        <button type="submit" name="action" value="submit" class="btn btn-primary">
+          <i class="fa-solid fa-paper-plane me-1"></i>Submit for Review
+        </button>
+      </form>
+      {% elif invoice.status == 'pending_review' %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="review" />
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label" for="review_note">Review Note</label>
+            <input class="form-control" type="text" id="review_note" name="review_note" placeholder="Optional note" />
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" name="action" value="approve" class="btn btn-success">
+            <i class="fa-solid fa-check me-1"></i>Approve
+          </button>
+          <button type="submit" name="action" value="reject" class="btn btn-danger">
+            <i class="fa-solid fa-xmark me-1"></i>Reject
+          </button>
+        </div>
+      </form>
+      {% else %}
+      <a href="/admin/workflows/invoice?step=select" class="btn btn-light">Create another invoice</a>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

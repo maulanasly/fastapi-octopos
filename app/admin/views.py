@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 # pyrefly: ignore [missing-import]
 from sqladmin import BaseView, Flash, ModelView, action, expose
 from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 from starlette.exceptions import HTTPException
 
@@ -35,6 +37,25 @@ from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
 from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
+from app.schemas.drawer import ShiftReconciliationCreate
+from app.schemas.purchase import (
+    PurchaseInvoiceCreate,
+    PurchaseInvoiceItemCreate,
+    PurchaseInvoiceReviewAction,
+    PurchaseOrderReceive,
+    PurchaseOrderReceiveItem,
+)
+from app.schemas.refund import RefundCreate, RefundItemCreate
+from app.services.auto_po import auto_generate_purchase_orders
+from app.services.drawers import build_reconciliation, compute_drawer_totals
+from app.services.purchasing import (
+    approve_purchase_invoice,
+    create_purchase_invoice,
+    receive_purchase_order_items,
+    reject_purchase_invoice,
+    submit_purchase_invoice_for_review,
+)
+from app.services.refunds import create_refund
 from app.services.reports import (
     get_category_sales_data,
     get_executive_summary_data,
@@ -50,6 +71,11 @@ _reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
 
 
 class UserAdmin(LabeledRelationsMixin, ModelView, model=User):
+    name = "Users"
+    icon = "fa-solid fa-user"
+    category = "Access Control"
+    category_icon = "fa-solid fa-user-shield"
+
     column_list = [
         User.id,
         User.email,
@@ -65,6 +91,11 @@ class UserAdmin(LabeledRelationsMixin, ModelView, model=User):
 class LocalizationSettingAdmin(
     LabeledRelationsMixin, ModelView, model=LocalizationSetting
 ):
+    name = "Localization"
+    icon = "fa-solid fa-earth-asia"
+    category = "System"
+    category_icon = "fa-solid fa-gear"
+
     column_list = [
         LocalizationSetting.id,
         LocalizationSetting.language,
@@ -80,6 +111,11 @@ class LocalizationSettingAdmin(
 
 
 class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
+    name = "Roles"
+    icon = "fa-solid fa-id-badge"
+    category = "Access Control"
+    category_icon = "fa-solid fa-user-shield"
+
     column_list = [
         Role.id,
         Role.name,
@@ -112,6 +148,11 @@ class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
 
 
 class PermissionAdmin(LabeledRelationsMixin, ModelView, model=Permission):
+    name = "Permissions"
+    icon = "fa-solid fa-key"
+    category = "Access Control"
+    category_icon = "fa-solid fa-user-shield"
+
     column_list = [
         Permission.id,
         Permission.code,
@@ -123,6 +164,11 @@ class PermissionAdmin(LabeledRelationsMixin, ModelView, model=Permission):
 
 
 class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
+    name = "User Roles"
+    icon = "fa-solid fa-user-tag"
+    category = "Access Control"
+    category_icon = "fa-solid fa-user-shield"
+
     column_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
     column_sortable_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
     can_create = False
@@ -131,6 +177,11 @@ class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
 
 
 class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission):
+    name = "Role Permissions"
+    icon = "fa-solid fa-user-lock"
+    category = "Access Control"
+    category_icon = "fa-solid fa-user-shield"
+
     column_list = [
         RolePermission.id,
         RolePermission.role_id,
@@ -147,6 +198,11 @@ class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission
 
 
 class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
+    name = "Categories"
+    icon = "fa-solid fa-folder-tree"
+    category = "Inventory"
+    category_icon = "fa-solid fa-boxes-stacked"
+
     column_list = [
         Category.id,
         Category.name,
@@ -158,6 +214,11 @@ class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
 
 
 class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
+    name = "Products"
+    icon = "fa-solid fa-cube"
+    category = "Inventory"
+    category_icon = "fa-solid fa-boxes-stacked"
+
     column_list = [
         Product.id,
         Product.name,
@@ -284,6 +345,11 @@ class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
 
 
 class PromotionAdmin(LabeledRelationsMixin, ModelView, model=Promotion):
+    name = "Promotions"
+    icon = "fa-solid fa-tags"
+    category = "Marketing"
+    category_icon = "fa-solid fa-bullhorn"
+
     column_list = [
         Promotion.id,
         Promotion.code,
@@ -302,6 +368,11 @@ class PromotionAdmin(LabeledRelationsMixin, ModelView, model=Promotion):
 
 
 class CustomerAdmin(LabeledRelationsMixin, ModelView, model=Customer):
+    name = "Customers"
+    icon = "fa-solid fa-user-group"
+    category = "Customers"
+    category_icon = "fa-solid fa-user-group"
+
     column_list = [
         Customer.id,
         Customer.name,
@@ -318,6 +389,11 @@ class CustomerAdmin(LabeledRelationsMixin, ModelView, model=Customer):
 class LoyaltyTransactionAdmin(
     LabeledRelationsMixin, ModelView, model=LoyaltyTransaction
 ):
+    name = "Loyalty Transactions"
+    icon = "fa-solid fa-star"
+    category = "Customers"
+    category_icon = "fa-solid fa-user-group"
+
     column_list = [
         LoyaltyTransaction.id,
         LoyaltyTransaction.customer,
@@ -338,6 +414,11 @@ class LoyaltyTransactionAdmin(
 
 
 class SupplierAdmin(LabeledRelationsMixin, ModelView, model=Supplier):
+    name = "Suppliers"
+    icon = "fa-solid fa-truck-field"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
+
     column_list = [
         Supplier.id,
         Supplier.name,
@@ -351,6 +432,11 @@ class SupplierAdmin(LabeledRelationsMixin, ModelView, model=Supplier):
 
 
 class PurchaseOrderAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrder):
+    name = "Purchase Orders"
+    icon = "fa-solid fa-file-invoice"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
+
     column_list = [
         PurchaseOrder.id,
         PurchaseOrder.supplier,
@@ -369,6 +455,11 @@ class PurchaseOrderAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrder):
 
 
 class PurchaseOrderItemAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrderItem):
+    name = "PO Items"
+    icon = "fa-solid fa-list-check"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
+
     column_list = [
         PurchaseOrderItem.id,
         PurchaseOrderItem.purchase_order_id,
@@ -385,6 +476,11 @@ class PurchaseOrderItemAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrd
 
 
 class PurchaseInvoiceAdmin(LabeledRelationsMixin, ModelView, model=PurchaseInvoice):
+    name = "Purchase Invoices"
+    icon = "fa-solid fa-file-invoice-dollar"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
+
     column_list = [
         PurchaseInvoice.id,
         PurchaseInvoice.invoice_number,
@@ -412,6 +508,11 @@ class PurchaseInvoiceAdmin(LabeledRelationsMixin, ModelView, model=PurchaseInvoi
 class PurchaseInvoiceItemAdmin(
     LabeledRelationsMixin, ModelView, model=PurchaseInvoiceItem
 ):
+    name = "Invoice Items"
+    icon = "fa-solid fa-receipt"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
+
     column_list = [
         PurchaseInvoiceItem.id,
         PurchaseInvoiceItem.invoice_id,
@@ -436,6 +537,11 @@ class PurchaseInvoiceItemAdmin(
 
 
 class OrderAdmin(LabeledRelationsMixin, ModelView, model=Order):
+    name = "Orders"
+    icon = "fa-solid fa-cart-shopping"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
+
     column_list = [
         Order.id,
         Order.user,
@@ -475,6 +581,11 @@ class OrderAdmin(LabeledRelationsMixin, ModelView, model=Order):
 
 
 class OrderItemAdmin(LabeledRelationsMixin, ModelView, model=OrderItem):
+    name = "Order Items"
+    icon = "fa-solid fa-basket-shopping"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
+
     column_list = [
         OrderItem.id,
         OrderItem.order_id,
@@ -489,6 +600,11 @@ class OrderItemAdmin(LabeledRelationsMixin, ModelView, model=OrderItem):
 
 
 class DrawerSessionAdmin(LabeledRelationsMixin, ModelView, model=DrawerSession):
+    name = "Drawer Sessions"
+    icon = "fa-solid fa-cash-register"
+    category = "Operations"
+    category_icon = "fa-solid fa-screwdriver-wrench"
+
     column_list = [
         DrawerSession.id,
         DrawerSession.user,
@@ -512,6 +628,11 @@ class DrawerSessionAdmin(LabeledRelationsMixin, ModelView, model=DrawerSession):
 class ShiftReconciliationAdmin(
     LabeledRelationsMixin, ModelView, model=ShiftReconciliation
 ):
+    name = "Shift Reconciliations"
+    icon = "fa-solid fa-calculator"
+    category = "Operations"
+    category_icon = "fa-solid fa-screwdriver-wrench"
+
     column_list = [
         ShiftReconciliation.id,
         ShiftReconciliation.drawer_session_id,
@@ -532,6 +653,11 @@ class ShiftReconciliationAdmin(
 
 
 class RefundAdmin(LabeledRelationsMixin, ModelView, model=Refund):
+    name = "Refunds"
+    icon = "fa-solid fa-rotate-left"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
+
     column_list = [
         Refund.id,
         Refund.order_id,
@@ -547,6 +673,11 @@ class RefundAdmin(LabeledRelationsMixin, ModelView, model=Refund):
 
 
 class RefundItemAdmin(LabeledRelationsMixin, ModelView, model=RefundItem):
+    name = "Refund Items"
+    icon = "fa-solid fa-rotate"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
+
     column_list = [
         RefundItem.id,
         RefundItem.refund_id,
@@ -562,6 +693,11 @@ class RefundItemAdmin(LabeledRelationsMixin, ModelView, model=RefundItem):
 
 
 class StockMovementAdmin(LabeledRelationsMixin, ModelView, model=StockMovement):
+    name = "Stock Movements"
+    icon = "fa-solid fa-arrows-left-right-to-line"
+    category = "Inventory"
+    category_icon = "fa-solid fa-boxes-stacked"
+
     column_list = [
         StockMovement.id,
         StockMovement.product,
@@ -582,6 +718,11 @@ class StockMovementAdmin(LabeledRelationsMixin, ModelView, model=StockMovement):
 
 
 class SyncEventLogAdmin(LabeledRelationsMixin, ModelView, model=SyncEventLog):
+    name = "Sync Events"
+    icon = "fa-solid fa-arrows-rotate"
+    category = "System"
+    category_icon = "fa-solid fa-gear"
+
     column_list = [
         SyncEventLog.id,
         SyncEventLog.user,
@@ -606,6 +747,11 @@ class SyncEventLogAdmin(LabeledRelationsMixin, ModelView, model=SyncEventLog):
 
 
 class TaxRuleAdmin(LabeledRelationsMixin, ModelView, model=TaxRule):
+    name = "Tax Rules"
+    icon = "fa-solid fa-percent"
+    category = "Marketing"
+    category_icon = "fa-solid fa-bullhorn"
+
     column_list = [
         TaxRule.id,
         TaxRule.name,
@@ -624,6 +770,11 @@ class TaxRuleAdmin(LabeledRelationsMixin, ModelView, model=TaxRule):
 
 
 class OrderTaxLineAdmin(LabeledRelationsMixin, ModelView, model=OrderTaxLine):
+    name = "Order Tax Lines"
+    icon = "fa-solid fa-receipt"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
+
     column_list = [
         OrderTaxLine.id,
         OrderTaxLine.order_id,
@@ -646,6 +797,8 @@ class OrderTaxLineAdmin(LabeledRelationsMixin, ModelView, model=OrderTaxLine):
 class ReportsAdmin(BaseView):
     name = "Reports Dashboard"
     icon = "fa-solid fa-chart-line"
+    category = "Reports"
+    category_icon = "fa-solid fa-chart-pie"
 
     def _period_range(self, now: datetime, period: str) -> tuple:
         if period == "today":
@@ -903,6 +1056,779 @@ class ReportsAdmin(BaseView):
                     "now": _dt.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
                     "title": f"Shift Report #{rec.id}",
                 },
+            )
+        finally:
+            db.close()
+
+
+class WorkflowsAdmin(BaseView):
+    """Guided admin workflows: restock, invoicing, drawer close, refunds.
+
+    Each wizard is a stateless step chain under one route, driving the same
+    service layer the public API uses (``app.services.*``).
+    """
+
+    name = "Workflows"
+    icon = "fa-solid fa-wand-magic-sparkles"
+    category = "Workflows"
+    category_icon = "fa-solid fa-bolt"
+
+    # ------------------------------------------------------------------ helpers
+
+    @staticmethod
+    def _admin_user(db, request):
+        return db.get(User, request.session.get("admin_user_id"))
+
+    @staticmethod
+    def _flash_http_error(request, exc: HTTPException):
+        Flash.error(request, str(exc.detail), "Action failed")
+
+    @staticmethod
+    def _previously_billed_map(db, po_item_ids) -> dict[int, int]:
+        if not po_item_ids:
+            return {}
+        rows = (
+            db.query(
+                PurchaseInvoiceItem.purchase_order_item_id,
+                func.coalesce(func.sum(PurchaseInvoiceItem.billed_quantity), 0),
+            )
+            .join(
+                PurchaseInvoice,
+                PurchaseInvoiceItem.invoice_id == PurchaseInvoice.id,
+            )
+            .filter(
+                PurchaseInvoiceItem.purchase_order_item_id.in_(po_item_ids),
+                PurchaseInvoice.status != "rejected",
+            )
+            .group_by(PurchaseInvoiceItem.purchase_order_item_id)
+            .all()
+        )
+        return {row[0]: int(row[1] or 0) for row in rows}
+
+    @staticmethod
+    def _already_refunded_map(db, order_item_ids) -> dict[int, int]:
+        if not order_item_ids:
+            return {}
+        rows = (
+            db.query(
+                RefundItem.order_item_id,
+                func.coalesce(func.sum(RefundItem.quantity), 0),
+            )
+            .filter(RefundItem.order_item_id.in_(order_item_ids))
+            .group_by(RefundItem.order_item_id)
+            .all()
+        )
+        return {row[0]: int(row[1] or 0) for row in rows}
+
+    # --------------------------------------------------------------- hub page
+
+    @expose("/workflows", methods=["GET"])
+    async def workflows_index(self, request: Request):
+        db = SessionLocal()
+        try:
+            low_stock_count = (
+                db.query(Product)
+                .filter(Product.stock_quantity <= Product.reorder_point)
+                .count()
+            )
+            draft_po_count = (
+                db.query(PurchaseOrder).filter(PurchaseOrder.status == "draft").count()
+            )
+            pending_invoice_count = (
+                db.query(PurchaseInvoice)
+                .filter(PurchaseInvoice.status == "pending_review")
+                .count()
+            )
+            open_drawer_count = (
+                db.query(DrawerSession).filter(DrawerSession.status == "open").count()
+            )
+            return await self.templates.TemplateResponse(
+                request,
+                "workflows/index.html",
+                context={
+                    "title": "Workflows",
+                    "low_stock_count": low_stock_count,
+                    "draft_po_count": draft_po_count,
+                    "pending_invoice_count": pending_invoice_count,
+                    "open_drawer_count": open_drawer_count,
+                },
+            )
+        finally:
+            db.close()
+
+    # ----------------------------------------------------------- restock flow
+
+    @expose("/workflows/restock", methods=["GET", "POST"])
+    async def restock_workflow(self, request: Request):
+        db = SessionLocal()
+        try:
+            step = request.query_params.get("step", "generate")
+            pending_product_ids = {
+                row[0]
+                for row in db.query(PurchaseOrderItem.product_id)
+                .join(
+                    PurchaseOrder,
+                    PurchaseOrderItem.purchase_order_id == PurchaseOrder.id,
+                )
+                .filter(
+                    PurchaseOrder.status.in_(("draft", "ordered", "partially_received"))
+                )
+                .all()
+            }
+            low_stock_query = db.query(Product).filter(
+                Product.stock_quantity <= Product.reorder_point
+            )
+            if pending_product_ids:
+                low_stock_query = low_stock_query.filter(
+                    Product.id.notin_(pending_product_ids)
+                )
+            low_stock = low_stock_query.order_by(Product.id.asc()).all()
+
+            if request.method == "POST":
+                form = await request.form()
+                step = form.get("step") or step
+                if step == "generate":
+                    try:
+                        lookback_days = int(form.get("lookback_days") or 30)
+                    except (TypeError, ValueError):
+                        lookback_days = 30
+                    result = auto_generate_purchase_orders(
+                        db=db, lookback_days=lookback_days
+                    )
+                    if result["generated"]:
+                        Flash.success(
+                            request,
+                            f"Generated {result['generated']} purchase order(s) "
+                            f"for {', '.join(result['suppliers'])}.",
+                        )
+                    elif result["skipped_products"]:
+                        reasons = {
+                            item["reason"] for item in result["skipped_products"]
+                        }
+                        Flash.warning(
+                            request,
+                            "No POs generated. " + "; ".join(sorted(reasons)),
+                        )
+                    else:
+                        Flash.info(request, "Nothing to reorder right now.")
+                    return RedirectResponse(
+                        url="/admin/workflows/restock?step=receive", status_code=303
+                    )
+
+                if step == "select_po":
+                    try:
+                        po_id = int(form.get("po_id") or "")
+                    except (TypeError, ValueError):
+                        raise HTTPException(status_code=400, detail="Select a PO")
+                    return RedirectResponse(
+                        url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
+                        status_code=303,
+                    )
+
+                if step == "receive":
+                    try:
+                        po_id = int(form.get("po_id") or "")
+                    except (TypeError, ValueError):
+                        raise HTTPException(status_code=400, detail="Select a PO")
+                    items = []
+                    for key, value in form.multi_items():
+                        if not key.startswith("qty_"):
+                            continue
+                        try:
+                            item_id = int(key.removeprefix("qty_"))
+                            qty = int(value)
+                        except (TypeError, ValueError):
+                            continue
+                        if qty > 0:
+                            items.append(
+                                PurchaseOrderReceiveItem(
+                                    purchase_order_item_id=item_id,
+                                    quantity_received=qty,
+                                )
+                            )
+                    if not items:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Enter at least one received quantity",
+                        )
+                    try:
+                        user = self._admin_user(db, request)
+                        if user is None:
+                            raise HTTPException(
+                                status_code=403, detail="Admin user missing"
+                            )
+                        receive_purchase_order_items(
+                            db=db,
+                            current_user=user,
+                            purchase_order_id=po_id,
+                            receive_in=PurchaseOrderReceive(items=items),
+                        )
+                    except HTTPException as exc:
+                        self._flash_http_error(request, exc)
+                        return RedirectResponse(
+                            url="/admin/workflows/restock?step=receive", status_code=303
+                        )
+                    Flash.success(request, f"PO #{po_id} received — stock updated.")
+                    return RedirectResponse(
+                        url=f"/admin/workflows/restock?step=done&po_id={po_id}",
+                        status_code=303,
+                    )
+
+            draft_pos = (
+                db.query(PurchaseOrder)
+                .options(
+                    joinedload(PurchaseOrder.items).joinedload(
+                        PurchaseOrderItem.product
+                    ),
+                    joinedload(PurchaseOrder.supplier),
+                )
+                .filter(PurchaseOrder.status == "draft")
+                .order_by(PurchaseOrder.id.asc())
+                .all()
+            )
+            selected_po = None
+            po_id = request.query_params.get("po_id")
+            if po_id:
+                selected_po = next(
+                    (po for po in draft_pos if po.id == int(po_id)),
+                    None,
+                )
+            return await self.templates.TemplateResponse(
+                request,
+                "workflows/restock.html",
+                context={
+                    "title": "Restock",
+                    "step": step,
+                    "low_stock": low_stock,
+                    "draft_pos": draft_pos,
+                    "selected_po": selected_po,
+                    "done_po_id": request.query_params.get("po_id"),
+                },
+            )
+        except HTTPException as exc:
+            self._flash_http_error(request, exc)
+            return RedirectResponse(
+                url="/admin/workflows/restock?step=generate", status_code=303
+            )
+        finally:
+            db.close()
+
+    # ----------------------------------------------------------- invoice flow
+
+    @expose("/workflows/invoice", methods=["GET", "POST"])
+    async def invoice_workflow(self, request: Request):
+        db = SessionLocal()
+        try:
+            step = request.query_params.get("step", "select")
+            eligible_pos = []
+            pos = (
+                db.query(PurchaseOrder)
+                .options(
+                    joinedload(PurchaseOrder.items).joinedload(
+                        PurchaseOrderItem.product
+                    ),
+                    joinedload(PurchaseOrder.supplier),
+                )
+                .filter(PurchaseOrder.status != "cancelled")
+                .order_by(PurchaseOrder.id.desc())
+                .limit(50)
+                .all()
+            )
+            po_item_ids = [
+                item.id for po in pos for item in po.items if item.quantity_received > 0
+            ]
+            billed_map = self._previously_billed_map(db, po_item_ids)
+            for po in pos:
+                remaining = sum(
+                    max(item.quantity_received - billed_map.get(item.id, 0), 0)
+                    for item in po.items
+                    if item.quantity_received > 0
+                )
+                if remaining > 0:
+                    eligible_pos.append((po, remaining))
+
+            if request.method == "POST":
+                form = await request.form()
+                step = form.get("step") or step
+                if step == "select":
+                    try:
+                        po_id = int(form.get("po_id") or "")
+                    except (TypeError, ValueError):
+                        raise HTTPException(status_code=400, detail="Select a PO")
+                    return RedirectResponse(
+                        url=f"/admin/workflows/invoice?step=create&po_id={po_id}",
+                        status_code=303,
+                    )
+
+                if step == "create":
+                    po_id = int(request.query_params.get("po_id"))
+                    invoice_number = (form.get("invoice_number") or "").strip()
+                    if not invoice_number:
+                        raise HTTPException(
+                            status_code=400, detail="Invoice number is required"
+                        )
+                    items = []
+                    for key, value in form.multi_items():
+                        if key.startswith("bill_qty_"):
+                            item_id = int(key.removeprefix("bill_qty_"))
+                            qty = int(value or 0)
+                            if qty > 0:
+                                try:
+                                    cost = float(form.get(f"bill_cost_{item_id}") or 0)
+                                except (TypeError, ValueError):
+                                    cost = 0.0
+                                items.append(
+                                    PurchaseInvoiceItemCreate(
+                                        purchase_order_item_id=item_id,
+                                        billed_quantity=qty,
+                                        billed_unit_cost=cost,
+                                    )
+                                )
+                    if not items:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Enter at least one billed line",
+                        )
+                    try:
+                        user = self._admin_user(db, request)
+                        if user is None:
+                            raise HTTPException(
+                                status_code=403, detail="Admin user missing"
+                            )
+                        invoice = create_purchase_invoice(
+                            db=db,
+                            current_user=user,
+                            invoice_in=PurchaseInvoiceCreate(
+                                purchase_order_id=po_id,
+                                invoice_number=invoice_number,
+                                items=items,
+                            ),
+                        )
+                    except HTTPException as exc:
+                        self._flash_http_error(request, exc)
+                        return RedirectResponse(
+                            url=f"/admin/workflows/invoice?step=create&po_id={po_id}",
+                            status_code=303,
+                        )
+                    Flash.success(
+                        request,
+                        f"Invoice {invoice.invoice_number} created.",
+                    )
+                    return RedirectResponse(
+                        url=(
+                            f"/admin/workflows/invoice?step=review"
+                            f"&invoice_id={invoice.id}"
+                        ),
+                        status_code=303,
+                    )
+
+                if step == "review":
+                    invoice_id = int(request.query_params.get("invoice_id"))
+                    action_name = form.get("action")
+                    review_note = form.get("review_note") or None
+                    try:
+                        user = self._admin_user(db, request)
+                        if user is None:
+                            raise HTTPException(
+                                status_code=403, detail="Admin user missing"
+                            )
+                        if action_name == "submit":
+                            submit_purchase_invoice_for_review(
+                                db=db,
+                                current_user=user,
+                                invoice_id=invoice_id,
+                                action_in=PurchaseInvoiceReviewAction(
+                                    review_note=review_note
+                                ),
+                            )
+                            Flash.success(
+                                request, f"Invoice #{invoice_id} submitted for review."
+                            )
+                        elif action_name == "approve":
+                            approve_purchase_invoice(
+                                db=db,
+                                current_user=user,
+                                invoice_id=invoice_id,
+                                action_in=PurchaseInvoiceReviewAction(
+                                    review_note=review_note
+                                ),
+                            )
+                            Flash.success(request, f"Invoice #{invoice_id} approved.")
+                        elif action_name == "reject":
+                            reject_purchase_invoice(
+                                db=db,
+                                current_user=user,
+                                invoice_id=invoice_id,
+                                action_in=PurchaseInvoiceReviewAction(
+                                    review_note=review_note
+                                ),
+                            )
+                            Flash.success(request, f"Invoice #{invoice_id} rejected.")
+                        else:
+                            raise HTTPException(
+                                status_code=400, detail="Unknown review action"
+                            )
+                    except HTTPException as exc:
+                        self._flash_http_error(request, exc)
+                        return RedirectResponse(
+                            url=(
+                                f"/admin/workflows/invoice?step=review"
+                                f"&invoice_id={invoice_id}"
+                            ),
+                            status_code=303,
+                        )
+                    return RedirectResponse(
+                        url=f"/admin/purchase-invoice/details/{invoice_id}",
+                        status_code=303,
+                    )
+
+            po_id = request.query_params.get("po_id")
+            po = None
+            invoice_items = []
+            if po_id and step == "create":
+                po = next((p for p, _ in eligible_pos if p.id == int(po_id)), None)
+                if po is None:
+                    po = (
+                        db.query(PurchaseOrder)
+                        .options(
+                            joinedload(PurchaseOrder.items).joinedload(
+                                PurchaseOrderItem.product
+                            ),
+                            joinedload(PurchaseOrder.supplier),
+                        )
+                        .filter(PurchaseOrder.id == int(po_id))
+                        .first()
+                    )
+                if po is not None:
+                    item_ids = [item.id for item in po.items]
+                    billed_map = self._previously_billed_map(db, item_ids)
+                    invoice_items = [
+                        {
+                            "po_item": item,
+                            "remaining": max(
+                                item.quantity_received - billed_map.get(item.id, 0),
+                                0,
+                            ),
+                        }
+                        for item in po.items
+                        if item.quantity_received > 0
+                    ]
+
+            invoice = None
+            invoice_id = request.query_params.get("invoice_id")
+            if invoice_id and step == "review":
+                invoice = (
+                    db.query(PurchaseInvoice)
+                    .options(
+                        joinedload(PurchaseInvoice.items).joinedload(
+                            PurchaseInvoiceItem.product
+                        ),
+                        joinedload(PurchaseInvoice.supplier),
+                    )
+                    .filter(PurchaseInvoice.id == int(invoice_id))
+                    .first()
+                )
+
+            return await self.templates.TemplateResponse(
+                request,
+                "workflows/invoice.html",
+                context={
+                    "title": "Invoicing",
+                    "step": step,
+                    "eligible_pos": eligible_pos,
+                    "po": po,
+                    "invoice_items": invoice_items,
+                    "invoice": invoice,
+                },
+            )
+        except HTTPException as exc:
+            self._flash_http_error(request, exc)
+            return RedirectResponse(
+                url="/admin/workflows/invoice?step=select", status_code=303
+            )
+        finally:
+            db.close()
+
+    # ------------------------------------------------------- drawer close flow
+
+    @expose("/workflows/close-drawer", methods=["GET", "POST"])
+    async def close_drawer_workflow(self, request: Request):
+        db = SessionLocal()
+        try:
+            step = request.query_params.get("step", "select")
+            open_drawers = (
+                db.query(DrawerSession)
+                .options(joinedload(DrawerSession.user))
+                .filter(DrawerSession.status == "open")
+                .order_by(DrawerSession.id.asc())
+                .all()
+            )
+
+            if request.method == "POST":
+                form = await request.form()
+                step = form.get("step") or step
+                if step == "select":
+                    try:
+                        drawer_id = int(form.get("drawer_id") or "")
+                    except (TypeError, ValueError):
+                        raise HTTPException(
+                            status_code=400, detail="Select a drawer session"
+                        )
+                    return RedirectResponse(
+                        url=(
+                            f"/admin/workflows/close-drawer?step=count"
+                            f"&drawer_id={drawer_id}"
+                        ),
+                        status_code=303,
+                    )
+
+                if step == "count":
+                    drawer_id = int(request.query_params.get("drawer_id"))
+                    drawer = db.get(DrawerSession, drawer_id)
+                    if not drawer or drawer.status != "open":
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Only open drawer sessions can be reconciled.",
+                        )
+                    existing = (
+                        db.query(ShiftReconciliation)
+                        .filter(ShiftReconciliation.drawer_session_id == drawer_id)
+                        .first()
+                    )
+                    if existing:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="This drawer session has already been reconciled.",
+                        )
+                    try:
+                        counted_cash = float(form.get("counted_cash") or 0)
+                        counted_non_cash = form.get("counted_non_cash")
+                        counted_non_cash = (
+                            float(counted_non_cash) if counted_non_cash else None
+                        )
+                    except (TypeError, ValueError):
+                        raise HTTPException(
+                            status_code=400, detail="Counted cash must be a number"
+                        )
+                    user = self._admin_user(db, request)
+                    if user is None:
+                        raise HTTPException(
+                            status_code=403, detail="Admin user missing"
+                        )
+                    reconciliation = build_reconciliation(
+                        db=db,
+                        drawer=drawer,
+                        closed_by_user_id=user.id,
+                        reconcile_in=ShiftReconciliationCreate(
+                            counted_cash=counted_cash,
+                            counted_non_cash=counted_non_cash,
+                            notes=form.get("notes") or None,
+                        ),
+                    )
+                    db.add(reconciliation)
+                    drawer.ending_cash = counted_cash
+                    drawer.expected_cash = reconciliation.expected_cash
+                    drawer.closed_at = datetime.now(timezone.utc)
+                    drawer.status = "closed"
+                    db.add(drawer)
+                    log_action(
+                        db=db,
+                        action="drawer.reconcile",
+                        user_id=user.id,
+                        resource_type="drawer_session",
+                        resource_id=drawer.id,
+                        details={
+                            "expected_cash": str(reconciliation.expected_cash),
+                            "counted_cash": str(counted_cash),
+                        },
+                    )
+                    db.commit()
+                    db.refresh(reconciliation)
+                    Flash.success(request, f"Drawer #{drawer.id} closed.")
+                    return RedirectResponse(
+                        url=(
+                            f"/admin/workflows/close-drawer?step=done"
+                            f"&recon_id={reconciliation.id}"
+                        ),
+                        status_code=303,
+                    )
+
+            drawer = None
+            totals = None
+            expected_cash = None
+            expected_non_cash = None
+            drawer_id = request.query_params.get("drawer_id")
+            if drawer_id and step == "count":
+                drawer = db.get(DrawerSession, int(drawer_id))
+                if drawer and drawer.status == "open":
+                    totals = compute_drawer_totals(db, drawer)
+                    expected_cash = float(drawer.starting_cash or 0.0)
+                    expected_cash += totals["cash_sales_total"]
+                    expected_cash -= totals["cash_refunds_total"]
+                    expected_non_cash = totals["non_cash_sales_total"]
+                    expected_non_cash -= totals["non_cash_refunds_total"]
+
+            return await self.templates.TemplateResponse(
+                request,
+                "workflows/close_drawer.html",
+                context={
+                    "title": "Close Drawer",
+                    "step": step,
+                    "open_drawers": open_drawers,
+                    "drawer": drawer,
+                    "totals": totals,
+                    "expected_cash": expected_cash,
+                    "expected_non_cash": expected_non_cash,
+                    "done_recon_id": request.query_params.get("recon_id"),
+                },
+            )
+        except HTTPException as exc:
+            self._flash_http_error(request, exc)
+            return RedirectResponse(
+                url="/admin/workflows/close-drawer?step=select", status_code=303
+            )
+        finally:
+            db.close()
+
+    # ------------------------------------------------------------ refund flow
+
+    @expose("/workflows/refund", methods=["GET", "POST"])
+    async def refund_workflow(self, request: Request):
+        db = SessionLocal()
+        try:
+            step = request.query_params.get("step", "select")
+            completed_orders = (
+                db.query(Order)
+                .options(joinedload(Order.items))
+                .filter(Order.status == "completed")
+                .order_by(Order.id.desc())
+                .limit(50)
+                .all()
+            )
+            order_item_ids = [
+                item.id for order in completed_orders for item in order.items
+            ]
+            refunded_map = self._already_refunded_map(db, order_item_ids)
+            completed_order_rows = [
+                {
+                    "order": order,
+                    "refundable_count": sum(
+                        max(
+                            item.quantity - refunded_map.get(item.id, 0),
+                            0,
+                        )
+                        for item in order.items
+                    ),
+                }
+                for order in completed_orders
+            ]
+
+            if request.method == "POST":
+                form = await request.form()
+                step = form.get("step") or step
+                if step == "select":
+                    try:
+                        order_id = int(form.get("order_id") or "")
+                    except (TypeError, ValueError):
+                        raise HTTPException(status_code=400, detail="Select an order")
+                    return RedirectResponse(
+                        url=f"/admin/workflows/refund?step=items&order_id={order_id}",
+                        status_code=303,
+                    )
+
+                if step == "items":
+                    order_id = int(request.query_params.get("order_id"))
+                    items = []
+                    for key, value in form.multi_items():
+                        if not key.startswith("refund_qty_"):
+                            continue
+                        try:
+                            item_id = int(key.removeprefix("refund_qty_"))
+                            qty = int(value)
+                        except (TypeError, ValueError):
+                            continue
+                        if qty > 0:
+                            items.append(
+                                RefundItemCreate(
+                                    order_item_id=item_id,
+                                    quantity=qty,
+                                )
+                            )
+                    if not items:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Enter at least one refund quantity",
+                        )
+                    try:
+                        user = self._admin_user(db, request)
+                        if user is None:
+                            raise HTTPException(
+                                status_code=403, detail="Admin user missing"
+                            )
+                        refund = create_refund(
+                            db=db,
+                            current_user=user,
+                            refund_in=RefundCreate(
+                                order_id=order_id,
+                                reason=form.get("reason") or None,
+                                payment_method=(form.get("payment_method") or None),
+                                idempotency_key=str(uuid4()),
+                                items=items,
+                            ),
+                        )
+                    except HTTPException as exc:
+                        self._flash_http_error(request, exc)
+                        return RedirectResponse(
+                            url=(
+                                f"/admin/workflows/refund?step=items"
+                                f"&order_id={order_id}"
+                            ),
+                            status_code=303,
+                        )
+                    Flash.success(request, f"Refund #{refund.id} recorded.")
+                    return RedirectResponse(
+                        url=f"/admin/workflows/refund?step=done&refund_id={refund.id}",
+                        status_code=303,
+                    )
+
+            order = None
+            refund_items = []
+            order_id = request.query_params.get("order_id")
+            if order_id and step == "items":
+                order = next(
+                    (o for o in completed_orders if o.id == int(order_id)),
+                    None,
+                )
+                if order is not None:
+                    item_ids = [item.id for item in order.items]
+                    refunded_map = self._already_refunded_map(db, item_ids)
+                    refund_items = [
+                        {
+                            "order_item": item,
+                            "refundable": max(
+                                item.quantity - refunded_map.get(item.id, 0),
+                                0,
+                            ),
+                        }
+                        for item in order.items
+                    ]
+
+            return await self.templates.TemplateResponse(
+                request,
+                "workflows/refund.html",
+                context={
+                    "title": "Refund",
+                    "step": step,
+                    "completed_orders": completed_order_rows,
+                    "order": order,
+                    "refund_items": refund_items,
+                    "done_refund_id": request.query_params.get("refund_id"),
+                },
+            )
+        except HTTPException as exc:
+            self._flash_http_error(request, exc)
+            return RedirectResponse(
+                url="/admin/workflows/refund?step=select", status_code=303
             )
         finally:
             db.close()

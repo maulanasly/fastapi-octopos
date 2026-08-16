@@ -1,0 +1,88 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-wand-magic-sparkles me-2 text-primary"></i>Workflows
+      </h3>
+    </div>
+    <div class="card-body">
+      <p class="text-secondary small mb-4">
+        Guided end-to-end processes powered by the same business services the
+        public API uses. Pick a workflow to get started.
+      </p>
+      <div class="row g-3">
+        <div class="col-md-6 col-xl-3">
+          <a href="/admin/workflows/restock" class="card h-100 text-decoration-none border-0 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <i class="fa-solid fa-boxes-stacked fa-2x text-primary"></i>
+                </div>
+                <span class="badge bg-primary-subtle text-primary">{{ low_stock_count }} low-stock</span>
+              </div>
+              <h5 class="card-title mt-3 mb-1">Restock</h5>
+              <p class="card-text text-secondary small mb-0">
+                Generate purchase orders for low-stock items, receive them, and
+                update inventory.
+              </p>
+            </div>
+          </a>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <a href="/admin/workflows/invoice" class="card h-100 text-decoration-none border-0 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <i class="fa-solid fa-file-invoice-dollar fa-2x text-success"></i>
+                </div>
+                <span class="badge bg-success-subtle text-success">{{ pending_invoice_count }} pending review</span>
+              </div>
+              <h5 class="card-title mt-3 mb-1">Invoicing</h5>
+              <p class="card-text text-secondary small mb-0">
+                Create purchase invoices from received POs, then submit,
+                approve, or reject them.
+              </p>
+            </div>
+          </a>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <a href="/admin/workflows/close-drawer" class="card h-100 text-decoration-none border-0 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <i class="fa-solid fa-cash-register fa-2x text-warning"></i>
+                </div>
+                <span class="badge bg-warning-subtle text-warning">{{ open_drawer_count }} open</span>
+              </div>
+              <h5 class="card-title mt-3 mb-1">Close Drawer</h5>
+              <p class="card-text text-secondary small mb-0">
+                Reconcile an open drawer session against expected cash and
+                record variances.
+              </p>
+            </div>
+          </a>
+        </div>
+        <div class="col-md-6 col-xl-3">
+          <a href="/admin/workflows/refund" class="card h-100 text-decoration-none border-0 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <i class="fa-solid fa-rotate-left fa-2x text-danger"></i>
+                </div>
+                <span class="badge bg-danger-subtle text-danger">{{ draft_po_count }} draft POs</span>
+              </div>
+              <h5 class="card-title mt-3 mb-1">Refund</h5>
+              <p class="card-text text-secondary small mb-0">
+                Refund items from a completed order and restore stock.
+              </p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
