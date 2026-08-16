@@ -231,8 +231,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     )
                   : _ProductMonogram(product: product),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8),
+            // Fixed bottom label bar: the name is always visible and the
+            // tile height stays uniform regardless of the image.
+            Container(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+              color: categoryColor != null
+                  ? softBackground(categoryColor)
+                  : Theme.of(context).colorScheme.surfaceContainerLow,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -240,7 +245,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     product.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: categoryColor != null
+                          ? textColorOn(softBackground(categoryColor))
+                          : null,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
