@@ -44,6 +44,7 @@ dependencies:
   integration_test:
     sdk: flutter
   timezone: ^0.10.1
+  image_picker: ^1.2.1
 
 dev_dependencies:
   flutter_test:

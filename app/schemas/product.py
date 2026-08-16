@@ -1,16 +1,44 @@
+import re
 from typing import Optional
 
 # pyrefly: ignore [missing-import]
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+_HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
+    color: Optional[str] = None
+
+    @field_validator("color")
+    @classmethod
+    def _validate_color(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if not _HEX_COLOR.match(value):
+            raise ValueError("color must be a hex value like #E8F5E9")
+        return value.upper()
 
 
 class CategoryCreate(CategoryBase):
     pass
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+
+    @field_validator("color")
+    @classmethod
+    def _validate_color(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        if not _HEX_COLOR.match(value):
+            raise ValueError("color must be a hex value like #E8F5E9")
+        return value.upper()
 
 
 class Category(CategoryBase):
@@ -46,5 +74,6 @@ class ProductUpdate(ProductBase):
 class Product(ProductBase):
     id: int
     category: Optional[Category] = None
+    image_url: Optional[str] = None
 
     model_config = {"from_attributes": True}

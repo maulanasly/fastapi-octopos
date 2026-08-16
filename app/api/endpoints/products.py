@@ -1,11 +1,14 @@
-from typing import List
+import uuid
+from pathlib import Path
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.audit import log_action
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.order import OrderItem
 from app.models.product import Category, Product
@@ -14,7 +17,7 @@ from app.models.refund import RefundItem
 from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.product import Category as CategorySchema
-from app.schemas.product import CategoryCreate
+from app.schemas.product import CategoryCreate, CategoryUpdate
 from app.schemas.product import Product as ProductSchema
 from app.schemas.product import ProductCreate, ProductUpdate
 
@@ -41,6 +44,26 @@ def create_category(
     current_user: User = Depends(require_permissions("products:manage")),
 ):
     category = Category(**category_in.model_dump())
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+@router.put("/categories/{category_id}", response_model=CategorySchema)
+def update_category(
+    category_id: int,
+    category_in: CategoryUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions("products:manage")),
+):
+    category = db.query(Category).filter(Category.id == category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    update_data = category_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(category, field, value)
     db.add(category)
     db.commit()
     db.refresh(category)
@@ -216,3 +239,87 @@ def delete_product(
     db.delete(product)
     db.commit()
     return {"ok": True}
+
+
+# Image Endpoints
+
+_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+
+def _media_dir() -> Path:
+    path = Path(settings.MEDIA_DIR).resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _delete_stored_image(image_url: Optional[str]) -> None:
+    if not image_url or not image_url.startswith("/media/"):
+        return
+    try:
+        file_path = (_media_dir() / image_url.removeprefix("/media/")).resolve()
+        if file_path.is_file() and file_path.is_relative_to(_media_dir()):
+            file_path.unlink()
+    except OSError:
+        pass
+
+
+@router.post("/{product_id}/image", response_model=ProductSchema)
+def upload_product_image(
+    product_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions("products:manage")),
+):
+    """Upload or replace a product photo (jpeg/png/webp, max 5 MB)."""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    content_type = (file.content_type or "").lower()
+    if content_type not in _ALLOWED_IMAGE_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported image type. Allowed: {sorted(_ALLOWED_IMAGE_TYPES)}",
+        )
+
+    content = file.file.read(_MAX_IMAGE_BYTES + 1)
+    if len(content) > _MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image exceeds 5 MB limit")
+
+    extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[
+        content_type
+    ]
+    media_dir = _media_dir()
+    (media_dir / "products").mkdir(parents=True, exist_ok=True)
+    file_name = f"{product_id}_{uuid.uuid4().hex}.{extension}"
+    destination = media_dir / "products" / file_name
+
+    with destination.open("wb") as out:
+        out.write(content)
+
+    _delete_stored_image(product.image_url)
+    product.image_url = f"/media/products/{file_name}"
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.delete("/{product_id}/image", response_model=ProductSchema)
+def delete_product_image(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions("products:manage")),
+):
+    """Remove the product photo."""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    _delete_stored_image(product.image_url)
+    product.image_url = None
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return product

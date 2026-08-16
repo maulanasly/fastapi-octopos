@@ -12,4 +12,12 @@ class AppConfig {
 
   /// Project name / display title.
   static const String appTitle = 'OctoPOS';
+
+  /// Origin of the backend (scheme + host + port) for building absolute
+  /// media URLs from the relative /media/... paths the API returns.
+  static String get mediaBaseUrl {
+    final api = apiBaseUrl;
+    final cut = api.lastIndexOf('/api/v1');
+    return cut > 0 ? api.substring(0, cut) : api;
+  }
 }

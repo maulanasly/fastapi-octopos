@@ -1,6 +1,8 @@
 /// Thin repositories over the Dio client, one per backend module.
 library;
 
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -78,10 +80,30 @@ class CatalogRepository {
         .toList();
   }
 
-  Future<Category> createCategory(String name, String? description) async {
+  Future<Category> createCategory(
+    String name,
+    String? description, {
+    String? color,
+  }) async {
     final resp = await api.dio.post<Map<String, dynamic>>(
       '/products/categories',
-      data: {'name': name, 'description': description},
+      data: {
+        'name': name,
+        'description': description,
+        if (color != null) 'color': color,
+      },
+    );
+    return Category.fromJson(resp.data!);
+  }
+
+  /// Sets (or clears, with null) a category's display color.
+  Future<Category> updateCategoryColor(int categoryId, String? color) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/products/categories/$categoryId',
+      data: {
+        if (color != null) 'color': color,
+        if (color == null) 'color': null,
+      },
     );
     return Category.fromJson(resp.data!);
   }
@@ -100,6 +122,41 @@ class CatalogRepository {
       data: body,
     );
     return Product.fromJson(resp.data!);
+  }
+
+  /// Uploads a product photo (multipart). Returns the updated product.
+  Future<Product> uploadImage(
+    int productId,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final form = FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(_mediaTypeFor(filename)),
+      ),
+    });
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/products/$productId/image',
+      data: form,
+    );
+    return Product.fromJson(resp.data!);
+  }
+
+  /// Removes the product photo.
+  Future<Product> deleteImage(int productId) async {
+    final resp = await api.dio.delete<Map<String, dynamic>>(
+      '/products/$productId/image',
+    );
+    return Product.fromJson(resp.data!);
+  }
+
+  static String _mediaTypeFor(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 }
 

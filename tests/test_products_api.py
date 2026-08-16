@@ -145,3 +145,129 @@ def test_product_unit_cost_create_and_update(client, manager_headers):
     )
     assert updated.status_code == 200, updated.text
     assert updated.json()["unit_cost"] == 11.0
+
+
+def test_upload_product_image(client, manager_headers, make_product):
+    product = make_product(
+        manager_headers, name="Photo Item", sku="PHOTO-1", price=5.0, stock=5
+    )
+    resp = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("p.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["image_url"].startswith("/media/products/")
+    assert resp.json()["image_url"].endswith(".png")
+
+    # served via the static mount
+    served = client.get(resp.json()["image_url"])
+    assert served.status_code == 200
+
+
+def test_upload_replaces_and_cleans_old_file(client, manager_headers, make_product):
+    product = make_product(
+        manager_headers, name="Photo Item 2", sku="PHOTO-2", price=5.0, stock=5
+    )
+    first = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("a.png", b"first", "image/png")},
+    ).json()
+    second = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("b.png", b"second", "image/png")},
+    ).json()
+    assert first["image_url"] != second["image_url"]
+    # old file removed from disk
+    assert client.get(first["image_url"]).status_code == 404
+
+
+def test_upload_rejects_unsupported_type(client, manager_headers, make_product):
+    product = make_product(
+        manager_headers, name="Photo Item 3", sku="PHOTO-3", price=5.0, stock=5
+    )
+    resp = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("evil.txt", b"hello", "text/plain")},
+    )
+    assert resp.status_code == 415
+
+
+def test_upload_requires_manager(
+    client, cashier_headers, manager_headers, make_product
+):
+    product = make_product(
+        manager_headers, name="Photo Item 4", sku="PHOTO-4", price=5.0, stock=5
+    )
+    resp = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=cashier_headers,
+        files={"file": ("p.png", b"x", "image/png")},
+    )
+    assert resp.status_code == 403
+
+
+def test_delete_product_image(client, manager_headers, make_product):
+    product = make_product(
+        manager_headers, name="Photo Item 5", sku="PHOTO-5", price=5.0, stock=5
+    )
+    client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("p.png", b"x", "image/png")},
+    )
+    resp = client.delete(
+        f"/api/v1/products/{product['id']}/image", headers=manager_headers
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["image_url"] is None
+
+
+def test_category_color_validation(client, manager_headers):
+    ok = client.post(
+        "/api/v1/products/categories",
+        headers=manager_headers,
+        json={"name": "Colored", "color": "#E8F5E9"},
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["color"] == "#E8F5E9"
+
+    bad = client.post(
+        "/api/v1/products/categories",
+        headers=manager_headers,
+        json={"name": "Bad", "color": "green"},
+    )
+    assert bad.status_code == 422
+
+
+def test_update_category_color(client, manager_headers):
+    created = client.post(
+        "/api/v1/products/categories",
+        headers=manager_headers,
+        json={"name": "Editable", "color": "#E8F5E9"},
+    ).json()
+    updated = client.put(
+        f"/api/v1/products/categories/{created['id']}",
+        headers=manager_headers,
+        json={"color": "#FFF3E0"},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["color"] == "#FFF3E0"
+
+    cleared = client.put(
+        f"/api/v1/products/categories/{created['id']}",
+        headers=manager_headers,
+        json={"color": None},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["color"] is None
+
+    bad = client.put(
+        f"/api/v1/products/categories/{created['id']}",
+        headers=manager_headers,
+        json={"color": "blue"},
+    )
+    assert bad.status_code == 422

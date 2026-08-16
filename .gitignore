@@ -144,3 +144,9 @@ client/ios/.symlinks/
 client/linux/flutter/ephemeral/
 client/web/flutter_bootstrap.js
 client/web/icons/
+
+# Uploaded product images
+media/
+
+# Uploaded product images
+media/

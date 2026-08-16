@@ -18,6 +18,7 @@ class Category(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, nullable=False)
     description = Column(Text, nullable=True)
+    color = Column(String, nullable=True)  # hex, e.g. "#E8F5E9"
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -44,6 +45,7 @@ class Product(Base):
     reorder_point = Column(Integer, nullable=False, default=0)
     lead_time_days = Column(Integer, nullable=False, default=0)
     category_id = Column(Integer, ForeignKey("categories.id"))
+    image_url = Column(String, nullable=True)  # /media/... path
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
