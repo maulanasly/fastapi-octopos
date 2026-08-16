@@ -1,0 +1,309 @@
+/// Thin repositories over the Dio client, one per backend module.
+library;
+
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import 'api_client.dart';
+import 'models.dart';
+
+final catalogRepositoryProvider = Provider<CatalogRepository>(
+  (ref) => CatalogRepository(ref.watch(apiClientProvider)),
+);
+
+final orderRepositoryProvider = Provider<OrderRepository>(
+  (ref) => OrderRepository(ref.watch(apiClientProvider)),
+);
+
+final drawerRepositoryProvider = Provider<DrawerRepository>(
+  (ref) => DrawerRepository(ref.watch(apiClientProvider)),
+);
+
+final customerRepositoryProvider = Provider<CustomerRepository>(
+  (ref) => CustomerRepository(ref.watch(apiClientProvider)),
+);
+
+final rbacRepositoryProvider = Provider<RbacRepository>(
+  (ref) => RbacRepository(ref.watch(apiClientProvider)),
+);
+
+final reportRepositoryProvider = Provider<ReportRepository>(
+  (ref) => ReportRepository(ref.watch(apiClientProvider)),
+);
+
+final syncRepositoryProvider = Provider<SyncRepository>(
+  (ref) => SyncRepository(ref.watch(apiClientProvider)),
+);
+
+const _uuid = Uuid();
+
+String newIdempotencyKey() => _uuid.v4();
+
+/// Idempotency-aware post helper: every mutating request carries a fresh
+/// idempotency key so retries (offline reconnect, user double-tap) never
+/// create duplicates on the backend.
+Map<String, dynamic> _withKey(Map<String, dynamic> body, {String? key}) => {
+  ...body,
+  if (key != null) 'idempotency_key': key,
+};
+
+class CatalogRepository {
+  final ApiClient api;
+  CatalogRepository(this.api);
+
+  Future<List<Category>> categories() async {
+    final resp = await api.dio.get<List<dynamic>>('/products/categories');
+    return resp.data!
+        .map((e) => Category.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<Product>> products() async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/products/',
+      queryParameters: {'limit': 500},
+    );
+    return resp.data!
+        .map((e) => Product.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Category> createCategory(String name, String? description) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/products/categories',
+      data: {'name': name, 'description': description},
+    );
+    return Category.fromJson(resp.data!);
+  }
+
+  Future<Product> createProduct(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/products/',
+      data: body,
+    );
+    return Product.fromJson(resp.data!);
+  }
+
+  Future<Product> updateProduct(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/products/$id/',
+      data: body,
+    );
+    return Product.fromJson(resp.data!);
+  }
+}
+
+class OrderRepository {
+  final ApiClient api;
+  OrderRepository(this.api);
+
+  Future<Order> createOrder({
+    required List<Map<String, dynamic>> items,
+    int? customerId,
+    String? promotionCode,
+    int redeemPoints = 0,
+    String? idempotencyKey,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/',
+      data: _withKey({
+        'items': items,
+        if (customerId != null) 'customer_id': customerId,
+        if (promotionCode != null && promotionCode.isNotEmpty)
+          'promotion_code': promotionCode,
+        if (redeemPoints > 0) 'redeem_points': redeemPoints,
+      }, key: idempotencyKey ?? newIdempotencyKey()),
+    );
+    return Order.fromJson(resp.data!);
+  }
+
+  Future<Order> addPayment({
+    required int orderId,
+    required String method,
+    required int amountCents,
+    String? idempotencyKey,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/$orderId/payments',
+      data: _withKey({
+        'payment_method': method,
+        'amount': amountCents / 100,
+      }, key: idempotencyKey ?? newIdempotencyKey()),
+    );
+    return Order.fromJson(resp.data!);
+  }
+
+  Future<Order> addSplitPayments({
+    required int orderId,
+    required List<Map<String, String>> payments,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/$orderId/payments/split',
+      data: {'payments': payments},
+    );
+    return Order.fromJson(resp.data!);
+  }
+
+  Future<List<Order>> recentOrders({int limit = 50}) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/orders/',
+      queryParameters: {'limit': limit},
+    );
+    return resp.data!
+        .map((e) => Order.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<OrderReceipt> receipt(int orderId) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/orders/$orderId/receipt',
+    );
+    return OrderReceipt.fromJson(resp.data!);
+  }
+
+  Future<Order> cancel(int orderId) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/$orderId/cancel',
+    );
+    return Order.fromJson(resp.data!);
+  }
+
+  Future<Refund> createRefund({
+    required int orderId,
+    required List<Map<String, dynamic>> items,
+    String? reason,
+    String? paymentMethod,
+    String? idempotencyKey,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/refunds/',
+      data: _withKey({
+        'order_id': orderId,
+        'items': items,
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+        if (paymentMethod != null) 'payment_method': paymentMethod,
+      }, key: idempotencyKey ?? newIdempotencyKey()),
+    );
+    return Refund.fromJson(resp.data!);
+  }
+}
+
+class DrawerRepository {
+  final ApiClient api;
+  DrawerRepository(this.api);
+
+  Future<DrawerSession> open({required int startingCashCents}) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/drawers/open',
+      data: {'starting_cash': startingCashCents / 100},
+    );
+    return DrawerSession.fromJson(resp.data!);
+  }
+
+  /// Returns null when no active drawer exists (backend 404).
+  Future<DrawerSession?> active() async {
+    try {
+      final resp = await api.dio.get<Map<String, dynamic>>('/drawers/active');
+      return DrawerSession.fromJson(resp.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  Future<ShiftReconciliation> reconcile({
+    required int sessionId,
+    required int countedCashCents,
+    int? countedNonCashCents,
+    String? notes,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/drawers/reconcile/$sessionId',
+      data: {
+        'counted_cash': countedCashCents / 100,
+        if (countedNonCashCents != null)
+          'counted_non_cash': countedNonCashCents / 100,
+        if (notes != null) 'notes': notes,
+      },
+    );
+    return ShiftReconciliation.fromJson(resp.data!);
+  }
+}
+
+class CustomerRepository {
+  final ApiClient api;
+  CustomerRepository(this.api);
+
+  Future<List<Customer>> list() async {
+    final resp = await api.dio.get<List<dynamic>>('/customers/');
+    return resp.data!
+        .map((e) => Customer.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Customer> create({
+    required String name,
+    String? email,
+    String? phone,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/customers/',
+      data: {
+        'name': name,
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+      },
+    );
+    return Customer.fromJson(resp.data!);
+  }
+}
+
+class RbacRepository {
+  final ApiClient api;
+  RbacRepository(this.api);
+
+  Future<List<String>> myPermissions() async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/rbac/me/permissions',
+    );
+    return (resp.data!['permissions'] as List? ?? []).cast<String>();
+  }
+}
+
+class ReportRepository {
+  final ApiClient api;
+  ReportRepository(this.api);
+
+  Future<SalesSummary> sales() async {
+    final resp = await api.dio.get<Map<String, dynamic>>('/reports/sales');
+    return SalesSummary.fromJson(resp.data!);
+  }
+
+  Future<List<Product>> lowStock() async {
+    final resp = await api.dio.get<List<dynamic>>('/reports/low-stock');
+    return resp.data!
+        .map((e) => Product.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ShiftReport> shiftReport(int reconciliationId) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/reports/shift/$reconciliationId',
+    );
+    return ShiftReport.fromJson(resp.data!);
+  }
+}
+
+class SyncRepository {
+  final ApiClient api;
+  SyncRepository(this.api);
+
+  Future<CatalogDelta> catalog({String? since}) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/sync/catalog',
+      queryParameters: {if (since != null) 'since': since},
+    );
+    return CatalogDelta.fromJson(resp.data!);
+  }
+}
