@@ -271,3 +271,15 @@ def test_update_category_color(client, manager_headers):
         json={"color": "blue"},
     )
     assert bad.status_code == 422
+
+
+def test_category_color_palette_endpoint(client, cashier_headers):
+    from app.admin.color_field import CATEGORY_COLOR_PALETTE
+
+    resp = client.get("/api/v1/products/categories/colors", headers=cashier_headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == CATEGORY_COLOR_PALETTE
+    assert len(resp.json()) >= 8
+
+    anonymous = client.get("/api/v1/products/categories/colors")
+    assert anonymous.status_code == 401 or anonymous.status_code == 403

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.admin.color_field import CATEGORY_COLOR_PALETTE
 from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.audit import log_action
 from app.core.config import settings
@@ -24,6 +25,14 @@ from app.schemas.product import ProductCreate, ProductUpdate
 router = APIRouter()
 
 # Category Endpoints
+
+
+@router.get("/categories/colors", response_model=List[str])
+def get_category_color_palette(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Curated category color palette (shared with the client)."""
+    return CATEGORY_COLOR_PALETTE
 
 
 @router.get("/categories", response_model=List[CategorySchema])
