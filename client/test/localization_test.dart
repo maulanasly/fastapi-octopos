@@ -141,6 +141,8 @@ void main() {
     });
   });
 
+  _authProfileTests();
+
   group('LocalizationController', () {
     test('load applies settings and switches region', () async {
       final container = ProviderContainer(
@@ -203,4 +205,33 @@ class _FixedLanguageLocalization extends LocalizationController {
       countryCode: 'US',
     ),
   );
+}
+
+void _authProfileTests() {
+  test('displayName prefers the full name and falls back to email', () {
+    const withName = AuthState(
+      status: AuthStatus.signedIn,
+      email: 'cashier@example.com',
+      fullName: 'Budi Cashier',
+    );
+    expect(withName.displayName, 'Budi Cashier');
+
+    const emailOnly = AuthState(
+      status: AuthStatus.signedIn,
+      email: 'cashier@example.com',
+    );
+    expect(emailOnly.displayName, 'cashier@example.com');
+  });
+
+  test('UserProfile parses the /auth/me payload', () {
+    final profile = UserProfile.fromJson(const {
+      'id': 3,
+      'email': 'cashier@example.com',
+      'full_name': 'Budi Cashier',
+      'is_active': true,
+      'is_superuser': false,
+    });
+    expect(profile.fullName, 'Budi Cashier');
+    expect(profile.isSuperuser, isFalse);
+  });
 }

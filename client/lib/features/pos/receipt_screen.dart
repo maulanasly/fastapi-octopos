@@ -1,13 +1,17 @@
 /// Order receipt screen (fetched fresh from the backend).
 library;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/dates.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import 'print_stub.dart'
+    if (dart.library.js_interop) 'print_web.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
   const ReceiptScreen({super.key, required this.orderId});
@@ -70,6 +74,16 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       Text(
+                        '${s.of('date')}: ${formatDateTimeIso(receipt.createdAt)}',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text(
+                        '${s.of('cashier')}: ${receipt.cashierName ?? '-'}',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      Text(
                         receipt.customerName ?? s.of('guest'),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall,
@@ -115,6 +129,13 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                       if (receipt.changeAmount > 0)
                         _line(context, s.of('change'), -receipt.changeAmount),
                       const SizedBox(height: 16),
+                      if (kIsWeb)
+                        FilledButton.icon(
+                          icon: const Icon(Icons.print),
+                          label: Text(s.of('print')),
+                          onPressed: printReceipt,
+                        ),
+                      const SizedBox(height: 8),
                       FilledButton.icon(
                         icon: const Icon(Icons.check),
                         label: Text(s.of('done')),

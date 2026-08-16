@@ -50,9 +50,12 @@ class HomeShell extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
-              child: Text(
-                auth.email ?? '',
-                style: Theme.of(context).textTheme.bodySmall,
+              child: Tooltip(
+                message: auth.email ?? '',
+                child: Text(
+                  '${s.of('signedInAs')}: ${auth.displayName ?? ''}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
             ),
           ),

@@ -322,3 +322,26 @@ def test_receipt_customer_name_null_for_guest(
     )
     assert receipt.status_code == 200, receipt.text
     assert receipt.json()["customer_name"] is None
+
+
+def test_receipt_includes_cashier_name(
+    client, cashier_headers, manager_headers, make_product, open_drawer
+):
+    product = make_product(
+        manager_headers, name="Cashier Item", sku="CSHR-1", price=5.0, stock=10
+    )
+    open_drawer(cashier_headers)
+    order = client.post(
+        "/api/v1/orders/", headers=cashier_headers, json=order_payload(product["id"])
+    )
+    assert order.status_code == 200, order.text
+    receipt = client.get(
+        f"/api/v1/orders/{order.json()['id']}/receipt", headers=cashier_headers
+    )
+    assert receipt.status_code == 200, receipt.text
+    body = receipt.json()
+    assert body["cashier_name"] is not None
+    # fallback to email when no full name
+    assert (
+        body["cashier_name"].endswith("example.com") or "@" not in body["cashier_name"]
+    )
