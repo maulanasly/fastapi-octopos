@@ -85,8 +85,8 @@ void main() {
 
     test('IDR: rupiah, id_ID separators, no decimals', () {
       configureMoney(currency: 'IDR', numberFormat: 'id_ID');
-      expect(formatCents(450000), 'Rp4.500');
-      expect(formatCents(45500), 'Rp455');
+      expect(formatCents(450000), 'Rp 4.500');
+      expect(formatCents(45500), 'Rp 455');
     });
 
     test('extended currency symbols', () {

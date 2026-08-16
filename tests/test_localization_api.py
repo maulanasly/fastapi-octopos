@@ -135,3 +135,11 @@ def test_regions_are_per_user(client, auth_factory):
     resp_id = client.get("/api/v1/localization/me", headers=id_user)
     assert resp_us.json()["currency"] == "USD"
     assert resp_id.json()["currency"] == "IDR"
+
+
+def test_format_currency_idr_has_space(client, cashier_headers):
+    """The Indonesian convention places a space between Rp and the amount."""
+    from app.core.localization import format_currency
+
+    assert format_currency(4500.0, "IDR", "id_ID") == "Rp 4.500"
+    assert format_currency(4500.0, "USD", "en_US") == "$4,500.00"

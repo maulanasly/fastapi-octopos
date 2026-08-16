@@ -90,6 +90,8 @@ def format_currency(value: float, currency: str, number_format: str) -> str:
         amount = (
             amount.split(",")[0] if number_format == "id_ID" else amount.split(".")[0]
         )
+        # Indonesian convention: a space between "Rp" and the amount.
+        return f"{symbol} {amount}"
     return f"{symbol}{amount}"
 
 
