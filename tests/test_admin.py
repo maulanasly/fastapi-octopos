@@ -345,3 +345,196 @@ def test_admin_role_edit_form_renders_permission_codes(client, db):
     assert page.status_code == 200
     assert "orders:manage" in page.text
     assert "<Permission" not in page.text
+
+
+def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
+    """Detail pages label every relationship, never rendering object reprs.
+
+    sqladmin renders all model attributes on the detail page by default, so
+    relationships outside ``column_list`` must still be formatted.
+    """
+    from decimal import Decimal
+
+    from app.models.customer import Customer
+    from app.models.drawer import DrawerSession
+    from app.models.order import Order, OrderItem
+    from app.models.payment import Payment
+    from app.models.product import Category, Product
+    from app.models.promotion import Promotion
+    from app.models.purchase import (PurchaseInvoice, PurchaseInvoiceItem,
+                                     PurchaseOrder, PurchaseOrderItem,
+                                     Supplier)
+    from app.models.refund import Refund, RefundItem
+    from app.models.stock_movement import StockMovement
+    from app.models.tax import OrderTaxLine, TaxRule
+
+    boss = auth_factory.register("detail-boss@example.com")
+    _make_superuser(db, boss["id"])
+    _login(client, username="detail-boss@example.com", password="TestPass123")
+    user_id = boss["id"]
+
+    category = Category(name="Detail Cat", description="x")
+    product = Product(
+        name="Detail Widget",
+        sku="SKU-DTL-1",
+        price=7.0,
+        stock_quantity=10,
+        category=category,
+    )
+    supplier = Supplier(name="Detail Supplier")
+    customer = Customer(name="Detail Customer")
+    promotion = Promotion(
+        code="DTL10",
+        name="Detail Promo",
+        discount_type="percentage",
+        discount_value=10,
+    )
+    tax_rule = TaxRule(name="Detail VAT", rate=Decimal("0.11"))
+    db.add_all([category, product, supplier, customer, promotion, tax_rule])
+    db.flush()
+
+    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id)
+    db.add(po)
+    db.flush()
+    po_item = PurchaseOrderItem(
+        purchase_order_id=po.id,
+        product_id=product.id,
+        quantity_ordered=5,
+        unit_cost=Decimal("2.00"),
+    )
+    db.add(po_item)
+    db.flush()
+    invoice = PurchaseInvoice(
+        supplier_id=supplier.id,
+        purchase_order_id=po.id,
+        user_id=user_id,
+        invoice_number="INV-DTL-1",
+    )
+    db.add(invoice)
+    db.flush()
+    invoice_item = PurchaseInvoiceItem(
+        invoice_id=invoice.id,
+        purchase_order_item_id=po_item.id,
+        product_id=product.id,
+        billed_quantity=5,
+        billed_unit_cost=Decimal("2.00"),
+        expected_quantity=5,
+        expected_unit_cost=Decimal("2.00"),
+    )
+    db.add(invoice_item)
+
+    drawer = DrawerSession(user_id=user_id)
+    db.add(drawer)
+    db.flush()
+    order = Order(user_id=user_id, customer_id=customer.id, drawer_session_id=drawer.id)
+    db.add(order)
+    db.flush()
+    order_item = OrderItem(
+        order_id=order.id, product_id=product.id, quantity=2, unit_price=Decimal("7.00")
+    )
+    tax_line = OrderTaxLine(
+        order_id=order.id,
+        tax_rule_id=tax_rule.id,
+        tax_name="VAT",
+        tax_scope="order",
+        tax_mode="exclusive",
+        tax_rate=Decimal("0.11"),
+        taxable_base=Decimal("14.00"),
+        tax_amount=Decimal("1.54"),
+    )
+    payment = Payment(
+        order_id=order.id,
+        user_id=user_id,
+        payment_method="cash",
+        amount=Decimal("14.00"),
+    )
+    refund = Refund(order_id=order.id, user_id=user_id)
+    db.add_all([order_item, tax_line, payment, refund])
+    db.flush()
+    refund_item = RefundItem(
+        refund_id=refund.id,
+        order_item_id=order_item.id,
+        product_id=product.id,
+        quantity=1,
+        unit_price=Decimal("7.00"),
+    )
+    db.add(refund_item)
+    db.flush()
+    movement = StockMovement(
+        product_id=product.id,
+        user_id=user_id,
+        order_id=order.id,
+        order_item_id=order_item.id,
+        purchase_order_id=po.id,
+        purchase_order_item_id=po_item.id,
+        refund_id=refund.id,
+        movement_type="purchase",
+        quantity_before=5,
+        quantity_delta=5,
+        quantity_after=10,
+    )
+    db.add(movement)
+    db.commit()
+
+    detail_urls = [
+        f"/admin/category/details/{category.id}",
+        f"/admin/product/details/{product.id}",
+        f"/admin/promotion/details/{promotion.id}",
+        f"/admin/customer/details/{customer.id}",
+        f"/admin/supplier/details/{supplier.id}",
+        f"/admin/purchase-order/details/{po.id}",
+        f"/admin/purchase-order-item/details/{po_item.id}",
+        f"/admin/purchase-invoice/details/{invoice.id}",
+        f"/admin/purchase-invoice-item/details/{invoice_item.id}",
+        f"/admin/order/details/{order.id}",
+        f"/admin/order-item/details/{order_item.id}",
+        f"/admin/order-tax-line/details/{tax_line.id}",
+        f"/admin/drawer-session/details/{drawer.id}",
+        f"/admin/refund/details/{refund.id}",
+        f"/admin/refund-item/details/{refund_item.id}",
+        f"/admin/stock-movement/details/{movement.id}",
+    ]
+    for url in detail_urls:
+        resp = client.get(url)
+        assert resp.status_code == 200, f"{url}: {resp.status_code}"
+        assert "object at 0x" not in resp.text, f"raw repr on {url}"
+
+    page = client.get(f"/admin/stock-movement/details/{movement.id}")
+    assert f"Order #{order.id}" in page.text
+    assert f"PO #{po.id}" in page.text
+    assert f"PO Item #{po_item.id}" in page.text
+    assert f"Refund #{refund.id}" in page.text
+
+    page = client.get(f"/admin/order-item/details/{order_item.id}")
+    assert f"Order #{order.id}" in page.text
+    assert f"Refund Item #{refund_item.id}" in page.text
+
+    page = client.get(f"/admin/purchase-invoice/details/{invoice.id}")
+    assert f"Invoice Item #{invoice_item.id}" in page.text
+    assert "INV-DTL-1" in page.text
+
+    page = client.get(f"/admin/drawer-session/details/{drawer.id}")
+    assert f"Order #{order.id}" in page.text
+
+    page = client.get(f"/admin/category/details/{category.id}")
+    assert "Detail Widget" in page.text
+
+
+def test_admin_drawer_session_list_and_filter_render(client, db, auth_factory):
+    """Drawer session filters use ColumnFilter instances (no 500)."""
+    from app.models.drawer import DrawerSession
+
+    boss = auth_factory.register("drawer-boss@example.com")
+    _make_superuser(db, boss["id"])
+    _login(client, username="drawer-boss@example.com", password="TestPass123")
+    drawer = DrawerSession(user_id=boss["id"])
+    db.add(drawer)
+    db.commit()
+
+    resp = client.get("/admin/drawer-session/list")
+    assert resp.status_code == 200
+    assert "drawer-boss@example.com" in resp.text
+
+    resp = client.get("/admin/drawer-session/list?status=open")
+    assert resp.status_code == 200
+    assert "drawer-boss@example.com" in resp.text
