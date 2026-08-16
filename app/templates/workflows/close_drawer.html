@@ -1,0 +1,106 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-cash-register me-2 text-warning"></i>Close Drawer Workflow
+      </h3>
+      <a href="/admin/workflows" class="btn btn-outline-secondary btn-sm">All workflows</a>
+    </div>
+    <div class="card-body">
+      <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item {% if step == 'select' %}active{% endif %}">
+          {% if step != 'select' %}<a href="/admin/workflows/close-drawer?step=select">1. Select Drawer</a>{% else %}1. Select Drawer{% endif %}
+        </li>
+        <li class="breadcrumb-item {% if step == 'count' %}active{% endif %}">2. Count Cash</li>
+        <li class="breadcrumb-item {% if step == 'done' %}active{% endif %}">3. Done</li>
+      </ol>
+
+      {% if step == 'select' %}
+      <h6 class="text-secondary small text-uppercase mb-3">Open drawer sessions</h6>
+      {% if open_drawers %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="select" />
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label" for="drawer_id">Drawer Session</label>
+            <select class="form-select" id="drawer_id" name="drawer_id" required>
+              {% for drawer in open_drawers %}
+              <option value="{{ drawer.id }}">Session #{{ drawer.id }} &mdash; {{ drawer.user.email if drawer.user else '?' }} (opened {{ drawer.opened_at.strftime('%Y-%m-%d %H:%M') if drawer.opened_at else '?' }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-7">
+            <button type="submit" class="btn btn-warning">
+              <i class="fa-solid fa-arrow-right me-1"></i>Count Cash
+            </button>
+          </div>
+        </div>
+      </form>
+      {% else %}
+      <p class="text-secondary">No open drawer sessions.</p>
+      {% endif %}
+      {% endif %}
+
+      {% if step == 'count' and drawer %}
+      <div class="alert alert-secondary py-2 small mb-3">
+        Session #{{ drawer.id }} &mdash; operator {{ drawer.user.email if drawer.user else '?' }} &middot;
+        starting cash: {{ drawer.starting_cash }} &middot;
+        completed orders: {{ totals.completed_order_count if totals else 0 }}
+      </div>
+      <table class="table table-sm table-bordered">
+        <thead><tr><th>Metric</th><th>Amount</th></tr></thead>
+        <tbody>
+          <tr><td>Cash sales</td><td>{{ totals.cash_sales_total if totals else 0 }}</td></tr>
+          <tr><td>Non-cash sales</td><td>{{ totals.non_cash_sales_total if totals else 0 }}</td></tr>
+          <tr><td>Cash refunds</td><td>{{ totals.cash_refunds_total if totals else 0 }}</td></tr>
+          <tr><td>Non-cash refunds</td><td>{{ totals.non_cash_refunds_total if totals else 0 }}</td></tr>
+          <tr class="table-warning">
+            <td><strong>Expected cash</strong></td>
+            <td><strong>{{ expected_cash }}</strong></td>
+          </tr>
+          <tr class="table-warning">
+            <td><strong>Expected non-cash</strong></td>
+            <td><strong>{{ expected_non_cash }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+      <form method="post" action="">
+        <input type="hidden" name="step" value="count" />
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="counted_cash">Counted Cash</label>
+            <input class="form-control" type="number" id="counted_cash" name="counted_cash" step="0.01" required value="{{ expected_cash }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="counted_non_cash">Counted Non-Cash</label>
+            <input class="form-control" type="number" id="counted_non_cash" name="counted_non_cash" step="0.01" value="{{ expected_non_cash }}" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="notes">Notes</label>
+            <input class="form-control" type="text" id="notes" name="notes" maxlength="255" />
+          </div>
+        </div>
+        <div class="mt-4 d-flex gap-2">
+          <button type="submit" class="btn btn-warning">
+            <i class="fa-solid fa-lock me-1"></i>Close Drawer &amp; Record Reconciliation
+          </button>
+          <a href="/admin/workflows/close-drawer?step=select" class="btn btn-light ms-2">Back</a>
+        </div>
+      </form>
+      {% endif %}
+
+      {% if step == 'done' %}
+      <div class="alert alert-success py-2">
+        <i class="fa-solid fa-circle-check me-1"></i>
+        Drawer closed and reconciliation
+        <a href="/admin/shift-reconciliation/details/{{ done_recon_id }}">#{{ done_recon_id }}</a> recorded.
+      </div>
+      <a href="/admin/workflows/close-drawer?step=select" class="btn btn-primary">Close another drawer</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

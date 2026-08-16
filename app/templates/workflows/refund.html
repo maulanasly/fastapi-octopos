@@ -1,0 +1,107 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-rotate-left me-2 text-danger"></i>Refund Workflow
+      </h3>
+      <a href="/admin/workflows" class="btn btn-outline-secondary btn-sm">All workflows</a>
+    </div>
+    <div class="card-body">
+      <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item {% if step == 'select' %}active{% endif %}">
+          {% if step != 'select' %}<a href="/admin/workflows/refund?step=select">1. Select Order</a>{% else %}1. Select Order{% endif %}
+        </li>
+        <li class="breadcrumb-item {% if step == 'items' %}active{% endif %}">2. Refund Items</li>
+        <li class="breadcrumb-item {% if step == 'done' %}active{% endif %}">3. Done</li>
+      </ol>
+
+      {% if step == 'select' %}
+      <h6 class="text-secondary small text-uppercase mb-3">Completed orders</h6>
+      {% if completed_orders %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="select" />
+        <div class="row g-3 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label" for="order_id">Order</label>
+            <select class="form-select" id="order_id" name="order_id" required>
+              {% for row in completed_orders %}
+              <option value="{{ row.order.id }}">Order #{{ row.order.id }} &mdash; total {{ row.order.total_amount }} ({{ row.refundable_count }} refundable units)</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-7">
+            <button type="submit" class="btn btn-danger">
+              <i class="fa-solid fa-arrow-right me-1"></i>Choose Items
+            </button>
+          </div>
+        </div>
+      </form>
+      {% else %}
+      <p class="text-secondary">No completed orders to refund.</p>
+      {% endif %}
+      {% endif %}
+
+      {% if step == 'items' and order %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="items" />
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label" for="reason">Reason</label>
+            <input class="form-control" type="text" id="reason" name="reason" maxlength="255" placeholder="e.g. damaged item" />
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="payment_method">Refund Method</label>
+            <select class="form-select" id="payment_method" name="payment_method">
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="mobile">Mobile</option>
+            </select>
+          </div>
+        </div>
+        <table class="table table-sm table-bordered">
+          <thead>
+            <tr>
+              <th colspan="5">Order #{{ order.id }} &mdash; total {{ order.total_amount }}</th>
+            </tr>
+            <tr><th>Product</th><th>Ordered</th><th>Unit Price</th><th>Refundable</th><th>Refund Qty</th></tr>
+          </thead>
+          <tbody>
+            {% for row in refund_items %}
+            <tr>
+              <td>{{ row.order_item.product.name if row.order_item.product else '?' }}</td>
+              <td>{{ row.order_item.quantity }}</td>
+              <td>{{ row.order_item.unit_price }}</td>
+              <td>{{ row.refundable }}</td>
+              <td>
+                {% if row.refundable > 0 %}
+                <input class="form-control form-control-sm" type="number" name="refund_qty_{{ row.order_item.id }}" value="0" min="0" max="{{ row.refundable }}" />
+                {% else %}
+                <span class="text-secondary">fully refunded</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button type="submit" class="btn btn-danger">
+          <i class="fa-solid fa-rotate-left me-1"></i>Record Refund
+        </button>
+        <a href="/admin/workflows/refund?step=select" class="btn btn-light ms-2">Back</a>
+      </form>
+      {% endif %}
+
+      {% if step == 'done' %}
+      <div class="alert alert-success py-2">
+        <i class="fa-solid fa-circle-check me-1"></i>
+        Refund <a href="/admin/refund/details/{{ done_refund_id }}">#{{ done_refund_id }}</a>
+        recorded &mdash; stock restored and totals updated.
+      </div>
+      <a href="/admin/workflows/refund?step=select" class="btn btn-primary">Process another refund</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
