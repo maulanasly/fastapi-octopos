@@ -115,6 +115,8 @@ String _stringKeyForPath(String path) {
       return 'customers';
     case '/reports':
       return 'reports';
+    case '/orders':
+      return 'orders';
     default:
       return 'pos';
   }

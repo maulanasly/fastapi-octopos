@@ -328,6 +328,7 @@ class Order {
   final int redeemedPoints;
   final String status;
   final String reservationStatus;
+  final String? createdAt;
   final List<OrderItem> items;
   final List<PaymentLine> payments;
   final List<TaxLine> taxLines;
@@ -349,6 +350,7 @@ class Order {
     required this.redeemedPoints,
     required this.status,
     required this.reservationStatus,
+    this.createdAt,
     this.items = const [],
     this.payments = const [],
     this.taxLines = const [],
