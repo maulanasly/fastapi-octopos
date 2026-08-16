@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api_client.dart';
 import 'api_repositories.dart';
+import 'money.dart';
 
 enum AuthStatus { unknown, signedOut, signedIn }
 
@@ -51,6 +52,7 @@ class AuthController extends Notifier<AuthState> {
     // failure, onSessionExpired -> invalidate(this) -> signedOut.
     try {
       final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+      await _applyLocalization();
       state = AuthState(
         status: AuthStatus.signedIn,
         permissions: perms.toSet(),
@@ -64,6 +66,7 @@ class AuthController extends Notifier<AuthState> {
     final api = ref.read(apiClientProvider);
     await api.login(email, password);
     final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+    await _applyLocalization();
     state = AuthState(
       status: AuthStatus.signedIn,
       email: email,
@@ -75,6 +78,7 @@ class AuthController extends Notifier<AuthState> {
     final api = ref.read(apiClientProvider);
     await api.register(email, password, fullName);
     final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+    await _applyLocalization();
     state = AuthState(
       status: AuthStatus.signedIn,
       email: email,
@@ -85,7 +89,24 @@ class AuthController extends Notifier<AuthState> {
   Future<void> logout() async {
     final api = ref.read(apiClientProvider);
     await api.logout();
+    configureMoney(currency: 'USD', numberFormat: 'en_US');
     state = const AuthState(status: AuthStatus.signedOut);
+  }
+
+  /// Applies the backend display settings (currency, number format) to the
+  /// money formatter. Failures keep the current defaults.
+  Future<void> _applyLocalization() async {
+    try {
+      final settings = await ref
+          .read(localizationRepositoryProvider)
+          .settings();
+      configureMoney(
+        currency: settings.currency,
+        numberFormat: settings.numberFormat,
+      );
+    } catch (_) {
+      // Keep current formatting when the settings cannot be fetched.
+    }
   }
 }
 

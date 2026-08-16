@@ -46,6 +46,34 @@ class User {
   );
 }
 
+class LocalizationSetting {
+  final String language;
+  final String timezone;
+  final String currency;
+  final String dateFormat;
+  final String numberFormat;
+  final String countryCode;
+
+  const LocalizationSetting({
+    required this.language,
+    required this.timezone,
+    required this.currency,
+    required this.dateFormat,
+    required this.numberFormat,
+    required this.countryCode,
+  });
+
+  factory LocalizationSetting.fromJson(Map<String, dynamic> json) =>
+      LocalizationSetting(
+        language: json['language'] as String,
+        timezone: json['timezone'] as String,
+        currency: json['currency'] as String,
+        dateFormat: json['date_format'] as String,
+        numberFormat: json['number_format'] as String,
+        countryCode: json['country_code'] as String,
+      );
+}
+
 class Category {
   final int id;
   final String name;

@@ -32,6 +32,14 @@ def update_localization_settings(
     for field, value in update_data.items():
         setattr(setting, field, value)
 
+    # Indonesia regional preset: picking the IDR currency or the ID country
+    # code implies the id_ID number format (".", thousands; ",", decimal)
+    # unless the caller explicitly chose a different one.
+    if "number_format" not in update_data and (
+        setting.currency.upper() == "IDR" or setting.country_code.upper() == "ID"
+    ):
+        setting.number_format = "id_ID"
+
     db.add(setting)
     db.commit()
     db.refresh(setting)

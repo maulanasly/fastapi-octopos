@@ -36,6 +36,10 @@ final syncRepositoryProvider = Provider<SyncRepository>(
   (ref) => SyncRepository(ref.watch(apiClientProvider)),
 );
 
+final localizationRepositoryProvider = Provider<LocalizationRepository>(
+  (ref) => LocalizationRepository(ref.watch(apiClientProvider)),
+);
+
 const _uuid = Uuid();
 
 String newIdempotencyKey() => _uuid.v4();
@@ -305,5 +309,15 @@ class SyncRepository {
       queryParameters: {if (since != null) 'since': since},
     );
     return CatalogDelta.fromJson(resp.data!);
+  }
+}
+
+class LocalizationRepository {
+  final ApiClient api;
+  LocalizationRepository(this.api);
+
+  Future<LocalizationSetting> settings() async {
+    final resp = await api.dio.get<Map<String, dynamic>>('/localization/');
+    return LocalizationSetting.fromJson(resp.data!);
   }
 }
