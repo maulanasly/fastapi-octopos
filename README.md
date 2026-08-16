@@ -71,6 +71,7 @@ A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory man
 ### Localization & Regional Settings
 
 - Centralized localization settings (`language`, `timezone`, `currency`, `date_format`, `number_format`, `country_code`)
+- Per-user region presets (`US`, `ID`) overriding the global settings via `GET/PUT /localization/me`
 - Translation-ready message layer with English and Indonesian keys for auth-related errors
 - Shared currency/number/date formatting helpers for dashboard rendering
 
@@ -352,8 +353,15 @@ Base prefix: `/api/v1`
 
 ### Localization
 
-- `GET /localization/`
-- `PUT /localization/`
+- `GET /localization/` — global (admin) settings
+- `PUT /localization/` — update global settings (requires `settings:manage`)
+- `GET /localization/regions` — supported regional presets (`US`, `ID`)
+- `GET /localization/me` — effective per-user settings (preset or global)
+- `PUT /localization/me` — switch the caller's region preset (`{"region": "ID"}`; `null` resets to the global default)
+
+Region presets bundle language, timezone, currency, and date/number
+formats. The Flutter client renders money/dates and UI strings from these
+settings and sends `Accept-Language` so API errors arrive translated.
 
 ### Taxes
 
