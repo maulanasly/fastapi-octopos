@@ -127,7 +127,9 @@ class OrderRepository {
     return Order.fromJson(resp.data!);
   }
 
-  Future<Order> addPayment({
+  /// Adds a payment to an order. The backend responds with the created
+  /// [PaymentLine] (not the whole order).
+  Future<PaymentLine> addPayment({
     required int orderId,
     required String method,
     required int amountCents,
@@ -140,7 +142,7 @@ class OrderRepository {
         'amount': amountCents / 100,
       }, key: idempotencyKey ?? newIdempotencyKey()),
     );
-    return Order.fromJson(resp.data!);
+    return PaymentLine.fromJson(resp.data!);
   }
 
   Future<Order> addSplitPayments({

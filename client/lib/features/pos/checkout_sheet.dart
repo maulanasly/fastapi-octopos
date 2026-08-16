@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_repositories.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
-import '../../core/models.dart';
 import 'cart_controller.dart';
 
 enum _PayMethod { cash, card }
@@ -149,24 +148,24 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
         promotionCode: promo.isEmpty ? null : promo,
       );
 
-      // 2. Settle it (single or split).
-      Order settled;
+      // 2. Settle it (single or split). The payments endpoint returns the
+      // created PaymentLine; the order itself is what the receipt needs.
       if (_method == _PayMethod.cash) {
         final received =
             (double.tryParse(_cashReceived.text) ?? 0).round() * 100;
-        settled = await orders.addPayment(
+        await orders.addPayment(
           orderId: order.id,
           method: 'cash',
           amountCents: received > 0 ? received : cart.subtotalCents,
         );
       } else {
-        settled = await orders.addPayment(
+        await orders.addPayment(
           orderId: order.id,
           method: 'card',
           amountCents: cart.subtotalCents,
         );
       }
-      if (mounted && context.mounted) Navigator.of(context).pop(settled);
+      if (mounted && context.mounted) Navigator.of(context).pop(order);
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {

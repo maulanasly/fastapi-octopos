@@ -100,6 +100,12 @@ Future<void> main() async {
         'idempotency_key': 'smoke-pay-001',
       });
   check('payment (200)', pay.statusCode == 200);
+  // Contract lock: the payments endpoint returns a Payment, not an Order;
+  // parsing it as PaymentLine must succeed (regression: Order.fromJson
+  // threw a null TypeError on this payload).
+  final payment = PaymentLine.fromJson(pay.data!);
+  check('payment parsed as PaymentLine',
+      payment.orderId == order.id && payment.amount == 10.0);
 
   final receiptResp =
       await dio.get<Map<String, dynamic>>('/orders/${order.id}/receipt');
