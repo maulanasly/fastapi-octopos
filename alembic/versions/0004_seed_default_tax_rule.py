@@ -40,7 +40,7 @@ def upgrade() -> None:
         sa.text(
             "INSERT INTO tax_rules (name, description, tax_scope, tax_mode, rate, "
             "starts_at, ends_at, is_active, created_at, updated_at) "
-            "VALUES (:name, :desc, 'order', 'exclusive', :rate, NULL, NULL, 1, "
+            "VALUES (:name, :desc, 'order', 'exclusive', :rate, NULL, NULL, TRUE, "
             "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
         ),
         {

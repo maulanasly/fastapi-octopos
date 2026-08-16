@@ -1,5 +1,6 @@
 fastapi[all]==0.141.1
 SQLAlchemy==2.0.51
+psycopg[binary]==3.2.9
 pydantic-settings==2.15.0
 sqladmin==0.31.0
 python-jose[cryptography]==3.5.0

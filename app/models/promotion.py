@@ -16,9 +16,9 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 
 
-def _utcnow_naive():
-    """Naive-UTC now with microsecond precision (SQLite stores naive)."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+def _utcnow():
+    """Aware-UTC now with microsecond precision (PostgreSQL TIMESTAMPTZ)."""
+    return datetime.now(timezone.utc)
 
 
 class Promotion(Base):
@@ -46,8 +46,8 @@ class Promotion(Base):
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
-        default=_utcnow_naive,
-        onupdate=_utcnow_naive,
+        default=_utcnow,
+        onupdate=_utcnow,
         nullable=False,
     )
 

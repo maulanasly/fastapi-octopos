@@ -83,7 +83,9 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True,
+            render_as_batch=(
+                connectable.dialect.name == "sqlite"
+            ),
             compare_type=True,
             compare_server_default=True,
         )

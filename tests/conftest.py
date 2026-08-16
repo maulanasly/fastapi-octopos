@@ -1,39 +1,33 @@
 """Shared pytest fixtures for FastAPI OctoPOS integration tests.
 
-The test database is an in-memory SQLite DB shared between the app engine and
-Alembic via a ``file::memory:`` URI with shared cache. Schema is built by
+The test database is a dedicated PostgreSQL database (default
+``octopos_test``, override with ``TEST_DATABASE_URL``). Schema is built by
 running the real Alembic migration chain (``upgrade head``) on every test so
 tests exercise the exact production schema, including the RBAC seed data.
 The slowapi rate limiter is disabled so auth tests are not throttled.
+
+Start the local Postgres with ``docker compose up -d`` (docker-compose.yml
+creates the ``octopos_test`` database via scripts/init-test-db.sql).
 """
 import os
 from pathlib import Path
 
+DEFAULT_TEST_URL = "postgresql+psycopg://postgres:postgres@localhost:5433/octopos_test"
+TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_TEST_URL)
 os.environ["ENVIRONMENT"] = "development"
-os.environ[
-    "SQLALCHEMY_DATABASE_URI"
-] = "sqlite:///file:octopos_test?mode=memory&cache=shared&uri=true"
+os.environ["SQLALCHEMY_DATABASE_URI"] = TEST_DB_URL
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, text  # noqa: E402
-from sqlalchemy.pool import StaticPool  # noqa: E402
+from sqlalchemy import create_engine, inspect, text  # noqa: E402
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
-from app.core.database import Base, SessionLocal  # noqa: E402
+from app.core.database import SessionLocal  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-TEST_DB_URL = os.environ["SQLALCHEMY_DATABASE_URI"]
 
-# One persistent connection for the whole session: with StaticPool the
-# engine's connection is never re-created, so the shared in-memory DB
-# survives worker-thread session churn from sqladmin.
-test_engine = create_engine(
-    TEST_DB_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+test_engine = create_engine(TEST_DB_URL, pool_pre_ping=True)
 
 
 class _AuthFactory:
@@ -64,20 +58,17 @@ class _AuthFactory:
         return self.login(email, password)
 
 
-@pytest.fixture(scope="session")
-def keep_db_connection():
-    """Holds the shared-cache in-memory SQLite DB alive for the session."""
-    conn = test_engine.connect()
-    yield
-    conn.close()
-
-
 @pytest.fixture(autouse=True)
-def fresh_database(keep_db_connection):
-    """Rebuild schema from the real Alembic migration chain before each test."""
-    Base.metadata.drop_all(bind=test_engine)
+def fresh_database():
+    """Rebuild schema from the real Alembic migration chain before each test.
+
+    Tables are dropped via reflection (not ``Base.metadata``) so the fixture
+    does not depend on models having been imported yet.
+    """
     with test_engine.begin() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+        inspector = inspect(test_engine)
+        for table in reversed(inspector.get_table_names()):
+            conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
     cfg = Config(str(ROOT / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", TEST_DB_URL)
     command.upgrade(cfg, "head")
