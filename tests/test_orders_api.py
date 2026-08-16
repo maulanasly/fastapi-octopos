@@ -281,3 +281,44 @@ def test_release_expired_reservations_for_user_releases_stock(
     products = client.get("/api/v1/products/", headers=cashier_headers).json()
     updated = next(p for p in products if p["id"] == product["id"])
     assert updated["stock_quantity"] == 5
+
+
+def test_receipt_includes_customer_name(
+    client, cashier_headers, manager_headers, make_product, open_drawer
+):
+    product = make_product(
+        manager_headers, name="Guest Item", sku="GUEST-1", price=5.0, stock=10
+    )
+    customer = client.post(
+        "/api/v1/customers/", headers=cashier_headers, json={"name": "Walk-in John"}
+    ).json()
+    open_drawer(cashier_headers)
+    order = client.post(
+        "/api/v1/orders/",
+        headers=cashier_headers,
+        json=order_payload(product["id"], customer_id=customer["id"]),
+    )
+    assert order.status_code == 200, order.text
+    receipt = client.get(
+        f"/api/v1/orders/{order.json()['id']}/receipt", headers=cashier_headers
+    )
+    assert receipt.status_code == 200, receipt.text
+    assert receipt.json()["customer_name"] == "Walk-in John"
+
+
+def test_receipt_customer_name_null_for_guest(
+    client, cashier_headers, manager_headers, make_product, open_drawer
+):
+    product = make_product(
+        manager_headers, name="Guest Item 2", sku="GUEST-2", price=5.0, stock=10
+    )
+    open_drawer(cashier_headers)
+    order = client.post(
+        "/api/v1/orders/", headers=cashier_headers, json=order_payload(product["id"])
+    )
+    assert order.status_code == 200, order.text
+    receipt = client.get(
+        f"/api/v1/orders/{order.json()['id']}/receipt", headers=cashier_headers
+    )
+    assert receipt.status_code == 200, receipt.text
+    assert receipt.json()["customer_name"] is None

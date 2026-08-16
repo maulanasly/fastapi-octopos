@@ -69,6 +69,11 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
+                      Text(
+                        receipt.customerName ?? s.of('guest'),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       const Divider(height: 24),
                       for (final item in receipt.items)
                         Padding(

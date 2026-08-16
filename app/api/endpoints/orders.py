@@ -95,6 +95,7 @@ def get_order_receipt(
     return OrderReceipt(
         order_id=order.id,
         created_at=order.created_at,
+        customer_name=order.customer.name if order.customer else None,
         subtotal_amount=subtotal_amount,
         discount_amount=money_to_float(order.discount_amount),
         redeemed_points=int(order.redeemed_points or 0),

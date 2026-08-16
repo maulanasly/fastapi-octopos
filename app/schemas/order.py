@@ -88,6 +88,7 @@ class ReceiptOrderItem(BaseModel):
 class OrderReceipt(BaseModel):
     order_id: int
     created_at: datetime
+    customer_name: Optional[str] = None
     subtotal_amount: float
     discount_amount: float
     redeemed_points: int

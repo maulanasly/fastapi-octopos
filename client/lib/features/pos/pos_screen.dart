@@ -247,19 +247,20 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ),
               const Spacer(),
               if (cart.customer != null)
-                Chip(
+                RawChip(
                   label: Text(
                     cart.customer!.name,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  onPressed: () => _pickCustomer(context),
                   onDeleted: () => ref
                       .read(cartControllerProvider.notifier)
                       .setCustomer(null),
                 )
               else
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.person_add_alt, size: 16),
-                  label: Text(s.of('customer')),
+                ActionChip(
+                  avatar: const Icon(Icons.person_off_outlined, size: 16),
+                  label: Text(s.of('guest')),
                   onPressed: () => _pickCustomer(context),
                 ),
             ],
@@ -336,13 +337,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Future<void> _pickCustomer(BuildContext context) async {
-    final customer = await showModalBottomSheet<Customer>(
+    final result = await showDialog<_CustomerPickResult>(
       context: context,
-      isScrollControlled: true,
-      builder: (_) => const CustomerPickerSheet(),
+      builder: (_) => const CustomerPickerDialog(),
     );
-    if (customer != null) {
-      ref.read(cartControllerProvider.notifier).setCustomer(customer);
+    if (result != null) {
+      ref.read(cartControllerProvider.notifier).setCustomer(result.customer);
     }
   }
 
@@ -372,16 +372,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 }
 
-class CustomerPickerSheet extends ConsumerStatefulWidget {
-  const CustomerPickerSheet({super.key});
+/// Result of the customer picker: [customer] is null for walk-in guests.
+class _CustomerPickResult {
+  const _CustomerPickResult(this.customer);
 
-  @override
-  ConsumerState<CustomerPickerSheet> createState() =>
-      _CustomerPickerSheetState();
+  final Customer? customer;
 }
 
-class _CustomerPickerSheetState extends ConsumerState<CustomerPickerSheet> {
+/// Centered customer picker: walk-in guest, search, register, select.
+class CustomerPickerDialog extends ConsumerStatefulWidget {
+  const CustomerPickerDialog({super.key});
+
+  @override
+  ConsumerState<CustomerPickerDialog> createState() =>
+      _CustomerPickerDialogState();
+}
+
+class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
   late Future<List<Customer>> _future;
+  String _query = '';
 
   @override
   void initState() {
@@ -389,36 +398,146 @@ class _CustomerPickerSheetState extends ConsumerState<CustomerPickerSheet> {
     _future = ref.read(customerRepositoryProvider).list();
   }
 
+  Future<void> _register() async {
+    final s = ref.read(stringsProvider);
+    final name = TextEditingController();
+    final email = TextEditingController();
+    final phone = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.of('registerCustomer')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: name,
+              decoration: InputDecoration(labelText: s.of('name')),
+            ),
+            TextField(
+              controller: email,
+              decoration: InputDecoration(labelText: s.of('email')),
+            ),
+            TextField(
+              controller: phone,
+              decoration: InputDecoration(labelText: s.of('phone')),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(s.of('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(s.of('create')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final customer = await ref
+        .read(customerRepositoryProvider)
+        .create(
+          name: name.text.trim(),
+          email: email.text.trim().isEmpty ? null : email.text.trim(),
+          phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
+        );
+    if (mounted) Navigator.of(context).pop(_CustomerPickResult(customer));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: FutureBuilder<List<Customer>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final customers = snapshot.data ?? [];
-          return ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(title: Text(ref.read(stringsProvider).of('customer'))),
-              for (final c in customers)
-                ListTile(
-                  title: Text(c.name),
-                  subtitle: Text(c.email ?? ''),
-                  trailing: Text('${c.pointsBalance} pts'),
-                  onTap: () => Navigator.of(context).pop(c),
+    final s = ref.watch(stringsProvider);
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 480,
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Text(
+                s.of('selectCustomer'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_off_outlined),
+              title: Text(s.of('walkInGuest')),
+              onTap: () =>
+                  Navigator.of(context).pop(const _CustomerPickResult(null)),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: s.of('searchProducts'),
+                  prefixIcon: const Icon(Icons.search),
+                  isDense: true,
                 ),
-            ],
-          );
-        },
+                onChanged: (v) =>
+                    setState(() => _query = v.trim().toLowerCase()),
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<List<Customer>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final all = snapshot.data ?? [];
+                  final customers = _query.isEmpty
+                      ? all
+                      : all
+                            .where(
+                              (c) =>
+                                  c.name.toLowerCase().contains(_query) ||
+                                  (c.email ?? '').toLowerCase().contains(
+                                    _query,
+                                  ) ||
+                                  (c.phone ?? '').toLowerCase().contains(
+                                    _query,
+                                  ),
+                            )
+                            .toList();
+                  if (customers.isEmpty) {
+                    return Center(child: Text(s.of('noCustomersFound')));
+                  }
+                  return ListView.builder(
+                    itemCount: customers.length,
+                    itemBuilder: (context, i) {
+                      final c = customers[i];
+                      return ListTile(
+                        dense: true,
+                        title: Text(c.name),
+                        subtitle: Text(c.email ?? ''),
+                        trailing: Text('${c.pointsBalance} pts'),
+                        onTap: () =>
+                            Navigator.of(context).pop(_CustomerPickResult(c)),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.person_add_alt, size: 18),
+                label: Text(s.of('registerCustomer')),
+                onPressed: _register,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

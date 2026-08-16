@@ -5,8 +5,26 @@ from conftest import order_payload
 CUSTOMER = {"name": "Jane Doe", "email": "jane@example.com", "phone": "555-0100"}
 
 
-def test_cashier_cannot_create_customer(client, cashier_headers):
+def test_cashier_can_create_customer(client, cashier_headers):
+    """Walk-in registration: cashiers hold customers:create (not manage)."""
     resp = client.post("/api/v1/customers/", headers=cashier_headers, json=CUSTOMER)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "Jane Doe"
+
+
+def test_cashier_cannot_manage_customers(client, cashier_headers, manager_headers):
+    created = client.post("/api/v1/customers/", headers=manager_headers, json=CUSTOMER)
+    assert created.status_code == 200, created.text
+    customer_id = created.json()["id"]
+
+    # editing / deactivating stays manager-gated
+    resp = client.put(
+        f"/api/v1/customers/{customer_id}",
+        headers=cashier_headers,
+        json={"phone": "555-9999"},
+    )
+    assert resp.status_code == 403
+    resp = client.delete(f"/api/v1/customers/{customer_id}", headers=cashier_headers)
     assert resp.status_code == 403
 
 

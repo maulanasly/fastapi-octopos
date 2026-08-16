@@ -193,8 +193,10 @@ def cashier_headers(auth_factory):
     return auth_factory.user("cashier@example.com")
 
 
-def order_payload(product_id, quantity=1, idempotency_key=None):
+def order_payload(product_id, quantity=1, idempotency_key=None, customer_id=None):
     payload = {"items": [{"product_id": product_id, "quantity": quantity}]}
     if idempotency_key:
         payload["idempotency_key"] = idempotency_key
+    if customer_id is not None:
+        payload["customer_id"] = customer_id
     return payload

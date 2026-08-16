@@ -372,6 +372,7 @@ class ReceiptItem {
 
 class OrderReceipt {
   final int orderId;
+  final String? customerName;
   final double subtotalAmount;
   final double discountAmount;
   final int redeemedPoints;
@@ -390,6 +391,7 @@ class OrderReceipt {
 
   const OrderReceipt({
     required this.orderId,
+    this.customerName,
     required this.subtotalAmount,
     required this.discountAmount,
     required this.redeemedPoints,

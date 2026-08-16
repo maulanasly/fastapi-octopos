@@ -30,7 +30,7 @@ def get_customers(
 def create_customer(
     customer_in: CustomerCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_permissions("customers:manage")),
+    current_user: User = Depends(require_permissions("customers:create")),
 ):
     customer = Customer(**customer_in.model_dump())
     db.add(customer)
