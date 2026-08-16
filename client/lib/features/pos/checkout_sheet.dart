@@ -1,15 +1,17 @@
-/// Checkout sheet: promotion code, payment method, and settlement.
+/// Checkout sheet: promotion code, loyalty points, payment method,
+/// quick-cash chips, and split payments.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
-import '../../core/strings.dart';
+import '../../core/errors.dart';
 import '../../core/money.dart';
+import '../../core/strings.dart';
 import 'cart_controller.dart';
 
-enum _PayMethod { cash, card }
+enum _PayMethod { cash, card, split }
 
 class CheckoutSheet extends ConsumerStatefulWidget {
   const CheckoutSheet({super.key});
@@ -22,6 +24,8 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   final _promo = TextEditingController();
   _PayMethod _method = _PayMethod.cash;
   final _cashReceived = TextEditingController();
+  final _splitCash = TextEditingController();
+  int _redeemPoints = 0;
   bool _submitting = false;
   String? _error;
 
@@ -29,6 +33,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   void dispose() {
     _promo.dispose();
     _cashReceived.dispose();
+    _splitCash.dispose();
     super.dispose();
   }
 
@@ -36,7 +41,11 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
     final cart = ref.watch(cartControllerProvider);
-    final subtotal = cart.subtotalCents;
+    final total = cart.subtotalCents;
+    final customer = cart.customer;
+    final maxRedeemable = customer == null
+        ? 0
+        : customer.pointsBalance.clamp(0, total);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -51,7 +60,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Checkout — ${formatCents(subtotal)}',
+              '${s.of('checkout')} — ${formatCents(total)}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 12),
@@ -63,6 +72,35 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                 isDense: true,
               ),
             ),
+            if (customer != null && customer.pointsBalance > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${s.of('pointsBalance')}: ${customer.pointsBalance}',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: s.of('redeemPoints'),
+                    icon: const Icon(Icons.stars),
+                    onPressed: () {
+                      setState(() {
+                        _redeemPoints = maxRedeemable;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              if (_redeemPoints > 0)
+                Slider(
+                  value: _redeemPoints.toDouble(),
+                  max: maxRedeemable.toDouble().clamp(1, double.infinity),
+                  label: '${s.of('redeemPoints')}: $_redeemPoints',
+                  onChanged: (v) => setState(() => _redeemPoints = v.round()),
+                ),
+            ],
             const SizedBox(height: 12),
             SegmentedButton<_PayMethod>(
               segments: [
@@ -75,6 +113,11 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   value: _PayMethod.card,
                   label: Text(s.of('card')),
                   icon: const Icon(Icons.credit_card),
+                ),
+                ButtonSegment(
+                  value: _PayMethod.split,
+                  label: Text(s.of('split')),
+                  icon: const Icon(Icons.call_split),
                 ),
               ],
               selected: {_method},
@@ -90,8 +133,43 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   prefixText: r'$ ',
                   border: const OutlineInputBorder(),
                   isDense: true,
-                  errorText: _cashError(subtotal),
+                  errorText: _cashError(total),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final amount in _quickCashAmounts(total))
+                    ActionChip(
+                      label: Text(formatCents(amount)),
+                      onPressed: () => setState(() {
+                        _cashReceived.text = centsToApi(amount);
+                      }),
+                    ),
+                ],
+              ),
+            ],
+            if (_method == _PayMethod.split) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _splitCash,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: s.of('splitCash'),
+                  prefixText: r'$ ',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              Text(
+                s.of(
+                  'splitHint',
+                  args: {
+                    'card': formatCents((total - _splitCents).clamp(0, total)),
+                  },
+                ),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
             if (_error != null)
@@ -119,17 +197,34 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
     );
   }
 
-  String? _cashError(int subtotal) {
+  int get _splitCents =>
+      ((double.tryParse(_splitCash.text) ?? 0) * 100).round();
+
+  /// Cash-chip presets: exact amount, then common banknotes in cents.
+  List<int> _quickCashAmounts(int total) {
+    final notes = currentCurrency == 'IDR'
+        ? const [10000000, 5000000, 2000000, 1000000, 500000, 100000, 50000]
+        : const [10000, 5000, 2000, 1000, 500, 100];
+    final presets = <int>[total];
+    for (final note in notes) {
+      if (note >= total && !presets.contains(note)) presets.add(note);
+    }
+    return presets;
+  }
+
+  String? _cashError(int total) {
     final s = ref.read(stringsProvider);
     final received = (double.tryParse(_cashReceived.text) ?? 0) * 100;
     if (received <= 0) return null;
-    if (received < subtotal) return s.of('insufficientCash');
+    if (received < total) return s.of('insufficientCash');
     return null;
   }
 
   Future<void> _submit(BuildContext context) async {
+    final strings = ref.read(stringsProvider);
     final cart = ref.read(cartControllerProvider);
     final promo = _promo.text.trim();
+    final total = cart.subtotalCents;
     setState(() {
       _submitting = true;
       _error = null;
@@ -146,28 +241,53 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
         ],
         customerId: cart.customer?.id,
         promotionCode: promo.isEmpty ? null : promo,
+        redeemPoints: _redeemPoints,
       );
 
       // 2. Settle it (single or split). The payments endpoint returns the
       // created PaymentLine; the order itself is what the receipt needs.
-      if (_method == _PayMethod.cash) {
+      if (_method == _PayMethod.split) {
+        final cash = _splitCents.clamp(0, total);
+        final card = total - cash;
+        if (cash > 0 && card > 0) {
+          await orders.addSplitPayments(
+            orderId: order.id,
+            payments: [
+              {'payment_method': 'cash', 'amount': centsToApi(cash)},
+              {'payment_method': 'card', 'amount': centsToApi(card)},
+            ],
+          );
+        } else if (cash > 0) {
+          await orders.addPayment(
+            orderId: order.id,
+            method: 'cash',
+            amountCents: cash,
+          );
+        } else {
+          await orders.addPayment(
+            orderId: order.id,
+            method: 'card',
+            amountCents: card,
+          );
+        }
+      } else if (_method == _PayMethod.cash) {
         final received =
             (double.tryParse(_cashReceived.text) ?? 0).round() * 100;
         await orders.addPayment(
           orderId: order.id,
           method: 'cash',
-          amountCents: received > 0 ? received : cart.subtotalCents,
+          amountCents: received > 0 ? received : total,
         );
       } else {
         await orders.addPayment(
           orderId: order.id,
           method: 'card',
-          amountCents: cart.subtotalCents,
+          amountCents: total,
         );
       }
       if (mounted && context.mounted) Navigator.of(context).pop(order);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyError(e, strings));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

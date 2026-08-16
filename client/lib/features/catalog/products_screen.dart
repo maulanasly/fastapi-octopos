@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/errors.dart';
 import '../../core/colors.dart';
 import '../../core/config.dart';
 import '../../core/money.dart';
@@ -235,9 +236,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       await ref.read(catalogControllerProvider.notifier).refresh();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, ref.read(stringsProvider)))),
+        );
       }
     }
   }
@@ -321,9 +322,9 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
       await ref.read(catalogControllerProvider.notifier).refresh();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Create failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, ref.read(stringsProvider)))),
+        );
       }
     }
   }

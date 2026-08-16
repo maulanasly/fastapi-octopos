@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth_controller.dart';
+import '../../core/errors.dart';
 import '../../core/strings.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -53,27 +54,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       // Router redirects automatically on state change.
     } catch (e) {
-      setState(
-        () => _error = _friendlyError(ref.read(stringsProvider), e.toString()),
-      );
+      setState(() => _error = friendlyError(e, ref.read(stringsProvider)));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  String _friendlyError(AppStrings s, String raw) {
-    if (raw.contains('423') || raw.contains('locked')) {
-      return s.of('accountLocked');
-    }
-    if (raw.contains('400')) {
-      return s.of('badCredentials');
-    }
-    return s.of('cannotReachServer');
-  }
-
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
+    final sessionExpired = ref.watch(authControllerProvider).sessionExpired;
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -86,6 +76,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (sessionExpired)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              s.of('sessionExpired'),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Icon(
                     Icons.storefront,
                     size: 64,
