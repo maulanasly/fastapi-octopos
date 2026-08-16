@@ -119,3 +119,79 @@ def test_batch_processes_mixed_events_independently(
         f"/api/v1/orders/{order_id}/receipt", headers=cashier_headers
     ).json()
     assert receipt["status"] == "completed"
+
+
+def test_catalog_full_sync_returns_all_rows(client, manager_headers, make_product):
+    headers = manager_headers
+    product = make_product(
+        headers, name="Sync Product", sku="SYNC-1", price=9.99, stock=5
+    )
+
+    resp = client.get("/api/v1/sync/catalog", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["server_time"]
+    assert body["since"] is None
+    product_ids = {p["id"] for p in body["products"]}
+    assert product["id"] in product_ids
+    assert any(c for c in body["categories"])
+
+
+def test_catalog_delta_returns_only_changed(client, manager_headers, make_product):
+    headers = manager_headers
+    product = make_product(
+        headers, name="Delta Product", sku="SYNC-2", price=5.0, stock=3
+    )
+
+    resp = client.get("/api/v1/sync/catalog", headers=headers)
+    watermark = resp.json()["server_time"]
+
+    # change the product -> updated_at bumps past the watermark
+    resp = client.put(
+        f"/api/v1/products/{product['id']}", headers=headers, json={"price": 6.0}
+    )
+    assert resp.status_code == 200, resp.text
+
+    resp = client.get(f"/api/v1/sync/catalog?since={watermark}", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert any(p["id"] == product["id"] for p in body["products"]), body["products"]
+
+    # stale watermark from the future -> nothing
+    resp = client.get(
+        "/api/v1/sync/catalog?since=2999-01-01T00:00:00Z", headers=headers
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["products"] == []
+
+
+def test_sync_event_status_lists_processed_events(client, auth_factory):
+    headers = auth_factory.user("sync-events@example.com")
+    client.post(
+        "/api/v1/sync/events/batch",
+        headers=headers,
+        json={
+            "events": [
+                {
+                    "client_event_id": "st-1",
+                    "event_type": "note",
+                    "idempotency_key": "stk-1",
+                    "payload": {"text": "hello"},
+                },
+            ]
+        },
+    )
+    resp = client.get("/api/v1/sync/events", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] >= 1
+    assert body["items"][0]["client_event_id"] == "st-1"
+
+
+def test_sync_event_status_forbids_other_user_visibility(client, auth_factory):
+    headers = auth_factory.user("sync-owner@example.com")
+    other = auth_factory.user("sync-other@example.com")
+    _ = other
+    resp = client.get("/api/v1/sync/events?user_id=999", headers=headers)
+    assert resp.status_code == 403, resp.text

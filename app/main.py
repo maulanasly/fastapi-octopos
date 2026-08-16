@@ -30,9 +30,11 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
 from app.core.limiter import limiter
+from app.core.observability import RequestIDMiddleware, setup_logging
 from app.core.security import verify_password
 
 settings.fail_closed()
+setup_logging()
 
 
 async def _reservation_expiry_loop() -> None:
@@ -40,6 +42,27 @@ async def _reservation_expiry_loop() -> None:
     while True:
         await asyncio.sleep(settings.RESERVATION_AUTO_EXPIRE_INTERVAL_SECONDS)
         await asyncio.to_thread(_release_expired_reservations_sync)
+
+
+def _auto_po_sync() -> None:
+    from app.core.database import SessionLocal
+    from app.services.auto_po import auto_generate_purchase_orders
+
+    db = SessionLocal()
+    try:
+        auto_generate_purchase_orders(
+            db=db, lookback_days=settings.REPLENISHMENT_LOOKBACK_DAYS
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+async def _auto_po_loop() -> None:
+    """Periodically generate draft purchase orders from reorder points."""
+    while True:
+        await asyncio.sleep(settings.REPLENISHMENT_CHECK_INTERVAL_SECONDS)
+        await asyncio.to_thread(_auto_po_sync)
 
 
 def _release_expired_reservations_sync() -> None:
@@ -63,11 +86,16 @@ def _release_expired_reservations_sync() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = None
+    tasks = []
     if settings.RESERVATION_AUTO_EXPIRE_ENABLED:
-        task = asyncio.create_task(_reservation_expiry_loop())
+        # One-shot sweep at startup catches reservations that expired while the
+        # process was down, then the periodic loop keeps them fresh.
+        await asyncio.to_thread(_release_expired_reservations_sync)
+        tasks.append(asyncio.create_task(_reservation_expiry_loop()))
+    if settings.REPLENISHMENT_AUTO_PO_ENABLED:
+        tasks.append(asyncio.create_task(_auto_po_loop()))
     yield
-    if task:
+    for task in tasks:
         task.cancel()
 
 
@@ -93,6 +121,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIDMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

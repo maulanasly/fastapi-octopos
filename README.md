@@ -294,6 +294,17 @@ cp .env.example .env
 | `ADMIN_USERNAME` | Admin panel username | `admin` |
 | `ADMIN_PASSWORD` | Admin panel password | `admin` (change in production) |
 | `ORDER_RESERVATION_TIMEOUT_MINUTES` | Stock reservation expiry | `15` |
+| `RESERVATION_AUTO_EXPIRE_ENABLED` | Periodic + startup sweep of expired reservations (required in production when reservations are on) | `False` |
+| `RESERVATION_AUTO_EXPIRE_INTERVAL_SECONDS` | Sweep interval | `300` |
+| `DEFAULT_TAX_RATE` | Rate for the migration-seeded default tax rule | `0.0` |
+| `DEFAULT_TAX_NAME` | Name for the migration-seeded default tax rule | `VAT` |
+| `LOGIN_MAX_ATTEMPTS` | Failed logins before temporary lockout | `5` |
+| `LOGIN_LOCKOUT_MINUTES` | Lockout duration after repeated failures | `15` |
+| `REPLENISHMENT_AUTO_PO_ENABLED` | Scheduled auto-generation of draft purchase orders from reorder points | `False` |
+| `REPLENISHMENT_CHECK_INTERVAL_SECONDS` | Auto-PO check interval | `3600` |
+| `REPLENISHMENT_LOOKBACK_DAYS` | Sales lookback for replenishment velocity | `30` |
+| `LOG_LEVEL` | Logging level (`DEBUG`, `INFO`, ...) | `INFO` |
+| `LOG_JSON` | Emit JSON log lines (production-friendly) | `False` |
 
 ## API Overview
 
@@ -509,6 +520,56 @@ curl -X POST http://127.0.0.1:8000/api/v1/sync/events/batch \
     ]
   }'
 ```
+
+### Pull Sync (Terminals)
+
+Offline terminals pull catalog changes and check their event queue:
+
+```bash
+# Delta catalog since a watermark (omit ?since= for a full first sync)
+curl -G http://127.0.0.1:8000/api/v1/sync/catalog \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  --data-urlencode "since=2026-08-16T00:00:00Z"
+
+# Status of processed offline events
+curl http://127.0.0.1:8000/api/v1/sync/events?status=success \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Health & Operations
+
+```bash
+curl http://127.0.0.1:8000/api/v1/health        # liveness
+curl http://127.0.0.1:8000/api/v1/health/ready  # readiness (DB check)
+```
+
+Every response carries an `X-Request-ID` header echoed into log lines
+(`request_id=...`) for request correlation.
+
+### Audit Trail
+
+Sensitive operations (refunds, stock adjustments, drawer reconciliation,
+RBAC changes) are recorded in `audit_logs`. Superusers query them via:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/audit/logs?action=refund.create \
+  -H "Authorization: Bearer SUPERUSER_TOKEN"
+```
+
+### Shift Reports (Z-Reports)
+
+```bash
+# JSON Z-report for one closed shift
+curl http://127.0.0.1:8000/api/v1/reports/shift/{reconciliation_id} \
+  -H "Authorization: Bearer TOKEN"
+
+# End-of-day summary across shifts
+curl "http://127.0.0.1:8000/api/v1/reports/daily-close?report_date=2026-08-16" \
+  -H "Authorization: Bearer TOKEN"
+```
+
+Print-friendly versions are available in the admin dashboard
+(`/admin/reports` -> "Shift Reports").
 
 ## Development
 

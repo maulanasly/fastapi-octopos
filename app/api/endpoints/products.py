@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user, require_permissions
+from app.core.audit import log_action
 from app.core.database import get_db
 from app.models.order import OrderItem
 from app.models.product import Category, Product
@@ -156,6 +157,17 @@ def update_product(
                 quantity_after=product.stock_quantity,
                 note="Stock quantity updated from product endpoint",
             )
+        )
+        log_action(
+            db=db,
+            action="product.stock_adjust",
+            user_id=current_user.id,
+            resource_type="product",
+            resource_id=product.id,
+            details={
+                "quantity_before": previous_stock_quantity,
+                "quantity_after": product.stock_quantity,
+            },
         )
 
     db.commit()

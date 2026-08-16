@@ -94,10 +94,39 @@ def login_access_token(
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not user.hashed_password:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
+
+    now = datetime.now(timezone.utc)
+    if user.locked_until:
+        locked_until = user.locked_until
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        if locked_until > now:
+            raise HTTPException(
+                status_code=423,
+                detail=(
+                    f"Account temporarily locked. Try again after "
+                    f"{locked_until.strftime('%H:%M UTC')}."
+                ),
+            )
+
     if not verify_password(form_data.password, user.hashed_password):
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
+            user.locked_until = now + timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
+            user.failed_login_attempts = 0
+        db.add(user)
+        db.commit()
         raise HTTPException(status_code=400, detail="Incorrect email or password")
+
     if not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+
+    # Successful login resets the failure counter
+    if user.failed_login_attempts or user.locked_until:
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        db.add(user)
+        db.commit()
 
     return _issue_tokens(user, db)
 

@@ -190,3 +190,85 @@ def test_adjust_stock_rejects_negative_result(client, auth_factory, db):
     assert resp.status_code == 303
     db.expire_all()
     assert db.get(Product, product.id).stock_quantity == 2
+
+
+def test_admin_product_list_renders_category_label(client, auth_factory, assign_role):
+    """Relationship columns show labels (category name) not object reprs."""
+    user = auth_factory.register("label-manager@example.com")
+    assign_role(user["id"], "manager")
+    headers = auth_factory.login("label-manager@example.com")
+    cat_resp = client.post(
+        "/api/v1/products/categories",
+        headers=headers,
+        json={"name": "Fancy Category", "description": "x"},
+    )
+    assert cat_resp.status_code == 200, cat_resp.text
+    resp = client.post(
+        "/api/v1/products",
+        headers=headers,
+        json={
+            "name": "Labeled Widget",
+            "sku": "SKU-LBL-1",
+            "price": 9.99,
+            "stock_quantity": 5,
+            "category_id": cat_resp.json()["id"],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    _login(client)
+    page = client.get("/admin/product/list")
+    assert page.status_code == 200
+    assert "Fancy Category" in page.text
+    assert "<Category" not in page.text
+
+
+def test_admin_role_detail_renders_permission_codes(client, db):
+    """To-many relationship columns join labels (permission codes).
+
+    sqladmin renders to-many relationship columns only in the detail view;
+    the LabeledRelationsMixin formats them as permission codes there.
+    """
+    _login(client)
+    page = client.get("/admin/role/list")
+    assert page.status_code == 200
+    assert "cashier" in page.text
+
+    page = client.get("/admin/role/details/1")
+    assert page.status_code == 200
+    assert "orders:manage" in page.text
+    assert "<Permission" not in page.text
+
+
+def test_admin_stock_movement_list_renders_product_and_user(
+    client, auth_factory, assign_role
+):
+    """Both scalar- and to-many relation columns render labels in one row."""
+    user = auth_factory.register("label-mgr2@example.com")
+    assign_role(user["id"], "manager")
+    headers = auth_factory.login("label-mgr2@example.com")
+    cat_resp = client.post(
+        "/api/v1/products/categories",
+        headers=headers,
+        json={"name": "Cat B", "description": "x"},
+    )
+    resp = client.post(
+        "/api/v1/products",
+        headers=headers,
+        json={
+            "name": "Movement Widget",
+            "sku": "SKU-MOV-1",
+            "price": 5.0,
+            "stock_quantity": 8,
+            "category_id": cat_resp.json()["id"],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+
+    _login(client)
+    page = client.get("/admin/stock-movement/list")
+    assert page.status_code == 200
+    assert "Movement Widget" in page.text
+    assert "label-mgr2@example.com" in page.text
+    assert "<Product" not in page.text
+    assert "<User" not in page.text

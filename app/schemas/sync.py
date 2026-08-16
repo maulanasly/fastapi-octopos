@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -25,3 +26,21 @@ class SyncEventResult(BaseModel):
 
 class SyncBatchResponse(BaseModel):
     results: List[SyncEventResult]
+
+
+class SyncEventStatus(BaseModel):
+    id: int
+    client_event_id: str
+    event_type: str
+    status: str
+    resource_type: Optional[str] = None
+    resource_id: Optional[int] = None
+    message: Optional[str] = None
+    processed_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
+class SyncEventStatusList(BaseModel):
+    total: int
+    items: List[SyncEventStatus]

@@ -148,8 +148,15 @@ def test_top_customers_aggregates_spend(
 
 
 def test_tax_liability_empty_when_no_tax_rules(
-    client, cashier_headers, manager_headers, make_product, open_drawer
+    client, cashier_headers, manager_headers, make_product, open_drawer, db
 ):
+    # Remove the migration-seeded default rule to test a rule-free install
+    from app.models.tax import TaxRule
+
+    for rule in db.query(TaxRule).all():
+        db.delete(rule)
+    db.commit()
+
     _, _ = _report_setup(
         client, cashier_headers, manager_headers, make_product, open_drawer
     )

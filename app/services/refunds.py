@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.audit import log_action
 from app.core.money import quantize_money
 from app.core.validation import validate_drawer_session_status
 from app.models.customer import Customer, LoyaltyTransaction
@@ -197,6 +198,19 @@ def create_refund(
                     )
                 )
 
+    log_action(
+        db=db,
+        action="refund.create",
+        user_id=current_user.id,
+        resource_type="refund",
+        resource_id=refund.id,
+        details={
+            "order_id": order.id,
+            "payment_method": payment_method,
+            "total_amount": str(total_amount),
+            "items": [dict(item) for item in refund_in.items],
+        },
+    )
     db.commit()
 
     return (

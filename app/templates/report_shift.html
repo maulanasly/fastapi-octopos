@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shift Report #{{ report.reconciliation_id }}</title>
+<style>
+  body { font-family: monospace; font-size: 12px; max-width: 480px; margin: 24px auto; color: #111; }
+  h1 { font-size: 14px; text-align: center; margin: 0 0 4px; }
+  .sub { text-align: center; color: #555; margin-bottom: 12px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  td, th { padding: 2px 4px; text-align: left; }
+  th { border-bottom: 1px solid #111; }
+  tr.total td { border-top: 1px solid #111; font-weight: bold; }
+  .right { text-align: right; }
+  .section-title { font-weight: bold; margin-top: 12px; border-bottom: 1px solid #999; }
+  @media print { .no-print { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom:8px;"><a href="javascript:window.print()">Print / Save as PDF</a></div>
+  <h1>Shift Report</h1>
+  <div class="sub">
+    Reconciliation #{{ report.reconciliation_id }} &middot; Drawer #{{ report.drawer_session_id }}
+  </div>
+
+  <table>
+    <tr><td>Opened</td><td class="right">{{ report.opened_at or "-" }}</td></tr>
+    <tr><td>Closed</td><td class="right">{{ report.closed_at or "-" }}</td></tr>
+    <tr><td>Cashier</td><td class="right">{{ report.operator_name or "-" }}</td></tr>
+    <tr><td>Closed by</td><td class="right">{{ report.closed_by_name or "-" }}</td></tr>
+  </table>
+
+  <div class="section-title">Sales</div>
+  <table>
+    <tr><td>Gross sales</td><td class="right">{{ "%.2f"|format(report.gross_sales_total) }}</td></tr>
+    <tr><td>Net sales</td><td class="right">{{ "%.2f"|format(report.net_sales_total) }}</td></tr>
+    <tr><td>Cash sales</td><td class="right">{{ "%.2f"|format(report.cash_sales_total) }}</td></tr>
+    <tr><td>Non-cash sales</td><td class="right">{{ "%.2f"|format(report.non_cash_sales_total) }}</td></tr>
+    <tr><td>Refunds</td><td class="right">{{ "%.2f"|format(report.refunds_total) }}</td></tr>
+    <tr><td>Orders</td><td class="right">{{ report.completed_order_count }}</td></tr>
+  </table>
+
+  {% if report.payment_breakdown %}
+  <div class="section-title">Payments</div>
+  <table>
+    <tr><th>Method</th><th class="right">Count</th><th class="right">Amount</th></tr>
+    {% for p in report.payment_breakdown %}
+    <tr><td>{{ p.payment_method }}</td><td class="right">{{ p.count }}</td><td class="right">{{ "%.2f"|format(p.amount) }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <div class="section-title">Cash drawer</div>
+  <table>
+    <tr><td>Starting cash</td><td class="right">{{ "%.2f"|format(report.starting_cash) }}</td></tr>
+    <tr><td>Expected cash</td><td class="right">{{ "%.2f"|format(report.expected_cash) }}</td></tr>
+    <tr><td>Counted cash</td><td class="right">{{ "%.2f"|format(report.counted_cash) }}</td></tr>
+    <tr><td>Cash variance</td><td class="right">{{ "%.2f"|format(report.cash_variance) }}</td></tr>
+    <tr><td>Non-cash expected</td><td class="right">{{ "%.2f"|format(report.expected_non_cash) }}</td></tr>
+    <tr><td>Non-cash counted</td><td class="right">{{ "%.2f"|format(report.counted_non_cash) }}</td></tr>
+    <tr><td>Non-cash variance</td><td class="right">{{ "%.2f"|format(report.non_cash_variance) }}</td></tr>
+  </table>
+
+  <div style="margin-top:16px; text-align:center; color:#777;">Generated {{ now }} &middot; FastAPI OctoPOS</div>
+</body>
+</html>

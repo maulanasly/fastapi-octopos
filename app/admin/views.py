@@ -2,12 +2,15 @@ from datetime import datetime, timedelta, timezone
 
 # pyrefly: ignore [missing-import]
 from sqladmin import BaseView, Flash, ModelView, action, expose
+from sqlalchemy.orm import joinedload
 from starlette.exceptions import HTTPException
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from app.admin.formatting import LabeledRelationsMixin
+from app.core.audit import log_action
 from app.core.database import SessionLocal
 from app.core.localization import format_currency, get_localization_setting
 from app.models.customer import Customer, LoyaltyTransaction
@@ -44,7 +47,7 @@ REPORTS_CACHE_SECONDS = 120
 _reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
 
 
-class UserAdmin(ModelView, model=User):
+class UserAdmin(LabeledRelationsMixin, ModelView, model=User):
     column_list = [
         User.id,
         User.email,
@@ -57,7 +60,9 @@ class UserAdmin(ModelView, model=User):
     can_delete = False
 
 
-class LocalizationSettingAdmin(ModelView, model=LocalizationSetting):
+class LocalizationSettingAdmin(
+    LabeledRelationsMixin, ModelView, model=LocalizationSetting
+):
     column_list = [
         LocalizationSetting.id,
         LocalizationSetting.language,
@@ -72,8 +77,18 @@ class LocalizationSettingAdmin(ModelView, model=LocalizationSetting):
     can_delete = False
 
 
-class RoleAdmin(ModelView, model=Role):
+class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
     column_list = [
+        Role.id,
+        Role.name,
+        Role.description,
+        Role.is_system,
+        Role.permissions,
+    ]
+    # To-many relationships are only rendered in the detail view (sqladmin
+    # list view skips them); explicit column_details_list keeps the mixin's
+    # formatters active so codes render instead of object reprs.
+    column_details_list = [
         Role.id,
         Role.name,
         Role.description,
@@ -94,7 +109,7 @@ class RoleAdmin(ModelView, model=Role):
         return True
 
 
-class PermissionAdmin(ModelView, model=Permission):
+class PermissionAdmin(LabeledRelationsMixin, ModelView, model=Permission):
     column_list = [
         Permission.id,
         Permission.code,
@@ -105,7 +120,7 @@ class PermissionAdmin(ModelView, model=Permission):
     column_sortable_list = [Permission.id, Permission.code]
 
 
-class UserRoleAdmin(ModelView, model=UserRole):
+class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
     column_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
     column_sortable_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
     can_create = False
@@ -113,7 +128,7 @@ class UserRoleAdmin(ModelView, model=UserRole):
     can_delete = False
 
 
-class RolePermissionAdmin(ModelView, model=RolePermission):
+class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission):
     column_list = [
         RolePermission.id,
         RolePermission.role_id,
@@ -129,12 +144,12 @@ class RolePermissionAdmin(ModelView, model=RolePermission):
     can_delete = False
 
 
-class CategoryAdmin(ModelView, model=Category):
+class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
     column_list = [Category.id, Category.name, Category.description]
     column_searchable_list = [Category.name]
 
 
-class ProductAdmin(ModelView, model=Product):
+class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
     column_list = [
         Product.id,
         Product.name,
@@ -225,6 +240,19 @@ class ProductAdmin(ModelView, model=Product):
                         note=note or "Manual stock adjustment from admin",
                     )
                 )
+                log_action(
+                    db=db,
+                    action="admin.stock_adjust",
+                    user_id=request.session.get("admin_user_id"),
+                    resource_type="product",
+                    resource_id=product.id,
+                    details={
+                        "quantity_before": quantity_before,
+                        "quantity_after": quantity_after,
+                        "delta": delta,
+                        "note": note,
+                    },
+                )
                 db.commit()
                 Flash.success(
                     request,
@@ -246,7 +274,7 @@ class ProductAdmin(ModelView, model=Product):
             db.close()
 
 
-class PromotionAdmin(ModelView, model=Promotion):
+class PromotionAdmin(LabeledRelationsMixin, ModelView, model=Promotion):
     column_list = [
         Promotion.id,
         Promotion.code,
@@ -264,7 +292,7 @@ class PromotionAdmin(ModelView, model=Promotion):
     column_sortable_list = [Promotion.id, Promotion.usage_count, Promotion.starts_at]
 
 
-class CustomerAdmin(ModelView, model=Customer):
+class CustomerAdmin(LabeledRelationsMixin, ModelView, model=Customer):
     column_list = [
         Customer.id,
         Customer.name,
@@ -278,7 +306,9 @@ class CustomerAdmin(ModelView, model=Customer):
     column_sortable_list = [Customer.id, Customer.points_balance, Customer.created_at]
 
 
-class LoyaltyTransactionAdmin(ModelView, model=LoyaltyTransaction):
+class LoyaltyTransactionAdmin(
+    LabeledRelationsMixin, ModelView, model=LoyaltyTransaction
+):
     column_list = [
         LoyaltyTransaction.id,
         LoyaltyTransaction.customer,
@@ -298,7 +328,7 @@ class LoyaltyTransactionAdmin(ModelView, model=LoyaltyTransaction):
     can_delete = False
 
 
-class SupplierAdmin(ModelView, model=Supplier):
+class SupplierAdmin(LabeledRelationsMixin, ModelView, model=Supplier):
     column_list = [
         Supplier.id,
         Supplier.name,
@@ -311,7 +341,7 @@ class SupplierAdmin(ModelView, model=Supplier):
     column_sortable_list = [Supplier.created_at, Supplier.id]
 
 
-class PurchaseOrderAdmin(ModelView, model=PurchaseOrder):
+class PurchaseOrderAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrder):
     column_list = [
         PurchaseOrder.id,
         PurchaseOrder.supplier,
@@ -329,7 +359,7 @@ class PurchaseOrderAdmin(ModelView, model=PurchaseOrder):
     can_delete = False
 
 
-class PurchaseOrderItemAdmin(ModelView, model=PurchaseOrderItem):
+class PurchaseOrderItemAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrderItem):
     column_list = [
         PurchaseOrderItem.id,
         PurchaseOrderItem.purchase_order_id,
@@ -345,7 +375,7 @@ class PurchaseOrderItemAdmin(ModelView, model=PurchaseOrderItem):
     can_delete = False
 
 
-class PurchaseInvoiceAdmin(ModelView, model=PurchaseInvoice):
+class PurchaseInvoiceAdmin(LabeledRelationsMixin, ModelView, model=PurchaseInvoice):
     column_list = [
         PurchaseInvoice.id,
         PurchaseInvoice.invoice_number,
@@ -370,7 +400,9 @@ class PurchaseInvoiceAdmin(ModelView, model=PurchaseInvoice):
     can_delete = False
 
 
-class PurchaseInvoiceItemAdmin(ModelView, model=PurchaseInvoiceItem):
+class PurchaseInvoiceItemAdmin(
+    LabeledRelationsMixin, ModelView, model=PurchaseInvoiceItem
+):
     column_list = [
         PurchaseInvoiceItem.id,
         PurchaseInvoiceItem.invoice_id,
@@ -394,7 +426,7 @@ class PurchaseInvoiceItemAdmin(ModelView, model=PurchaseInvoiceItem):
     can_delete = False
 
 
-class OrderAdmin(ModelView, model=Order):
+class OrderAdmin(LabeledRelationsMixin, ModelView, model=Order):
     column_list = [
         Order.id,
         Order.user,
@@ -433,7 +465,7 @@ class OrderAdmin(ModelView, model=Order):
     can_delete = False
 
 
-class OrderItemAdmin(ModelView, model=OrderItem):
+class OrderItemAdmin(LabeledRelationsMixin, ModelView, model=OrderItem):
     column_list = [
         OrderItem.id,
         OrderItem.order_id,
@@ -447,7 +479,7 @@ class OrderItemAdmin(ModelView, model=OrderItem):
     can_delete = False
 
 
-class DrawerSessionAdmin(ModelView, model=DrawerSession):
+class DrawerSessionAdmin(LabeledRelationsMixin, ModelView, model=DrawerSession):
     column_list = [
         DrawerSession.id,
         DrawerSession.user,
@@ -468,7 +500,9 @@ class DrawerSessionAdmin(ModelView, model=DrawerSession):
     can_delete = False
 
 
-class ShiftReconciliationAdmin(ModelView, model=ShiftReconciliation):
+class ShiftReconciliationAdmin(
+    LabeledRelationsMixin, ModelView, model=ShiftReconciliation
+):
     column_list = [
         ShiftReconciliation.id,
         ShiftReconciliation.drawer_session_id,
@@ -488,7 +522,7 @@ class ShiftReconciliationAdmin(ModelView, model=ShiftReconciliation):
     can_delete = False
 
 
-class RefundAdmin(ModelView, model=Refund):
+class RefundAdmin(LabeledRelationsMixin, ModelView, model=Refund):
     column_list = [
         Refund.id,
         Refund.order_id,
@@ -503,7 +537,7 @@ class RefundAdmin(ModelView, model=Refund):
     can_delete = False
 
 
-class RefundItemAdmin(ModelView, model=RefundItem):
+class RefundItemAdmin(LabeledRelationsMixin, ModelView, model=RefundItem):
     column_list = [
         RefundItem.id,
         RefundItem.refund_id,
@@ -518,7 +552,7 @@ class RefundItemAdmin(ModelView, model=RefundItem):
     can_delete = False
 
 
-class StockMovementAdmin(ModelView, model=StockMovement):
+class StockMovementAdmin(LabeledRelationsMixin, ModelView, model=StockMovement):
     column_list = [
         StockMovement.id,
         StockMovement.product,
@@ -538,7 +572,7 @@ class StockMovementAdmin(ModelView, model=StockMovement):
     can_delete = False
 
 
-class SyncEventLogAdmin(ModelView, model=SyncEventLog):
+class SyncEventLogAdmin(LabeledRelationsMixin, ModelView, model=SyncEventLog):
     column_list = [
         SyncEventLog.id,
         SyncEventLog.user,
@@ -562,7 +596,7 @@ class SyncEventLogAdmin(ModelView, model=SyncEventLog):
     can_delete = False
 
 
-class TaxRuleAdmin(ModelView, model=TaxRule):
+class TaxRuleAdmin(LabeledRelationsMixin, ModelView, model=TaxRule):
     column_list = [
         TaxRule.id,
         TaxRule.name,
@@ -580,7 +614,7 @@ class TaxRuleAdmin(ModelView, model=TaxRule):
     column_sortable_list = [TaxRule.id, TaxRule.rate, TaxRule.updated_at]
 
 
-class OrderTaxLineAdmin(ModelView, model=OrderTaxLine):
+class OrderTaxLineAdmin(LabeledRelationsMixin, ModelView, model=OrderTaxLine):
     column_list = [
         OrderTaxLine.id,
         OrderTaxLine.order_id,
@@ -768,6 +802,17 @@ class ReportsAdmin(BaseView):
             localization = get_localization_setting(db)
             period = request.query_params.get("period", "30d")
 
+            shift_reports = (
+                db.query(ShiftReconciliation)
+                .options(
+                    joinedload(ShiftReconciliation.drawer_session),
+                    joinedload(ShiftReconciliation.closed_by_user),
+                )
+                .order_by(ShiftReconciliation.id.desc())
+                .limit(10)
+                .all()
+            )
+
             cache_key = (period, localization.currency, localization.number_format)
             cached = _reports_cache.get(cache_key)
             now = datetime.now(timezone.utc).timestamp()
@@ -799,6 +844,55 @@ class ReportsAdmin(BaseView):
                     "low_stock_products": data["low_stock_products"],
                     "top_customers": data["top_customers"],
                     "executive_summary": data["executive_summary"],
+                    "shift_reports": shift_reports,
+                },
+            )
+        finally:
+            db.close()
+
+    @expose("/reports/shift/{reconciliation_id}/print", methods=["GET"])
+    async def shift_report_print_page(self, request: Request, reconciliation_id: int):
+        """Print-friendly Z-report for a closed drawer shift (admin session)."""
+        from datetime import datetime as _dt
+
+        from app.services.reports import get_shift_report_data
+
+        db = SessionLocal()
+        try:
+            data = get_shift_report_data(db=db, reconciliation_id=reconciliation_id)
+            if data is None:
+                raise HTTPException(status_code=404)
+            rec = data["reconciliation"]
+            drawer = data["drawer"]
+            report = {
+                "reconciliation_id": rec.id,
+                "drawer_session_id": rec.drawer_session_id,
+                "opened_at": drawer.opened_at if drawer else None,
+                "closed_at": drawer.closed_at if drawer else None,
+                "operator_name": data["operator_name"],
+                "closed_by_name": data["closed_by_name"],
+                "starting_cash": float(drawer.starting_cash or 0.0) if drawer else 0.0,
+                "expected_cash": float(rec.expected_cash or 0.0),
+                "counted_cash": float(rec.counted_cash or 0.0),
+                "cash_variance": float(rec.cash_variance or 0.0),
+                "expected_non_cash": float(rec.expected_non_cash or 0.0),
+                "counted_non_cash": float(rec.counted_non_cash or 0.0),
+                "non_cash_variance": float(rec.non_cash_variance or 0.0),
+                "cash_sales_total": float(rec.cash_sales_total or 0.0),
+                "non_cash_sales_total": float(rec.non_cash_sales_total or 0.0),
+                "refunds_total": float(rec.refunds_total or 0.0),
+                "gross_sales_total": float(rec.gross_sales_total or 0.0),
+                "net_sales_total": float(rec.net_sales_total or 0.0),
+                "completed_order_count": int(rec.completed_order_count or 0),
+                "payment_breakdown": data["payment_breakdown"],
+            }
+            return await self.templates.TemplateResponse(
+                request,
+                "report_shift.html",
+                context={
+                    "report": report,
+                    "now": _dt.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                    "title": f"Shift Report #{rec.id}",
                 },
             )
         finally:
