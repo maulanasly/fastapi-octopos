@@ -1,47 +1,6 @@
-# FastAPI OctoPOS
+[Back to README](../README.md)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/maulanasly/fastapi-octopos/actions/workflows/ci.yml/badge.svg)](https://github.com/maulanasly/fastapi-octopos/actions/workflows/ci.yml)
-
-A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory management, order/payment flow, drawer sessions, reports, and SQLAdmin dashboard.
-
-> **Note:** Copy `.env.example` to `.env` and update the values before running in production.
-
-## Table of Contents
-
-- [Features](docs/features.md)
-- [Tech Stack](docs/tech-stack.md)
-- [Getting Started](docs/getting-started.md)
-- [Make Commands](docs/make-commands.md)
-- [Environment Variables](docs/environment-variables.md)
-- [API Overview](docs/api-overview.md)
-- [API Examples](docs/api-examples.md)
-- [Admin Panel](docs/admin-panel.md)
-- [Database & Migrations](docs/database-migrations.md)
-- [Development](docs/development.md)
-- [Deployment](docs/deployment.md)
-
-## Quick Start
-
-```bash
-git clone https://github.com/maulanasly/fastapi-octopos.git
-cd fastapi-octopos
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-make install
-cp .env.example .env
-make migrate
-make run
-```
-
-Open:
-
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- Admin: `http://127.0.0.1:8000/admin`
-
-See [Getting Started](docs/getting-started.md) for the full guide.
-
-## Environment Variables
+# Environment Variables
 
 Configuration is loaded from `.env` (see `app/core/config.py`). Copy `.env.example` to `.env` and update the values before running:
 
@@ -74,7 +33,3 @@ cp .env.example .env
 | `REPLENISHMENT_LOOKBACK_DAYS` | Sales lookback for replenishment velocity | `30` |
 | `LOG_LEVEL` | Logging level (`DEBUG`, `INFO`, ...) | `INFO` |
 | `LOG_JSON` | Emit JSON log lines (production-friendly) | `False` |
-
-## License
-
-MIT License. See [LICENSE](./LICENSE).
