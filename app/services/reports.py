@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import case, func
@@ -64,11 +64,19 @@ def get_shift_report_data(db: Session, reconciliation_id: int) -> dict:
 
 
 def get_daily_close_data(db: Session, report_date: Optional[datetime]) -> dict:
-    """All shift reconciliations closed on a given day + day totals."""
+    """All shift reconciliations closed on a given day + day totals.
+
+    ``DrawerSession.closed_at`` is stored as naive UTC (SQLite); the local
+    day's boundaries are converted to their UTC instants so the comparison
+    stays correct near midnight in any timezone.
+    """
     if report_date is None:
         report_date = datetime.now().astimezone()
-    start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end = start + timedelta(days=1)
+    local_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    start = local_start.astimezone(timezone.utc).replace(tzinfo=None)
+    end = (local_start + timedelta(days=1)).astimezone(timezone.utc).replace(
+        tzinfo=None
+    )
 
     shifts = (
         db.query(ShiftReconciliation)

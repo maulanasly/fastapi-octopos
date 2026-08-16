@@ -22,22 +22,22 @@ class HomeShell extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final canManageProducts = auth.has('products:manage');
     final canViewReports = auth.has('reports:view');
+    final canViewInventory = auth.has('inventory:view');
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
-      if (canManageProducts)
+      const _Dest(icon: Icons.receipt_long, label: 'Orders', path: '/orders'),
+      if (canViewInventory)
         const _Dest(
           icon: Icons.inventory_2,
-          label: 'Products',
-          path: '/products',
+          label: 'Inventory',
+          path: '/inventory',
         ),
+      if (canManageProducts)
+        const _Dest(icon: Icons.edit, label: 'Products', path: '/products'),
       const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
       if (canViewReports)
-        const _Dest(
-          icon: Icons.receipt_long,
-          label: 'Reports',
-          path: '/reports',
-        ),
+        const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
     ];
 
     final currentPath = GoRouterState.of(context).uri.path;
@@ -117,6 +117,8 @@ String _stringKeyForPath(String path) {
       return 'reports';
     case '/orders':
       return 'orders';
+    case '/inventory':
+      return 'inventory';
     default:
       return 'pos';
   }

@@ -62,6 +62,10 @@ final syncRepositoryProvider = Provider<SyncRepository>(
   (ref) => SyncRepository(ref.watch(apiClientProvider)),
 );
 
+final inventoryRepositoryProvider = Provider<InventoryRepository>(
+  (ref) => InventoryRepository(ref.watch(apiClientProvider)),
+);
+
 final localizationRepositoryProvider = Provider<LocalizationRepository>(
   (ref) => LocalizationRepository(ref.watch(apiClientProvider)),
 );
@@ -402,6 +406,45 @@ class ReportRepository {
       '/reports/shift/$reconciliationId',
     );
     return ShiftReport.fromJson(resp.data!);
+  }
+}
+
+class InventoryRepository {
+  final ApiClient api;
+  InventoryRepository(this.api);
+
+  Future<List<StockMovement>> movements({
+    int? productId,
+    String? movementType,
+    int limit = 100,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/inventory/movements',
+      queryParameters: {
+        if (productId != null) 'product_id': productId,
+        if (movementType != null) 'movement_type': movementType,
+        'limit': limit,
+      },
+    );
+    return resp.data!
+        .map((e) => StockMovement.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ReplenishmentSuggestion>> suggestions({
+    int lookbackDays = 30,
+    bool onlyReorder = true,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/inventory/replenishment-suggestions',
+      queryParameters: {
+        'lookback_days': lookbackDays,
+        'only_reorder_needed': onlyReorder,
+      },
+    );
+    return resp.data!
+        .map((e) => ReplenishmentSuggestion.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }
 
