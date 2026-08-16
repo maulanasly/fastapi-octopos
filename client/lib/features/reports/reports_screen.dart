@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 
@@ -32,9 +33,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = ref.watch(stringsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports'),
+        title: Text(strings.of('reports')),
         actions: [
           IconButton(
             onPressed: () => setState(_load),
@@ -94,7 +96,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         'Net revenue',
                         formatCents(centsFromApi(s.netRevenue)),
                       ),
-                      _metric(context, 'Orders', '${s.orderCount}'),
+                      _metric(context, strings.of('orders'), '${s.orderCount}'),
                       _metric(
                         context,
                         'Avg order',
@@ -123,7 +125,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       ),
                       const SizedBox(height: 8),
                       if (products.isEmpty)
-                        const Text('All product stock levels are healthy.')
+                        Text(strings.of('healthyStock'))
                       else
                         for (final product in products)
                           ListTile(

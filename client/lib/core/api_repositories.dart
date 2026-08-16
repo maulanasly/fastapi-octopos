@@ -42,6 +42,11 @@ final localizationRepositoryProvider = Provider<LocalizationRepository>(
 
 const _uuid = Uuid();
 
+/// Supported regional presets (fetched once).
+final regionListProvider = FutureProvider<List<LocalizationRegion>>((ref) {
+  return ref.watch(localizationRepositoryProvider).regions();
+});
+
 String newIdempotencyKey() => _uuid.v4();
 
 /// Idempotency-aware post helper: every mutating request carries a fresh
@@ -316,8 +321,32 @@ class LocalizationRepository {
   final ApiClient api;
   LocalizationRepository(this.api);
 
+  /// Global (admin-managed) localization settings.
   Future<LocalizationSetting> settings() async {
     final resp = await api.dio.get<Map<String, dynamic>>('/localization/');
+    return LocalizationSetting.fromJson(resp.data!);
+  }
+
+  /// Effective per-user localization (region preset or global default).
+  Future<LocalizationSetting> me() async {
+    final resp = await api.dio.get<Map<String, dynamic>>('/localization/me');
+    return LocalizationSetting.fromJson(resp.data!);
+  }
+
+  /// Supported regional presets.
+  Future<List<LocalizationRegion>> regions() async {
+    final resp = await api.dio.get<List<dynamic>>('/localization/regions');
+    return resp.data!
+        .map((e) => LocalizationRegion.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Switch the caller's region preset (null resets to global default).
+  Future<LocalizationSetting> updateRegion(String? region) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/localization/me',
+      data: {'region': region},
+    );
     return LocalizationSetting.fromJson(resp.data!);
   }
 }

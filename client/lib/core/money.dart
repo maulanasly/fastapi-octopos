@@ -33,12 +33,20 @@ String _currencySymbol(String currency) {
       return '€';
     case 'GBP':
       return '£';
+    case 'SGD':
+      return r'S$';
+    case 'JPY':
+      return '¥';
+    case 'MYR':
+      return 'RM';
+    case 'AUD':
+      return r'A$';
     default:
       return r'$';
   }
 }
 
-/// Integer cents -> display string (e.g. `$4.50`, `Rp4.500` for IDR).
+/// Integer cents -> display string (e.g. `$4.50`, `Rp 4.500` for IDR).
 String formatCents(int cents) {
   // id_ID uses '.' as the thousands separator and ',' as the decimal one;
   // everything else uses the en_US layout.
@@ -49,12 +57,14 @@ String formatCents(int cents) {
   final value = _currency == 'IDR'
       ? (cents / 100).floorToDouble()
       : cents / 100;
-  final f = NumberFormat.currency(
-    locale: locale,
-    symbol: _currencySymbol(_currency),
-    decimalDigits: decimalDigits,
-  );
-  return f.format(value);
+  final number = NumberFormat('#,##0.00', locale)
+    ..minimumFractionDigits = decimalDigits
+    ..maximumFractionDigits = decimalDigits;
+  final symbol = _currencySymbol(_currency);
+  // Indonesian convention: a space between "Rp" and the amount
+  // (e.g. `Rp 4.500`); other currencies attach the symbol directly.
+  final separator = _currency == 'IDR' ? ' ' : '';
+  return '$symbol$separator${number.format(value)}';
 }
 
 /// Integer cents -> bare string with two decimals (e.g. `4.50`).

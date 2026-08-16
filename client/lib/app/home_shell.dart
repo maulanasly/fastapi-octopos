@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/api_repositories.dart';
 import '../core/auth_controller.dart';
-import '../core/config.dart';
+import '../core/localization_controller.dart';
+import '../core/strings.dart';
 import 'theme_controller.dart';
 
 class HomeShell extends ConsumerWidget {
@@ -16,6 +18,7 @@ class HomeShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final auth = ref.watch(authControllerProvider);
     final canManageProducts = auth.has('products:manage');
     final canViewReports = auth.has('reports:view');
@@ -42,7 +45,7 @@ class HomeShell extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppConfig.appTitle),
+        title: Text(s.of('appTitle')),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -54,7 +57,7 @@ class HomeShell extends ConsumerWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Toggle theme',
+            tooltip: s.of('toggleTheme'),
             icon: Icon(
               ref.watch(themeModeProvider) == ThemeMode.dark
                   ? Icons.light_mode
@@ -62,8 +65,9 @@ class HomeShell extends ConsumerWidget {
             ),
             onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
           ),
+          const _RegionMenu(),
           IconButton(
-            tooltip: 'Sign out',
+            tooltip: s.of('signOut'),
             icon: const Icon(Icons.logout),
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
@@ -80,7 +84,7 @@ class HomeShell extends ConsumerWidget {
               for (final d in destinations)
                 NavigationRailDestination(
                   icon: Icon(d.icon),
-                  label: Text(d.label),
+                  label: Text(s.of(_stringKeyForPath(d.path))),
                 ),
             ],
           ),
@@ -98,4 +102,59 @@ class _Dest {
   final IconData icon;
   final String label;
   final String path;
+}
+
+String _stringKeyForPath(String path) {
+  switch (path) {
+    case '/products':
+      return 'products';
+    case '/customers':
+      return 'customers';
+    case '/reports':
+      return 'reports';
+    default:
+      return 'pos';
+  }
+}
+
+/// Region preset picker (Default / US / ID), persisted per user.
+class _RegionMenu extends ConsumerWidget {
+  const _RegionMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final strings = ref.watch(stringsProvider);
+    final regions = ref.watch(regionListProvider).value ?? [];
+    final current = ref.watch(localizationControllerProvider).setting;
+    final currentCode = current?.countryCode ?? '';
+
+    return PopupMenuButton<String?>(
+      tooltip: strings.of('region'),
+      icon: const Icon(Icons.language),
+      onSelected: (code) {
+        ref.read(localizationControllerProvider.notifier).setRegion(code);
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<String?>(
+          value: null,
+          child: Text(
+            strings.of('regionDefault'),
+            style: currentCode.isEmpty
+                ? const TextStyle(fontWeight: FontWeight.bold)
+                : null,
+          ),
+        ),
+        for (final region in regions)
+          PopupMenuItem<String?>(
+            value: region.countryCode,
+            child: Text(
+              '${region.countryCode} · ${region.currency}',
+              style: currentCode == region.countryCode
+                  ? const TextStyle(fontWeight: FontWeight.bold)
+                  : null,
+            ),
+          ),
+      ],
+    );
+  }
 }

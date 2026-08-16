@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 
@@ -30,6 +31,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
   }
 
   Future<void> _submit() async {
+    final s = ref.read(stringsProvider);
     final order = _selected;
     if (order == null) return;
     final items = <Map<String, dynamic>>[];
@@ -40,7 +42,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
       }
     }
     if (items.isEmpty) {
-      setState(() => _error = 'Select at least one item to refund');
+      setState(() => _error = s.of('selectAtLeastOne'));
       return;
     }
     setState(() {
@@ -73,8 +75,9 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Refunds')),
+      appBar: AppBar(title: Text(s.of('refunds'))),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
@@ -159,6 +162,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
   }
 
   Widget _itemsView(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final order = _selected!;
     final total = order.items.fold<int>(0, (sum, item) {
       return sum + centsFromApi(item.unitPrice) * (_quantities[item.id] ?? 0);
@@ -175,7 +179,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
             const Spacer(),
             TextButton(
               onPressed: () => setState(() => _selected = null),
-              child: const Text('Back'),
+              child: Text(s.of('back')),
             ),
           ],
         ),
@@ -187,7 +191,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
               final item = order.items[i];
               return ListTile(
                 dense: true,
-                title: Text('Product #${item.productId}'),
+                title: Text(s.of('productId', args: {'id': item.productId})),
                 subtitle: Text(
                   '${item.quantity} × ${formatCents(centsFromApi(item.unitPrice))}',
                 ),
@@ -228,7 +232,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
-            'Refund total: ${formatCents(total)}',
+            s.of('refundTotal', args: {'total': formatCents(total)}),
             style: Theme.of(context).textTheme.titleMedium,
           ),
         ),

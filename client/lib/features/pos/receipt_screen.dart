@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 
@@ -29,10 +30,15 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Receipt #${widget.orderId}')),
+      appBar: AppBar(
+        title: Text(
+          ref.read(stringsProvider).of('orderId', args: {'id': widget.orderId}),
+        ),
+      ),
       body: FutureBuilder<OrderReceipt>(
         future: _future,
         builder: (context, snapshot) {
+          final s = ref.watch(stringsProvider);
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -79,11 +85,15 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                           ),
                         ),
                       const Divider(height: 24),
-                      _line(context, 'Subtotal', receipt.subtotalAmount),
+                      _line(context, s.of('subtotal'), receipt.subtotalAmount),
                       if (receipt.discountAmount > 0)
-                        _line(context, 'Discount', -receipt.discountAmount),
+                        _line(
+                          context,
+                          s.of('discount'),
+                          -receipt.discountAmount,
+                        ),
                       if (receipt.taxTotalAmount > 0)
-                        _line(context, 'Tax', receipt.taxTotalAmount),
+                        _line(context, s.of('tax'), receipt.taxTotalAmount),
                       _line(
                         context,
                         'Total',
@@ -98,11 +108,11 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                           payment.amount,
                         ),
                       if (receipt.changeAmount > 0)
-                        _line(context, 'Change', -receipt.changeAmount),
+                        _line(context, s.of('change'), -receipt.changeAmount),
                       const SizedBox(height: 16),
                       FilledButton.icon(
                         icon: const Icon(Icons.check),
-                        label: const Text('Done'),
+                        label: Text(s.of('done')),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],

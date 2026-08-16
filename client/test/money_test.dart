@@ -28,16 +28,16 @@ void main() {
 
     test('formats IDR with Indonesian number format', () {
       configureMoney(currency: 'IDR', numberFormat: 'id_ID');
-      expect(formatCents(450), 'Rp4');
-      expect(formatCents(450000), 'Rp4.500');
-      expect(formatCents(450000000), 'Rp4.500.000');
-      expect(formatCents(0), 'Rp0');
+      expect(formatCents(450), 'Rp 4');
+      expect(formatCents(450000), 'Rp 4.500');
+      expect(formatCents(450000000), 'Rp 4.500.000');
+      expect(formatCents(0), 'Rp 0');
     });
 
     test('formats IDR with en_US number format', () {
       configureMoney(currency: 'IDR', numberFormat: 'en_US');
-      expect(formatCents(450000), 'Rp4,500');
-      expect(formatCents(0), 'Rp0');
+      expect(formatCents(450000), 'Rp 4,500');
+      expect(formatCents(0), 'Rp 0');
     });
 
     test('formats USD with Indonesian number format', () {

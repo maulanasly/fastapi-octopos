@@ -33,6 +33,7 @@ class SessionExpired implements Exception {
 class ApiSession {
   String? accessToken;
   String? refreshToken;
+  String? language;
 }
 
 class ApiClient {
@@ -60,6 +61,10 @@ class ApiClient {
           final token = session.accessToken;
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
+          }
+          final language = session.language;
+          if (language != null && language.isNotEmpty) {
+            options.headers['Accept-Language'] = language;
           }
           handler.next(options);
         },

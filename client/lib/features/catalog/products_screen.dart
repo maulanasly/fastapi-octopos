@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../pos/catalog_controller.dart';
@@ -19,9 +20,10 @@ class ProductsScreen extends ConsumerStatefulWidget {
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final catalog = ref.watch(catalogControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Products')),
+      appBar: AppBar(title: Text(s.of('products'))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _createProduct(context),
         child: const Icon(Icons.add),
@@ -62,6 +64,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
   }
 
   Future<void> _productDialog(BuildContext context, {Product? product}) async {
+    final s = ref.watch(stringsProvider);
     final categories = ref.read(catalogControllerProvider).categories;
     final name = TextEditingController(text: product?.name ?? '');
     final sku = TextEditingController(text: product?.sku ?? '');
@@ -76,32 +79,36 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(product == null ? 'New product' : 'Edit ${product.name}'),
+        title: Text(
+          product == null
+              ? s.of('newProduct')
+              : s.of('editProduct', args: {'name': product.name}),
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: name,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: s.of('name')),
               ),
               TextField(
                 controller: sku,
-                decoration: const InputDecoration(labelText: 'SKU'),
+                decoration: InputDecoration(labelText: s.of('sku')),
               ),
               TextField(
                 controller: price,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Price'),
+                decoration: InputDecoration(labelText: s.of('price')),
               ),
               TextField(
                 controller: stock,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Stock'),
+                decoration: InputDecoration(labelText: s.of('stock')),
               ),
               DropdownButtonFormField<int>(
                 value: categoryId,
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration: InputDecoration(labelText: s.of('category')),
                 items: [
                   for (final c in categories)
                     DropdownMenuItem(value: c.id, child: Text(c.name)),
@@ -114,11 +121,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(s.of('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Save'),
+            child: Text(s.of('save')),
           ),
         ],
       ),
