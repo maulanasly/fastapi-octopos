@@ -10,6 +10,10 @@ import 'package:uuid/uuid.dart';
 import 'api_client.dart';
 import 'models.dart';
 
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepository(ref.watch(apiClientProvider)),
+);
+
 final catalogRepositoryProvider = Provider<CatalogRepository>(
   (ref) => CatalogRepository(ref.watch(apiClientProvider)),
 );
@@ -78,6 +82,17 @@ Map<String, dynamic> _withKey(Map<String, dynamic> body, {String? key}) => {
   ...body,
   if (key != null) 'idempotency_key': key,
 };
+
+class AuthRepository {
+  final ApiClient api;
+  AuthRepository(this.api);
+
+  /// Profile of the authenticated user.
+  Future<UserProfile> me() async {
+    final resp = await api.dio.get<Map<String, dynamic>>('/auth/me');
+    return UserProfile.fromJson(resp.data!);
+  }
+}
 
 class CatalogRepository {
   final ApiClient api;

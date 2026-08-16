@@ -193,3 +193,20 @@ def test_successful_login_resets_failed_attempts(client, auth_factory):
         data={"username": "reset@example.com", "password": "TestPass123"},
     )
     assert resp.status_code == 200, resp.text
+
+
+def test_auth_me_returns_profile(client, auth_factory):
+    auth_factory.register("me@example.com", password="TestPass123")
+    headers = auth_factory.login("me@example.com")
+    resp = client.get("/api/v1/auth/me", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["email"] == "me@example.com"
+    assert body["full_name"] == "Test User"
+    assert body["is_active"] is True
+    assert "id" in body
+
+
+def test_auth_me_requires_auth(client):
+    resp = client.get("/api/v1/auth/me")
+    assert resp.status_code == 401 or resp.status_code == 403

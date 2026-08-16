@@ -10,6 +10,10 @@ import 'localization_controller.dart';
 const Map<String, Map<String, String>> _translations = {
   'en': {
     'appTitle': 'OctoPOS',
+    'signedInAs': 'Signed in as',
+    'cashier': 'Cashier',
+    'print': 'Print',
+    'date': 'Date',
     'signIn': 'Sign in',
     'signOut': 'Sign out',
     'createAccount': 'Create account',
@@ -108,6 +112,10 @@ const Map<String, Map<String, String>> _translations = {
   },
   'id': {
     'appTitle': 'OctoPOS',
+    'signedInAs': 'Masuk sebagai',
+    'cashier': 'Kasir',
+    'print': 'Cetak',
+    'date': 'Tanggal',
     'signIn': 'Masuk',
     'signOut': 'Keluar',
     'createAccount': 'Buat akun',

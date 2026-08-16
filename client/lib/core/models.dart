@@ -4,6 +4,30 @@
 /// parse them with [centsFromApi] on receipt.
 library;
 
+class UserProfile {
+  final int id;
+  final String email;
+  final String? fullName;
+  final bool isActive;
+  final bool isSuperuser;
+
+  const UserProfile({
+    required this.id,
+    required this.email,
+    this.fullName,
+    required this.isActive,
+    required this.isSuperuser,
+  });
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
+        id: json['id'] as int,
+        email: json['email'] as String,
+        fullName: json['full_name'] as String?,
+        isActive: json['is_active'] as bool? ?? true,
+        isSuperuser: json['is_superuser'] as bool? ?? false,
+      );
+}
+
 class TokenResponse {
   final String accessToken;
   final String refreshToken;
@@ -383,6 +407,8 @@ class ReceiptItem {
 class OrderReceipt {
   final int orderId;
   final String? customerName;
+  final String? cashierName;
+  final String? createdAt;
   final double subtotalAmount;
   final double discountAmount;
   final int redeemedPoints;
@@ -402,6 +428,8 @@ class OrderReceipt {
   const OrderReceipt({
     required this.orderId,
     this.customerName,
+    this.cashierName,
+    this.createdAt,
     required this.subtotalAmount,
     required this.discountAmount,
     required this.redeemedPoints,

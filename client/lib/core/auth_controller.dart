@@ -12,23 +12,31 @@ enum AuthStatus { unknown, signedOut, signedIn }
 class AuthState {
   final AuthStatus status;
   final String? email;
+  final String? fullName;
   final Set<String> permissions;
 
   const AuthState({
     this.status = AuthStatus.unknown,
     this.email,
+    this.fullName,
     this.permissions = const {},
   });
+
+  /// Display name for the signed-in user (full name, fallback email).
+  String? get displayName =>
+      (fullName?.isNotEmpty ?? false) ? fullName : email;
 
   bool has(String permission) => permissions.contains(permission);
 
   AuthState copyWith({
     AuthStatus? status,
     String? email,
+    String? fullName,
     Set<String>? permissions,
   }) => AuthState(
     status: status ?? this.status,
     email: email ?? this.email,
+    fullName: fullName ?? this.fullName,
     permissions: permissions ?? this.permissions,
   );
 }
@@ -51,39 +59,37 @@ class AuthController extends Notifier<AuthState> {
     // Probe the session; a 401 triggers the silent-refresh path and, on
     // failure, onSessionExpired -> invalidate(this) -> signedOut.
     try {
-      final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+      await _applyProfile();
       await _applyLocalization();
-      state = AuthState(
-        status: AuthStatus.signedIn,
-        permissions: perms.toSet(),
-      );
     } catch (_) {
       state = const AuthState(status: AuthStatus.signedOut);
     }
   }
 
+  /// Loads the profile (id, name, email) and permissions in one pass.
+  Future<void> _applyProfile() async {
+    final profile = await ref.read(authRepositoryProvider).me();
+    final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+    state = AuthState(
+      status: AuthStatus.signedIn,
+      email: profile.email,
+      fullName: profile.fullName,
+      permissions: perms.toSet(),
+    );
+  }
+
   Future<void> login(String email, String password) async {
     final api = ref.read(apiClientProvider);
     await api.login(email, password);
-    final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+    await _applyProfile();
     await _applyLocalization();
-    state = AuthState(
-      status: AuthStatus.signedIn,
-      email: email,
-      permissions: perms.toSet(),
-    );
   }
 
   Future<void> register(String email, String password, String fullName) async {
     final api = ref.read(apiClientProvider);
     await api.register(email, password, fullName);
-    final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+    await _applyProfile();
     await _applyLocalization();
-    state = AuthState(
-      status: AuthStatus.signedIn,
-      email: email,
-      permissions: perms.toSet(),
-    );
   }
 
   Future<void> logout() async {
