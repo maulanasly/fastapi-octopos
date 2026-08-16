@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../drawer/drawer_controller.dart';
@@ -27,6 +28,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final catalog = ref.watch(catalogControllerProvider);
     final cart = ref.watch(cartControllerProvider);
     final drawer = ref.watch(drawerControllerProvider);
@@ -44,18 +46,18 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             actions: [
               TextButton(
                 onPressed: () => _openDrawer(context),
-                child: const Text('Open drawer'),
+                child: Text(s.of('openDrawer')),
               ),
             ],
           )
         else if (drawer.session != null)
           MaterialBanner(
-            content: Text('Drawer #${drawer.session!.id} open'),
+            content: Text(s.of('drawerOpen', args: {'id': drawer.session!.id})),
             leading: const Icon(Icons.lock_open),
             actions: [
               TextButton(
                 onPressed: () => context.push('/reconcile'),
-                child: const Text('End shift'),
+                child: Text(s.of('endShift')),
               ),
             ],
           ),
@@ -65,7 +67,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             children: [
               TextButton.icon(
                 icon: const Icon(Icons.assignment_return, size: 18),
-                label: const Text('Refunds'),
+                label: Text(s.of('refunds')),
                 onPressed: () => context.push('/refunds'),
               ),
               const Spacer(),
@@ -118,16 +120,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     CatalogState catalog,
     List<Product> products,
   ) {
+    final s = ref.watch(stringsProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.all(8),
           child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Search products…',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              hintText: s.of('searchProducts'),
+              prefixIcon: const Icon(Icons.search),
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: (v) => setState(() => _search = v),
@@ -142,7 +145,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  label: const Text('All'),
+                  label: Text(s.of('all')),
                   selected: _selectedCategoryId == null,
                   onSelected: (_) => setState(() => _selectedCategoryId = null),
                 ),
@@ -183,6 +186,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Widget _productTile(BuildContext context, Product product) {
+    final s = ref.watch(stringsProvider);
     final outOfStock = product.stockQuantity <= 0;
     return Card(
       color: outOfStock
@@ -213,7 +217,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
               ),
               Text(
-                '${product.stockQuantity} in stock',
+                s.of('inStock', args: {'count': product.stockQuantity}),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: outOfStock
                       ? Theme.of(context).colorScheme.error
@@ -228,6 +232,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Widget _cartPane(BuildContext context, CartState cart) {
+    final s = ref.watch(stringsProvider);
     final canCheckout =
         cart.isEmpty || ref.read(drawerControllerProvider).session == null;
     return Column(
@@ -254,7 +259,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               else
                 OutlinedButton.icon(
                   icon: const Icon(Icons.person_add_alt, size: 16),
-                  label: const Text('Customer'),
+                  label: Text(s.of('customer')),
                   onPressed: () => _pickCustomer(context),
                 ),
             ],
@@ -321,7 +326,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               const Spacer(),
               FilledButton(
                 onPressed: canCheckout ? null : () => _checkout(context),
-                child: const Text('Checkout'),
+                child: Text(s.of('checkout')),
               ),
             ],
           ),
@@ -403,7 +408,7 @@ class _CustomerPickerSheetState extends ConsumerState<CustomerPickerSheet> {
           return ListView(
             shrinkWrap: true,
             children: [
-              const ListTile(title: Text('Select customer')),
+              ListTile(title: Text(ref.read(stringsProvider).of('customer'))),
               for (final c in customers)
                 ListTile(
                   title: Text(c.name),
@@ -466,7 +471,7 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(ref.read(stringsProvider).of('cancel')),
         ),
         FilledButton(
           onPressed: _submitting
@@ -490,7 +495,7 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
                     if (mounted) setState(() => _submitting = false);
                   }
                 },
-          child: const Text('Open'),
+          child: Text(ref.read(stringsProvider).of('openDrawer')),
         ),
       ],
     );

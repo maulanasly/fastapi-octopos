@@ -6,6 +6,7 @@ import 'app/theme.dart';
 import 'app/theme_controller.dart';
 import 'core/api_client.dart';
 import 'core/config.dart';
+import 'core/localization_controller.dart';
 
 void main() {
   runApp(const ProviderScope(child: OctoPosApp()));
@@ -18,6 +19,8 @@ class OctoPosApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Trigger the sync bootstrap (catalog delta pull) on startup.
     ref.watch(syncBootstrapProvider);
+    // Activate per-user localization (region fetch on sign-in).
+    ref.watch(localizationControllerProvider);
 
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);

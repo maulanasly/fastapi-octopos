@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import 'cart_controller.dart';
@@ -34,6 +35,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final cart = ref.watch(cartControllerProvider);
     final subtotal = cart.subtotalCents;
 
@@ -56,24 +58,24 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             const SizedBox(height: 12),
             TextField(
               controller: _promo,
-              decoration: const InputDecoration(
-                labelText: 'Promotion code',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: s.of('promotionCode'),
+                border: const OutlineInputBorder(),
                 isDense: true,
               ),
             ),
             const SizedBox(height: 12),
             SegmentedButton<_PayMethod>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _PayMethod.cash,
-                  label: Text('Cash'),
-                  icon: Icon(Icons.payments),
+                  label: Text(s.of('cash')),
+                  icon: const Icon(Icons.payments),
                 ),
                 ButtonSegment(
                   value: _PayMethod.card,
-                  label: Text('Card'),
-                  icon: Icon(Icons.credit_card),
+                  label: Text(s.of('card')),
+                  icon: const Icon(Icons.credit_card),
                 ),
               ],
               selected: {_method},
@@ -85,7 +87,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                 controller: _cashReceived,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: 'Cash received',
+                  labelText: s.of('cashReceived'),
                   prefixText: r'$ ',
                   border: const OutlineInputBorder(),
                   isDense: true,
@@ -110,7 +112,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Pay'),
+                  : Text(s.of('pay')),
             ),
           ],
         ),
@@ -119,9 +121,10 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   }
 
   String? _cashError(int subtotal) {
+    final s = ref.read(stringsProvider);
     final received = (double.tryParse(_cashReceived.text) ?? 0) * 100;
     if (received <= 0) return null;
-    if (received < subtotal) return 'Insufficient cash';
+    if (received < subtotal) return s.of('insufficientCash');
     return null;
   }
 

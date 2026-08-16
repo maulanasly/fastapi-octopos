@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/strings.dart';
 import '../../core/models.dart';
 
 class CustomersScreen extends ConsumerStatefulWidget {
@@ -24,38 +25,39 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
   }
 
   Future<void> _create() async {
+    final s = ref.read(stringsProvider);
     final name = TextEditingController();
     final email = TextEditingController();
     final phone = TextEditingController();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('New customer'),
+        title: Text(s.of('newCustomer')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: name,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: s.of('name')),
             ),
             TextField(
               controller: email,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: s.of('email')),
             ),
             TextField(
               controller: phone,
-              decoration: const InputDecoration(labelText: 'Phone'),
+              decoration: InputDecoration(labelText: s.of('phone')),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(s.of('cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Create'),
+            child: Text(s.of('create')),
           ),
         ],
       ),
@@ -81,8 +83,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Customers')),
+      appBar: AppBar(title: Text(s.of('customers'))),
       floatingActionButton: FloatingActionButton(
         onPressed: _create,
         child: const Icon(Icons.add),

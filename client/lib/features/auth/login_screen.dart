@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth_controller.dart';
+import '../../core/strings.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -52,24 +53,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
       // Router redirects automatically on state change.
     } catch (e) {
-      setState(() => _error = _friendlyError(e.toString()));
+      setState(
+        () => _error = _friendlyError(ref.read(stringsProvider), e.toString()),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
   }
 
-  String _friendlyError(String raw) {
+  String _friendlyError(AppStrings s, String raw) {
     if (raw.contains('423') || raw.contains('locked')) {
-      return 'Account temporarily locked. Try again later.';
+      return s.of('accountLocked');
     }
     if (raw.contains('400')) {
-      return 'Incorrect email or password.';
+      return s.of('badCredentials');
     }
-    return 'Could not reach the server. Is the backend running?';
+    return s.of('cannotReachServer');
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -98,20 +102,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextFormField(
                       key: const Key('fullNameField'),
                       controller: _fullName,
-                      decoration: const InputDecoration(
-                        labelText: 'Full name',
+                      decoration: InputDecoration(
+                        labelText: s.of('fullName'),
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? s.of('required')
+                          : null,
                     ),
                     const SizedBox(height: 12),
                   ],
                   TextFormField(
                     key: const Key('emailField'),
                     controller: _email,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
+                    decoration: InputDecoration(
+                      labelText: s.of('email'),
                       border: OutlineInputBorder(),
                     ),
                     keyboardType: TextInputType.emailAddress,
@@ -124,13 +129,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   TextFormField(
                     key: const Key('passwordField'),
                     controller: _password,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
+                    decoration: InputDecoration(
+                      labelText: s.of('password'),
                       border: OutlineInputBorder(),
                     ),
                     obscureText: true,
-                    validator: (v) =>
-                        (v == null || v.length < 8) ? 'Min 8 characters' : null,
+                    validator: (v) => (v == null || v.length < 8)
+                        ? s.of('minPassword')
+                        : null,
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -151,7 +157,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(_registerMode ? 'Create account' : 'Sign in'),
+                        : Text(
+                            _registerMode
+                                ? s.of('createAccount')
+                                : s.of('signIn'),
+                          ),
                   ),
                   TextButton(
                     onPressed: _submitting

@@ -33,6 +33,14 @@ String _currencySymbol(String currency) {
       return '€';
     case 'GBP':
       return '£';
+    case 'SGD':
+      return r'S$';
+    case 'JPY':
+      return '¥';
+    case 'MYR':
+      return 'RM';
+    case 'AUD':
+      return r'A$';
     default:
       return r'$';
   }

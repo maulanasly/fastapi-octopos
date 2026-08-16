@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/money.dart';
+import '../../core/strings.dart';
 import '../../core/models.dart';
 import 'drawer_controller.dart';
 
@@ -55,6 +56,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final drawerState = ref.watch(drawerControllerProvider);
     final session = drawerState.session;
 
@@ -69,7 +71,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('End shift')),
+      appBar: AppBar(title: Text(s.of('endShift'))),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
@@ -91,20 +93,20 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                 TextField(
                   controller: _countedCash,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Counted cash',
+                  decoration: InputDecoration(
+                    labelText: s.of('countedCash'),
                     prefixText: r'$ ',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _countedNonCash,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Counted non-cash (optional)',
+                  decoration: InputDecoration(
+                    labelText: s.of('countedNonCash'),
                     prefixText: r'$ ',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 if (_error != null)
@@ -126,7 +128,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Reconcile & close drawer'),
+                      : Text(s.of('reconcileClose')),
                 ),
               ],
             ),
@@ -137,9 +139,10 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
   }
 
   Widget _resultView(BuildContext context, ShiftReconciliation rec) {
+    final s = ref.watch(stringsProvider);
     final variance = centsFromApi(rec.cashVariance);
     return Scaffold(
-      appBar: AppBar(title: const Text('Shift reconciled')),
+      appBar: AppBar(title: Text(s.of('shiftReconciled'))),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
@@ -194,15 +197,15 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                   ),
                   _row(
                     context,
-                    'Variance',
+                    s.of('variance'),
                     formatCents(variance),
                     highlight: variance != 0,
                   ),
-                  _row(context, 'Orders', '${rec.completedOrderCount}'),
+                  _row(context, s.of('orders'), '${rec.completedOrderCount}'),
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Done'),
+                    child: Text(s.of('done')),
                   ),
                 ],
               ),
