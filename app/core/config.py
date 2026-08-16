@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # development | production
 
     # CORS — set explicit origins in production (e.g. ["https://yourapp.com"])
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:8080"]
 
     # Database
     SQLALCHEMY_DATABASE_URI: str = (

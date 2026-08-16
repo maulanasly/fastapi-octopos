@@ -7,9 +7,12 @@ HOST ?= 127.0.0.1
 PORT ?= 8000
 RELOAD ?= --reload
 MSG ?= update-schema
+FLUTTER ?= flutter
+CLIENT_WEB_PORT ?= 3001
 
 .PHONY: help install run dev migrate migrate-down makemigration \
-	migration-history migration-current lint format check test pre-commit clean
+	migration-history migration-current lint format check test pre-commit clean \
+	client client-run client-test client-analyze
 
 help: ## Show available commands
 	@echo "FastAPI OctoPOS - Make targets"
@@ -60,3 +63,14 @@ pre-commit: ## Install pre-commit hooks
 clean: ## Remove Python cache files
 	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
+
+client: ## Run Flutter client (web, fixed port for CORS)
+	cd client && $(FLUTTER) run -d chrome --web-port=$(CLIENT_WEB_PORT)
+
+client-run: client ## Alias for client
+
+client-test: ## Run Flutter tests
+	cd client && $(FLUTTER) test
+
+client-analyze: ## Run Flutter static analysis
+	cd client && $(FLUTTER) analyze

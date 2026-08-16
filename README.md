@@ -285,7 +285,7 @@ cp .env.example .env
 | `PROJECT_NAME` | Application name | `FastAPI POS Backend` |
 | `API_V1_STR` | API prefix | `/api/v1` |
 | `ENVIRONMENT` | `development` or `production` — production refuses default secrets | `development` |
-| `BACKEND_CORS_ORIGINS` | CORS allowed origins (JSON array) | `["http://localhost:3000", "http://localhost:8080"]` |
+| `BACKEND_CORS_ORIGINS` | CORS allowed origins (JSON array) | `["http://localhost:3001", "http://localhost:8080"]` |
 | `SQLALCHEMY_DATABASE_URI` | Database connection string | `sqlite:///./sql_app.db` |
 | `SECRET_KEY` | JWT signing secret (change in production) | Random default (insecure) |
 | `ALGORITHM` | JWT algorithm | `HS256` |

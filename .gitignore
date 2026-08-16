@@ -134,3 +134,15 @@ sql_app.db
 sql_app.db.bak_before_alembic_fix_20260616
 graphify-out/
 .kilo
+
+# Flutter client
+client/.dart_tool/
+client/build/
+client/.flutter-plugins*
+client/android/.gradle/
+client/android/local.properties
+client/ios/Pods/
+client/ios/.symlinks/
+client/linux/flutter/ephemeral/
+client/web/flutter_bootstrap.js
+client/web/icons/

@@ -30,3 +30,21 @@ jobs:
 
       - name: Compile check
         run: python -m compileall app alembic
+
+  flutter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
