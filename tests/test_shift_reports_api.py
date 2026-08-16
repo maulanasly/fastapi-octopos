@@ -76,3 +76,33 @@ def test_shift_report_requires_reports_permission(client: TestClient, auth_facto
     headers = auth_factory.user("shift-no-perm@example.com")
     resp = client.get("/api/v1/reports/shift/1", headers=headers)
     assert resp.status_code == 403, resp.text
+
+
+def test_shift_list_returns_reconciled_shifts(
+    client, db, manager_headers, make_product
+):
+    rec_id = _run_shift(client, db, manager_headers, make_product)
+    resp = client.get("/api/v1/reports/shifts", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    items = resp.json()
+    assert any(item["reconciliation_id"] == rec_id for item in items)
+    newest = items[0]
+    assert newest["operator_name"] is not None
+    assert newest["closed_at"] is not None
+    assert newest["gross_sales_total"] > 0
+
+
+def test_shift_list_respects_date_range(client, db, manager_headers, make_product):
+    _run_shift(client, db, manager_headers, make_product)
+    resp = client.get(
+        "/api/v1/reports/shifts",
+        headers=manager_headers,
+        params={"date_from": "2000-01-01T00:00:00", "date_to": "2000-01-02T00:00:00"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == []
+
+
+def test_shift_list_requires_reports_permission(client, cashier_headers):
+    resp = client.get("/api/v1/reports/shifts", headers=cashier_headers)
+    assert resp.status_code == 403, resp.text

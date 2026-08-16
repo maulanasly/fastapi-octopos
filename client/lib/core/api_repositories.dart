@@ -401,6 +401,20 @@ class ReportRepository {
         .toList();
   }
 
+  Future<List<DailyShiftItem>> shifts() async {
+    final resp = await api.dio.get<List<dynamic>>('/reports/shifts');
+    return resp.data!
+        .map((e) => DailyShiftItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<DailyCloseTotals> dailyClose() async {
+    final resp = await api.dio.get<Map<String, dynamic>>('/reports/daily-close');
+    return DailyCloseTotals.fromJson(
+      (resp.data!['totals'] as Map<String, dynamic>),
+    );
+  }
+
   Future<ShiftReport> shiftReport(int reconciliationId) async {
     final resp = await api.dio.get<Map<String, dynamic>>(
       '/reports/shift/$reconciliationId',
