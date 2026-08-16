@@ -5,6 +5,7 @@ from sqladmin import BaseView, Flash, ModelView, action, expose
 from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
 from sqlalchemy.orm import joinedload
 from starlette.exceptions import HTTPException
+
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -19,8 +20,13 @@ from app.models.localization import LocalizationSetting
 from app.models.order import Order, OrderItem
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
-from app.models.purchase import (PurchaseInvoice, PurchaseInvoiceItem,
-                                 PurchaseOrder, PurchaseOrderItem, Supplier)
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseInvoiceItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    Supplier,
+)
 from app.models.rbac import Permission, Role, RolePermission, UserRole
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
@@ -28,13 +34,15 @@ from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
 from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
-from app.services.reports import (get_category_sales_data,
-                                  get_executive_summary_data,
-                                  get_invoice_summary_data,
-                                  get_low_stock_products_data,
-                                  get_sales_summary_data,
-                                  get_top_customers_data,
-                                  get_top_products_data)
+from app.services.reports import (
+    get_category_sales_data,
+    get_executive_summary_data,
+    get_invoice_summary_data,
+    get_low_stock_products_data,
+    get_sales_summary_data,
+    get_top_customers_data,
+    get_top_products_data,
+)
 
 REPORTS_CACHE_SECONDS = 120
 _reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
@@ -138,7 +146,12 @@ class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission
 
 
 class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
-    column_list = [Category.id, Category.name, Category.description]
+    column_list = [
+        Category.id,
+        Category.name,
+        Category.description,
+        Category.color,
+    ]
     column_searchable_list = [Category.name]
 
 
@@ -155,6 +168,7 @@ class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
         Product.reorder_point,
         Product.lead_time_days,
         Product.category,
+        Product.image_url,
     ]
     column_searchable_list = [Product.name, Product.sku]
     column_sortable_list = [

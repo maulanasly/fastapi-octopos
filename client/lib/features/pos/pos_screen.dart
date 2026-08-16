@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/colors.dart';
+import '../../core/config.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
@@ -153,8 +155,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               for (final category in catalog.categories)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(category.name),
+                  child: _CategoryChip(
+                    category: category,
                     selected: _selectedCategoryId == category.id,
                     onSelected: (_) =>
                         setState(() => _selectedCategoryId = category.id),
@@ -188,7 +190,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Widget _productTile(BuildContext context, Product product) {
     final s = ref.watch(stringsProvider);
     final outOfStock = product.stockQuantity <= 0;
+    final categoryColor = colorFromHex(product.category?.color);
+    final imageUrl = product.imageUrl;
     return Card(
+      clipBehavior: Clip.antiAlias,
       color: outOfStock
           ? Theme.of(context).colorScheme.surfaceContainerHighest
           : null,
@@ -197,35 +202,66 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ? null
             : () =>
                   ref.read(cartControllerProvider.notifier).addProduct(product),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                product.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 4,
+              color:
+                  categoryColor ??
+                  (outOfStock
+                      ? Theme.of(context).colorScheme.surfaceContainerHighest
+                      : Theme.of(context).colorScheme.outlineVariant),
+            ),
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: imageUrl != null
+                  ? Image.network(
+                      '${AppConfig.mediaBaseUrl}$imageUrl',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          _ProductMonogram(product: product),
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return _ProductMonogram(
+                          product: product,
+                          showIcon: true,
+                        );
+                      },
+                    )
+                  : _ProductMonogram(product: product),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formatCents(product.priceCents),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    s.of('inStock', args: {'count': product.stockQuantity}),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: outOfStock
+                          ? Theme.of(context).colorScheme.error
+                          : Colors.grey,
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                formatCents(product.priceCents),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                s.of('inStock', args: {'count': product.stockQuantity}),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: outOfStock
-                      ? Theme.of(context).colorScheme.error
-                      : Colors.grey,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -617,6 +653,73 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
           child: Text(ref.read(stringsProvider).of('openDrawer')),
         ),
       ],
+    );
+  }
+}
+
+/// Category chip tinted with the category's configured color.
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.category,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Category category;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = colorFromHex(category.color);
+    if (color == null) {
+      return ChoiceChip(
+        label: Text(category.name),
+        selected: selected,
+        onSelected: onSelected,
+      );
+    }
+    return ChoiceChip(
+      label: Text(category.name, style: TextStyle(color: textColorOn(color))),
+      selected: selected,
+      onSelected: onSelected,
+      backgroundColor: softBackground(color),
+      selectedColor: color,
+      checkmarkColor: textColorOn(color),
+      side: BorderSide(color: selected ? color : color.withValues(alpha: 0.4)),
+    );
+  }
+}
+
+/// Monogram fallback (category-colored) for products without an image.
+class _ProductMonogram extends StatelessWidget {
+  const _ProductMonogram({required this.product, this.showIcon = false});
+
+  final Product product;
+  final bool showIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        colorFromHex(product.category?.color) ??
+        Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Container(
+      color: color,
+      alignment: Alignment.center,
+      child: showIcon
+          ? Icon(
+              Icons.image_outlined,
+              size: 32,
+              color: textColorOn(color).withValues(alpha: 0.6),
+            )
+          : Text(
+              product.name.isEmpty ? '?' : product.name[0].toUpperCase(),
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: textColorOn(color),
+              ),
+            ),
     );
   }
 }

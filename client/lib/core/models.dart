@@ -106,13 +106,20 @@ class Category {
   final int id;
   final String name;
   final String? description;
+  final String? color;
 
-  const Category({required this.id, required this.name, this.description});
+  const Category({
+    required this.id,
+    required this.name,
+    this.description,
+    this.color,
+  });
 
   factory Category.fromJson(Map<String, dynamic> json) => Category(
     id: json['id'] as int,
     name: json['name'] as String,
     description: json['description'] as String?,
+    color: json['color'] as String?,
   );
 }
 
@@ -129,6 +136,7 @@ class Product {
   final int leadTimeDays;
   final int? categoryId;
   final Category? category;
+  final String? imageUrl;
 
   const Product({
     required this.id,
@@ -143,6 +151,7 @@ class Product {
     required this.leadTimeDays,
     this.categoryId,
     this.category,
+    this.imageUrl,
   });
 
   int get priceCents => (price * 100).round();
@@ -162,6 +171,7 @@ class Product {
     category: json['category'] == null
         ? null
         : Category.fromJson(json['category'] as Map<String, dynamic>),
+    imageUrl: json['image_url'] as String?,
   );
 
   Map<String, dynamic> toJson() => {

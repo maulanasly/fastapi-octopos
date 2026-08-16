@@ -3,6 +3,7 @@ import asyncio
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 # pyrefly: ignore [missing-import]
 from fastapi import FastAPI, Request
@@ -24,6 +25,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 # pyrefly: ignore [missing-import]
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.staticfiles import StaticFiles
 
 from app.admin import all_admin_views
 from app.api.router import api_router
@@ -149,6 +151,11 @@ async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
 
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Serve uploaded product images (public read for POS terminals).
+_MEDIA_PATH = Path(settings.MEDIA_DIR).resolve()
+_MEDIA_PATH.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(_MEDIA_PATH)), name="media")
 
 
 def _admin_session_expiry() -> str:

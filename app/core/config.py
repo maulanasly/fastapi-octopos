@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_LOCKOUT_MINUTES: int = 15
 
+    # Product images
+    MEDIA_DIR: str = "media"
+
     # Auto purchase orders
     REPLENISHMENT_AUTO_PO_ENABLED: bool = False
     REPLENISHMENT_CHECK_INTERVAL_SECONDS: int = 3600
