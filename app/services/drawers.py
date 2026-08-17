@@ -101,6 +101,7 @@ def build_reconciliation(
 
     return ShiftReconciliation(
         drawer_session_id=drawer.id,
+        tenant_id=drawer.tenant_id,
         closed_by_user_id=closed_by_user_id,
         cash_sales_total=totals["cash_sales_total"],
         non_cash_sales_total=totals["non_cash_sales_total"],

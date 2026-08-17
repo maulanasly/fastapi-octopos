@@ -82,7 +82,7 @@ def get_localization_settings(
     current_user: User = Depends(get_current_active_user),
 ):
     _ = current_user
-    return get_localization_setting(db)
+    return get_localization_setting(db, current_user.tenant_id)
 
 
 @router.put("/", response_model=LocalizationSetting)
@@ -92,7 +92,9 @@ def update_localization_settings(
     current_user: User = Depends(require_permissions("settings:manage")),
 ):
     _ = current_user
-    setting: LocalizationSettingModel = get_localization_setting(db)
+    setting: LocalizationSettingModel = get_localization_setting(
+        db, current_user.tenant_id
+    )
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(setting, field, value)

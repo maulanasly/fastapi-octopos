@@ -10,6 +10,7 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: str | None = None
+    ten: int | None = None
 
 
 class RefreshTokenRequest(BaseModel):

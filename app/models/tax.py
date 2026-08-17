@@ -18,6 +18,7 @@ class TaxRule(Base):
     __tablename__ = "tax_rules"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     tax_scope = Column(String, nullable=False, default="order", index=True)
@@ -46,6 +47,7 @@ class OrderTaxLine(Base):
     __tablename__ = "order_tax_lines"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     tax_rule_id = Column(Integer, ForeignKey("tax_rules.id"), nullable=True, index=True)
     tax_name = Column(String, nullable=False)

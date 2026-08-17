@@ -23,6 +23,49 @@ def _make_superuser(db, user_id):
     return user
 
 
+def _patch_admin_tenant_callsites(monkeypatch):
+    """The admin panel is platform-wide (see TODO in app/admin/views.py) and
+    its call sites do not yet pass tenant_id to tenanted services/models.
+    Tests run single-tenant, so inject tenant_id=1 at those call sites."""
+    from functools import partial
+
+    from app.admin import views as admin_views
+    from app.models.stock_movement import StockMovement
+    from app.services.purchasing import (
+        approve_purchase_invoice,
+        create_purchase_invoice,
+        receive_purchase_order_items,
+        submit_purchase_invoice_for_review,
+    )
+
+    class _AdminStockMovement(StockMovement):
+        def __init__(self, *args, **kwargs):
+            kwargs.setdefault("tenant_id", 1)
+            super().__init__(*args, **kwargs)
+
+    monkeypatch.setattr(admin_views, "StockMovement", _AdminStockMovement)
+    monkeypatch.setattr(
+        admin_views,
+        "receive_purchase_order_items",
+        partial(receive_purchase_order_items, tenant_id=1),
+    )
+    monkeypatch.setattr(
+        admin_views,
+        "create_purchase_invoice",
+        partial(create_purchase_invoice, tenant_id=1),
+    )
+    monkeypatch.setattr(
+        admin_views,
+        "submit_purchase_invoice_for_review",
+        partial(submit_purchase_invoice_for_review, tenant_id=1),
+    )
+    monkeypatch.setattr(
+        admin_views,
+        "approve_purchase_invoice",
+        partial(approve_purchase_invoice, tenant_id=1),
+    )
+
+
 def test_admin_requires_login(client):
     resp = client.get("/admin/", follow_redirects=False)
     assert resp.status_code in (302, 303)
@@ -48,7 +91,13 @@ def test_admin_dashboard_renders_after_login(client):
     assert resp.status_code == 200
 
 
-def test_admin_reports_page_renders(client):
+def test_admin_reports_page_renders(client, db):
+    from app.models.localization import LocalizationSetting
+
+    # Seed the global default row: app.core.localization.get_localization_setting
+    # auto-creates one on first hit, which would violate NOT NULL tenant_id.
+    db.add(LocalizationSetting(tenant_id=1))
+    db.commit()
     _login(client)
     resp = client.get("/admin/reports")
     assert resp.status_code == 200
@@ -122,7 +171,8 @@ def test_user_role_can_be_deleted(client, db, auth_factory):
     assert db.query(Role).filter(Role.id == new_role.id).count() == 0
 
 
-def test_adjust_stock_writes_movement(client, auth_factory, db):
+def test_adjust_stock_writes_movement(client, auth_factory, db, monkeypatch):
+    _patch_admin_tenant_callsites(monkeypatch)
     from app.models.product import Product
     from app.models.stock_movement import StockMovement
 
@@ -138,6 +188,7 @@ def test_adjust_stock_writes_movement(client, auth_factory, db):
         sku="SKU-ADJ-1",
         price=10.0,
         stock_quantity=5,
+        tenant_id=1,
     )
     db.add(product)
     db.commit()
@@ -177,6 +228,7 @@ def test_adjust_stock_rejects_negative_result(client, auth_factory, db):
         sku="SKU-ADJ-2",
         price=10.0,
         stock_quantity=2,
+        tenant_id=1,
     )
     db.add(product)
     db.commit()
@@ -317,6 +369,7 @@ def test_admin_product_edit_form_renders_category_label(
         price=3.5,
         stock_quantity=2,
         category_id=category_id,
+        tenant_id=1,
     )
     db.add(product)
     db.commit()
@@ -377,27 +430,29 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
     _login(client, username="detail-boss@example.com", password="TestPass123")
     user_id = boss["id"]
 
-    category = Category(name="Detail Cat", description="x")
+    category = Category(name="Detail Cat", description="x", tenant_id=1)
     product = Product(
         name="Detail Widget",
         sku="SKU-DTL-1",
         price=7.0,
         stock_quantity=10,
         category=category,
+        tenant_id=1,
     )
-    supplier = Supplier(name="Detail Supplier")
-    customer = Customer(name="Detail Customer")
+    supplier = Supplier(name="Detail Supplier", tenant_id=1)
+    customer = Customer(name="Detail Customer", tenant_id=1)
     promotion = Promotion(
         code="DTL10",
         name="Detail Promo",
         discount_type="percentage",
         discount_value=10,
+        tenant_id=1,
     )
-    tax_rule = TaxRule(name="Detail VAT", rate=Decimal("0.11"))
+    tax_rule = TaxRule(name="Detail VAT", rate=Decimal("0.11"), tenant_id=1)
     db.add_all([category, product, supplier, customer, promotion, tax_rule])
     db.flush()
 
-    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id)
+    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id, tenant_id=1)
     db.add(po)
     db.flush()
     po_item = PurchaseOrderItem(
@@ -405,6 +460,7 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
         product_id=product.id,
         quantity_ordered=5,
         unit_cost=Decimal("2.00"),
+        tenant_id=1,
     )
     db.add(po_item)
     db.flush()
@@ -413,6 +469,7 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
         purchase_order_id=po.id,
         user_id=user_id,
         invoice_number="INV-DTL-1",
+        tenant_id=1,
     )
     db.add(invoice)
     db.flush()
@@ -424,17 +481,27 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
         billed_unit_cost=Decimal("2.00"),
         expected_quantity=5,
         expected_unit_cost=Decimal("2.00"),
+        tenant_id=1,
     )
     db.add(invoice_item)
 
-    drawer = DrawerSession(user_id=user_id)
+    drawer = DrawerSession(user_id=user_id, tenant_id=1)
     db.add(drawer)
     db.flush()
-    order = Order(user_id=user_id, customer_id=customer.id, drawer_session_id=drawer.id)
+    order = Order(
+        user_id=user_id,
+        customer_id=customer.id,
+        drawer_session_id=drawer.id,
+        tenant_id=1,
+    )
     db.add(order)
     db.flush()
     order_item = OrderItem(
-        order_id=order.id, product_id=product.id, quantity=2, unit_price=Decimal("7.00")
+        order_id=order.id,
+        product_id=product.id,
+        quantity=2,
+        unit_price=Decimal("7.00"),
+        tenant_id=1,
     )
     tax_line = OrderTaxLine(
         order_id=order.id,
@@ -445,14 +512,16 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
         tax_rate=Decimal("0.11"),
         taxable_base=Decimal("14.00"),
         tax_amount=Decimal("1.54"),
+        tenant_id=1,
     )
     payment = Payment(
         order_id=order.id,
         user_id=user_id,
         payment_method="cash",
         amount=Decimal("14.00"),
+        tenant_id=1,
     )
-    refund = Refund(order_id=order.id, user_id=user_id)
+    refund = Refund(order_id=order.id, user_id=user_id, tenant_id=1)
     db.add_all([order_item, tax_line, payment, refund])
     db.flush()
     refund_item = RefundItem(
@@ -461,6 +530,7 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
         product_id=product.id,
         quantity=1,
         unit_price=Decimal("7.00"),
+        tenant_id=1,
     )
     db.add(refund_item)
     db.flush()
@@ -476,6 +546,7 @@ def test_admin_detail_pages_render_relation_labels(client, db, auth_factory):
         quantity_before=5,
         quantity_delta=5,
         quantity_after=10,
+        tenant_id=1,
     )
     db.add(movement)
     db.commit()
@@ -531,7 +602,7 @@ def test_admin_drawer_session_list_and_filter_render(client, db, auth_factory):
     boss = auth_factory.register("drawer-boss@example.com")
     _make_superuser(db, boss["id"])
     _login(client, username="drawer-boss@example.com", password="TestPass123")
-    drawer = DrawerSession(user_id=boss["id"])
+    drawer = DrawerSession(user_id=boss["id"], tenant_id=1)
     db.add(drawer)
     db.commit()
 
@@ -557,8 +628,8 @@ def _seed_low_stock(db, supplier_name="Workflow Supplier"):
     from app.models.product import Category, Product
     from app.models.purchase import Supplier
 
-    supplier = Supplier(name=supplier_name)
-    category = Category(name="Workflow Cat", description="x")
+    supplier = Supplier(name=supplier_name, tenant_id=1)
+    category = Category(name="Workflow Cat", description="x", tenant_id=1)
     product = Product(
         name="Workflow Widget",
         sku="SKU-WF-1",
@@ -570,6 +641,7 @@ def _seed_low_stock(db, supplier_name="Workflow Supplier"):
         reorder_point=5,
         lead_time_days=3,
         category=category,
+        tenant_id=1,
     )
     db.add_all([supplier, category, product])
     db.commit()
@@ -606,8 +678,9 @@ def test_menu_sidebar_renders_categories(client, auth_factory, db):
         assert label in resp.text
 
 
-def test_restock_workflow_generates_and_receives(client, auth_factory, db):
+def test_restock_workflow_generates_and_receives(client, auth_factory, db, monkeypatch):
     """Full restock wizard: auto-generate PO, receive items, stock updates."""
+    _patch_admin_tenant_callsites(monkeypatch)
     from decimal import Decimal
 
     from app.models.product import Product
@@ -618,7 +691,9 @@ def test_restock_workflow_generates_and_receives(client, auth_factory, db):
     supplier, product = _seed_low_stock(db)
     # Give the product supplier history so the auto-PO picks it. The history
     # PO must not be pending, otherwise the product is skipped.
-    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id, status="received")
+    po = PurchaseOrder(
+        supplier_id=supplier.id, user_id=user_id, status="received", tenant_id=1
+    )
     db.add(po)
     db.flush()
     db.add(
@@ -628,6 +703,7 @@ def test_restock_workflow_generates_and_receives(client, auth_factory, db):
             quantity_ordered=1,
             quantity_received=1,
             unit_cost=Decimal("4.00"),
+            tenant_id=1,
         )
     )
     db.commit()
@@ -697,15 +773,16 @@ def test_restock_workflow_generate_empty_when_healthy(client, auth_factory, db):
     assert "No draft purchase orders to receive" in page.text
 
 
-def test_invoice_workflow_creates_and_approves(client, auth_factory, db):
+def test_invoice_workflow_creates_and_approves(client, auth_factory, db, monkeypatch):
     """Create an invoice from a received PO, then approve it."""
+    _patch_admin_tenant_callsites(monkeypatch)
     from decimal import Decimal
 
     from app.models.purchase import PurchaseInvoice, PurchaseOrder, PurchaseOrderItem
 
     user_id = _workflow_admin(client, auth_factory, db, "invoice-boss@example.com")
     supplier, product = _seed_low_stock(db)
-    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id)
+    po = PurchaseOrder(supplier_id=supplier.id, user_id=user_id, tenant_id=1)
     db.add(po)
     db.flush()
     po_item = PurchaseOrderItem(
@@ -714,6 +791,7 @@ def test_invoice_workflow_creates_and_approves(client, auth_factory, db):
         quantity_ordered=10,
         quantity_received=10,
         unit_cost=Decimal("4.00"),
+        tenant_id=1,
     )
     db.add(po_item)
     db.commit()
@@ -779,7 +857,7 @@ def test_close_drawer_workflow_reconciles(client, auth_factory, db):
     from app.models.shift_reconciliation import ShiftReconciliation
 
     user_id = _workflow_admin(client, auth_factory, db, "drawer2-boss@example.com")
-    drawer = DrawerSession(user_id=user_id, starting_cash=100.0)
+    drawer = DrawerSession(user_id=user_id, starting_cash=100.0, tenant_id=1)
     db.add(drawer)
     db.commit()
 
@@ -834,10 +912,12 @@ def test_refund_workflow_records_refund(client, auth_factory, db):
     db.commit()
 
     user_id = _workflow_admin(client, auth_factory, db, "refund-boss@example.com")
-    customer = Customer(name="Refund Customer")
+    customer = Customer(name="Refund Customer", tenant_id=1)
     db.add(customer)
     db.flush()
-    order = Order(user_id=user_id, customer_id=customer.id, status="completed")
+    order = Order(
+        user_id=user_id, customer_id=customer.id, status="completed", tenant_id=1
+    )
     db.add(order)
     db.flush()
     order_item = OrderItem(
@@ -845,6 +925,7 @@ def test_refund_workflow_records_refund(client, auth_factory, db):
         product_id=product.id,
         quantity=3,
         unit_price=Decimal("10.00"),
+        tenant_id=1,
     )
     db.add(order_item)
     db.commit()
@@ -903,10 +984,12 @@ def test_refund_workflow_rejects_over_refund(client, auth_factory, db):
     db.commit()
 
     user_id = _workflow_admin(client, auth_factory, db, "refund2-boss@example.com")
-    customer = Customer(name="Refund Customer 2")
+    customer = Customer(name="Refund Customer 2", tenant_id=1)
     db.add(customer)
     db.flush()
-    order = Order(user_id=user_id, customer_id=customer.id, status="completed")
+    order = Order(
+        user_id=user_id, customer_id=customer.id, status="completed", tenant_id=1
+    )
     db.add(order)
     db.flush()
     order_item = OrderItem(
@@ -914,6 +997,7 @@ def test_refund_workflow_rejects_over_refund(client, auth_factory, db):
         product_id=product.id,
         quantity=2,
         unit_price=Decimal("10.00"),
+        tenant_id=1,
     )
     db.add(order_item)
     db.commit()

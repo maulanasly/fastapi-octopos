@@ -29,7 +29,9 @@ def open_drawer(
     existing = (
         db.query(DrawerSession)
         .filter(
-            DrawerSession.user_id == current_user.id, DrawerSession.status == "open"
+            DrawerSession.user_id == current_user.id,
+            DrawerSession.status == "open",
+            DrawerSession.tenant_id == current_user.tenant_id,
         )
         .first()
     )
@@ -39,6 +41,7 @@ def open_drawer(
         )
     drawer = DrawerSession(
         user_id=current_user.id,
+        tenant_id=current_user.tenant_id,
         starting_cash=drawer_in.starting_cash,
         expected_cash=drawer_in.expected_cash or 0.0,
         status="open",
@@ -58,7 +61,9 @@ def get_active_drawer(
     drawer = (
         db.query(DrawerSession)
         .filter(
-            DrawerSession.user_id == current_user.id, DrawerSession.status == "open"
+            DrawerSession.user_id == current_user.id,
+            DrawerSession.status == "open",
+            DrawerSession.tenant_id == current_user.tenant_id,
         )
         .first()
     )
@@ -80,6 +85,7 @@ def close_drawer(
             DrawerSession.id == session_id,
             DrawerSession.user_id == current_user.id,
             DrawerSession.status == "open",
+            DrawerSession.tenant_id == current_user.tenant_id,
         )
         .first()
     )
@@ -106,7 +112,17 @@ def reconcile_and_close_drawer(
     db: Session = Depends(get_db),
     current_user: "User" = Depends(get_current_active_user),
 ):
-    drawer = db.query(DrawerSession).filter(DrawerSession.id == session_id).first()
+    if not current_user.is_superuser:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(
+                DrawerSession.id == session_id,
+                DrawerSession.tenant_id == current_user.tenant_id,
+            )
+            .first()
+        )
+    else:
+        drawer = db.query(DrawerSession).filter(DrawerSession.id == session_id).first()
     if not drawer:
         raise HTTPException(status_code=404, detail="Drawer session not found.")
 
@@ -122,7 +138,10 @@ def reconcile_and_close_drawer(
 
     existing_reconciliation = (
         db.query(ShiftReconciliation)
-        .filter(ShiftReconciliation.drawer_session_id == drawer.id)
+        .filter(
+            ShiftReconciliation.drawer_session_id == drawer.id,
+            ShiftReconciliation.tenant_id == drawer.tenant_id,
+        )
         .first()
     )
     if existing_reconciliation:
@@ -166,7 +185,17 @@ def get_drawer_reconciliation(
     db: Session = Depends(get_db),
     current_user: "User" = Depends(get_current_active_user),
 ):
-    drawer = db.query(DrawerSession).filter(DrawerSession.id == session_id).first()
+    if not current_user.is_superuser:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(
+                DrawerSession.id == session_id,
+                DrawerSession.tenant_id == current_user.tenant_id,
+            )
+            .first()
+        )
+    else:
+        drawer = db.query(DrawerSession).filter(DrawerSession.id == session_id).first()
     if not drawer:
         raise HTTPException(status_code=404, detail="Drawer session not found.")
 
@@ -177,7 +206,10 @@ def get_drawer_reconciliation(
 
     reconciliation = (
         db.query(ShiftReconciliation)
-        .filter(ShiftReconciliation.drawer_session_id == session_id)
+        .filter(
+            ShiftReconciliation.drawer_session_id == session_id,
+            ShiftReconciliation.tenant_id == drawer.tenant_id,
+        )
         .first()
     )
     if not reconciliation:

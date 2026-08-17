@@ -129,6 +129,13 @@ def copy_table(
         print(f"  {table_name}: 0 rows")
         return 0
 
+    # Multi-tenant era: tenant-scoped columns that legacy SQLite schemas
+    # predate are assigned to the seeded default tenant (id 1). Superusers
+    # keep tenant_id NULL, mirroring migration 0011's backfill semantics.
+    if "tenant_id" in pg_tbl.c and "tenant_id" not in cols:
+        for row in rows:
+            row["tenant_id"] = 1 if not row.get("is_superuser") else None
+
     stmt = pg_insert(pg_tbl)
     if table_name in SEEDED_TABLES:
         stmt = stmt.on_conflict_do_nothing()

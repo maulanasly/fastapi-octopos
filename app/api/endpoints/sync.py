@@ -84,7 +84,7 @@ def get_sync_catalog(
 
     First-time terminals omit ``since`` to receive the full catalog.
     """
-    return get_catalog_delta(db=db, since=since)
+    return get_catalog_delta(db=db, since=since, tenant_id=current_user.tenant_id)
 
 
 @router.get("/events", response_model=SyncEventStatusList)
@@ -103,7 +103,14 @@ def get_sync_event_status(
         raise HTTPException(
             status_code=403, detail="Not authorized to view other users' events"
         )
-    return get_event_logs(db=db, user_id=user_id, status=status, skip=skip, limit=limit)
+    return get_event_logs(
+        db=db,
+        user_id=user_id,
+        status=status,
+        skip=skip,
+        limit=limit,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.post("/events/batch", response_model=SyncBatchResponse)
@@ -144,6 +151,7 @@ def sync_events_batch(
             db.add(
                 SyncEventLog(
                     user_id=current_user.id,
+                    tenant_id=current_user.tenant_id,
                     client_event_id=event.client_event_id,
                     event_type=event.event_type,
                     idempotency_key=event.idempotency_key,
@@ -177,6 +185,7 @@ def sync_events_batch(
             db.add(
                 SyncEventLog(
                     user_id=current_user.id,
+                    tenant_id=current_user.tenant_id,
                     client_event_id=event.client_event_id,
                     event_type=event.event_type,
                     idempotency_key=event.idempotency_key,

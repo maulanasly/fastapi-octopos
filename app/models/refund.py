@@ -23,6 +23,7 @@ class Refund(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     idempotency_key = Column(String, nullable=True, index=True)
@@ -42,6 +43,7 @@ class RefundItem(Base):
     __tablename__ = "refund_items"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     refund_id = Column(Integer, ForeignKey("refunds.id"), nullable=False, index=True)
     order_item_id = Column(
         Integer, ForeignKey("order_items.id"), nullable=False, index=True

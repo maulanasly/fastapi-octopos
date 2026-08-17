@@ -141,6 +141,7 @@ def auto_generate_purchase_orders(
         purchase_order = create_purchase_order_from_replenishment(
             db=db,
             current_user=actor,
+            tenant_id=supplier.tenant_id,
             payload=PurchaseOrderFromSuggestionsCreate(
                 supplier_id=supplier_id,
                 lookback_days=lookback_days,

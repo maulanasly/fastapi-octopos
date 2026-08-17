@@ -53,6 +53,7 @@ def get_sales_summary(
             start_date=start_date,
             end_date=end_date,
             cashier_id=cashier_id,
+            tenant_id=current_user.tenant_id,
         )
     )
 
@@ -70,6 +71,7 @@ def get_top_products(
         start_date=start_date,
         end_date=end_date,
         limit=limit,
+        tenant_id=current_user.tenant_id,
     )
     return [
         TopProductItem(
@@ -94,6 +96,7 @@ def get_category_sales(
         db=db,
         start_date=start_date,
         end_date=end_date,
+        tenant_id=current_user.tenant_id,
     )
     return [
         CategorySalesItem(
@@ -112,7 +115,9 @@ def get_low_stock_products(
     threshold: int = Query(10, ge=0),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
-    return get_low_stock_products_data(db=db, threshold=threshold)
+    return get_low_stock_products_data(
+        db=db, threshold=threshold, tenant_id=current_user.tenant_id
+    )
 
 
 @router.get("/top-customers", response_model=List[TopCustomerItem])
@@ -128,6 +133,7 @@ def get_top_customers(
         start_date=start_date,
         end_date=end_date,
         limit=limit,
+        tenant_id=current_user.tenant_id,
     )
     return [
         TopCustomerItem(
@@ -156,6 +162,7 @@ def get_purchase_invoice_summary(
             start_date=start_date,
             end_date=end_date,
             supplier_id=supplier_id,
+            tenant_id=current_user.tenant_id,
         )
     )
 
@@ -180,7 +187,10 @@ def get_tax_liability_summary(
             func.count(func.distinct(OrderTaxLineModel.order_id)).label("order_count"),
         )
         .join(Order, Order.id == OrderTaxLineModel.order_id)
-        .filter(Order.status == "completed")
+        .filter(
+            Order.status == "completed",
+            Order.tenant_id == current_user.tenant_id,
+        )
     )
     if start_date:
         query = query.filter(Order.created_at >= start_date)
@@ -216,7 +226,9 @@ def get_shift_report(
     current_user: User = Depends(require_permissions("reports:view")),
 ):
     """Z-report for one closed drawer shift."""
-    data = get_shift_report_data(db=db, reconciliation_id=reconciliation_id)
+    data = get_shift_report_data(
+        db=db, reconciliation_id=reconciliation_id, tenant_id=current_user.tenant_id
+    )
     if data is None:
         from fastapi import HTTPException
 
@@ -258,7 +270,12 @@ def get_shift_list(
 ):
     """Recent reconciled shifts (newest first)."""
     return get_shift_list_data(
-        db=db, date_from=date_from, date_to=date_to, skip=skip, limit=limit
+        db=db,
+        date_from=date_from,
+        date_to=date_to,
+        skip=skip,
+        limit=limit,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -271,12 +288,17 @@ def get_daily_close(
     current_user: User = Depends(require_permissions("reports:view")),
 ):
     """End-of-day report: every shift closed on the given day + totals."""
-    data = get_daily_close_data(db=db, report_date=report_date)
+    data = get_daily_close_data(
+        db=db, report_date=report_date, tenant_id=current_user.tenant_id
+    )
     shifts = []
     for rec in data["shifts"]:
         drawer = (
             db.query(DrawerSession)
-            .filter(DrawerSession.id == rec.drawer_session_id)
+            .filter(
+                DrawerSession.id == rec.drawer_session_id,
+                DrawerSession.tenant_id == current_user.tenant_id,
+            )
             .first()
         )
         shifts.append(

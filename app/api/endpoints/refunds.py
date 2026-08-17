@@ -23,7 +23,10 @@ def get_refunds(
     current_user: User = Depends(require_permissions("refunds:view")),
 ):
     query = (
-        db.query(Refund).options(joinedload(Refund.items)).order_by(Refund.id.desc())
+        db.query(Refund)
+        .filter(Refund.tenant_id == current_user.tenant_id)
+        .options(joinedload(Refund.items))
+        .order_by(Refund.id.desc())
     )
 
     if not current_user.is_superuser:
@@ -43,7 +46,10 @@ def get_refund(
     refund = (
         db.query(Refund)
         .options(joinedload(Refund.items))
-        .filter(Refund.id == refund_id)
+        .filter(
+            Refund.id == refund_id,
+            Refund.tenant_id == current_user.tenant_id,
+        )
         .first()
     )
     if not refund:
@@ -63,4 +69,9 @@ def create_refund(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("refunds:create")),
 ):
-    return create_refund_service(db=db, current_user=current_user, refund_in=refund_in)
+    return create_refund_service(
+        db=db,
+        current_user=current_user,
+        refund_in=refund_in,
+        tenant_id=current_user.tenant_id,
+    )

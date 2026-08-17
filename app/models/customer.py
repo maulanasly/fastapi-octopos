@@ -9,6 +9,7 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     name = Column(String, nullable=False, index=True)
     email = Column(String, nullable=True, index=True)
     phone = Column(String, nullable=True, index=True)
@@ -24,6 +25,7 @@ class LoyaltyTransaction(Base):
     __tablename__ = "loyalty_transactions"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     customer_id = Column(
         Integer, ForeignKey("customers.id"), nullable=False, index=True
     )

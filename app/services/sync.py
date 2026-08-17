@@ -14,6 +14,7 @@ from app.models.tax import TaxRule
 def get_catalog_delta(
     db: Session,
     since: Optional[datetime],
+    tenant_id: int,
 ) -> dict:
     """Return catalog rows whose updated_at is newer than ``since``.
 
@@ -28,17 +29,37 @@ def get_catalog_delta(
             since = since.replace(tzinfo=None)
 
     if since is None:
-        categories = db.query(Category).all()
-        products = db.query(Product).all()
-        promotions = db.query(Promotion).all()
-        tax_rules = db.query(TaxRule).filter(TaxRule.is_active.is_(True)).all()
-    else:
-        categories = db.query(Category).filter(Category.updated_at > since).all()
-        products = db.query(Product).filter(Product.updated_at > since).all()
-        promotions = db.query(Promotion).filter(Promotion.updated_at > since).all()
+        categories = db.query(Category).filter(Category.tenant_id == tenant_id).all()
+        products = db.query(Product).filter(Product.tenant_id == tenant_id).all()
+        promotions = db.query(Promotion).filter(Promotion.tenant_id == tenant_id).all()
         tax_rules = (
             db.query(TaxRule)
-            .filter(TaxRule.updated_at > since, TaxRule.is_active.is_(True))
+            .filter(TaxRule.is_active.is_(True), TaxRule.tenant_id == tenant_id)
+            .all()
+        )
+    else:
+        categories = (
+            db.query(Category)
+            .filter(Category.updated_at > since, Category.tenant_id == tenant_id)
+            .all()
+        )
+        products = (
+            db.query(Product)
+            .filter(Product.updated_at > since, Product.tenant_id == tenant_id)
+            .all()
+        )
+        promotions = (
+            db.query(Promotion)
+            .filter(Promotion.updated_at > since, Promotion.tenant_id == tenant_id)
+            .all()
+        )
+        tax_rules = (
+            db.query(TaxRule)
+            .filter(
+                TaxRule.updated_at > since,
+                TaxRule.is_active.is_(True),
+                TaxRule.tenant_id == tenant_id,
+            )
             .all()
         )
 
@@ -58,9 +79,10 @@ def get_event_logs(
     status: Optional[str],
     skip: int,
     limit: int,
+    tenant_id: int,
 ) -> dict:
     """Paginated view of a terminal's processed offline events."""
-    query = db.query(SyncEventLog)
+    query = db.query(SyncEventLog).filter(SyncEventLog.tenant_id == tenant_id)
     if user_id is not None:
         query = query.filter(SyncEventLog.user_id == user_id)
     if status:

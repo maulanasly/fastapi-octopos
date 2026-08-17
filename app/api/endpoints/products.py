@@ -42,7 +42,13 @@ def get_categories(
     limit: int = 100,
     current_user: User = Depends(get_current_active_user),
 ):
-    categories = db.query(Category).offset(skip).limit(limit).all()
+    categories = (
+        db.query(Category)
+        .filter(Category.tenant_id == current_user.tenant_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return categories
 
 
@@ -52,7 +58,7 @@ def create_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    category = Category(**category_in.model_dump())
+    category = Category(**category_in.model_dump(), tenant_id=current_user.tenant_id)
     db.add(category)
     db.commit()
     db.refresh(category)
@@ -66,7 +72,14 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    category = db.query(Category).filter(Category.id == category_id).first()
+    category = (
+        db.query(Category)
+        .filter(
+            Category.id == category_id,
+            Category.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
@@ -85,13 +98,23 @@ def delete_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    category = db.query(Category).filter(Category.id == category_id).first()
+    category = (
+        db.query(Category)
+        .filter(
+            Category.id == category_id,
+            Category.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
     product_count = (
         db.query(func.count(Product.id))
-        .filter(Product.category_id == category_id)
+        .filter(
+            Product.category_id == category_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
         .scalar()
     )
     if product_count:
@@ -118,7 +141,13 @@ def get_products(
     limit: int = 100,
     current_user: User = Depends(get_current_active_user),
 ):
-    products = db.query(Product).offset(skip).limit(limit).all()
+    products = (
+        db.query(Product)
+        .filter(Product.tenant_id == current_user.tenant_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return products
 
 
@@ -131,12 +160,17 @@ def create_product(
     # check category if provided
     if product_in.category_id:
         category = (
-            db.query(Category).filter(Category.id == product_in.category_id).first()
+            db.query(Category)
+            .filter(
+                Category.id == product_in.category_id,
+                Category.tenant_id == current_user.tenant_id,
+            )
+            .first()
         )
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
 
-    product = Product(**product_in.model_dump())
+    product = Product(**product_in.model_dump(), tenant_id=current_user.tenant_id)
     db.add(product)
     db.flush()
 
@@ -144,6 +178,7 @@ def create_product(
         db.add(
             StockMovement(
                 product_id=product.id,
+                tenant_id=current_user.tenant_id,
                 user_id=current_user.id,
                 movement_type="initial_stock",
                 quantity_before=0,
@@ -166,7 +201,13 @@ def update_product(
     current_user: User = Depends(require_permissions("products:manage")),
 ):
     product = (
-        db.query(Product).filter(Product.id == product_id).with_for_update().first()
+        db.query(Product)
+        .filter(
+            Product.id == product_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
+        .with_for_update()
+        .first()
     )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -184,6 +225,7 @@ def update_product(
         db.add(
             StockMovement(
                 product_id=product.id,
+                tenant_id=current_user.tenant_id,
                 user_id=current_user.id,
                 movement_type="manual_adjustment",
                 quantity_before=previous_stock_quantity,
@@ -215,25 +257,47 @@ def delete_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = (
+        db.query(Product)
+        .filter(
+            Product.id == product_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
     reference_counts = {
         "order item": db.query(func.count(OrderItem.id))
-        .filter(OrderItem.product_id == product_id)
+        .filter(
+            OrderItem.product_id == product_id,
+            OrderItem.tenant_id == current_user.tenant_id,
+        )
         .scalar(),
         "stock movement": db.query(func.count(StockMovement.id))
-        .filter(StockMovement.product_id == product_id)
+        .filter(
+            StockMovement.product_id == product_id,
+            StockMovement.tenant_id == current_user.tenant_id,
+        )
         .scalar(),
         "purchase order item": db.query(func.count(PurchaseOrderItem.id))
-        .filter(PurchaseOrderItem.product_id == product_id)
+        .filter(
+            PurchaseOrderItem.product_id == product_id,
+            PurchaseOrderItem.tenant_id == current_user.tenant_id,
+        )
         .scalar(),
         "purchase invoice item": db.query(func.count(PurchaseInvoiceItem.id))
-        .filter(PurchaseInvoiceItem.product_id == product_id)
+        .filter(
+            PurchaseInvoiceItem.product_id == product_id,
+            PurchaseInvoiceItem.tenant_id == current_user.tenant_id,
+        )
         .scalar(),
         "refund item": db.query(func.count(RefundItem.id))
-        .filter(RefundItem.product_id == product_id)
+        .filter(
+            RefundItem.product_id == product_id,
+            RefundItem.tenant_id == current_user.tenant_id,
+        )
         .scalar(),
     }
     referenced = {name: count for name, count in reference_counts.items() if count > 0}
@@ -283,7 +347,14 @@ def upload_product_image(
     current_user: User = Depends(require_permissions("products:manage")),
 ):
     """Upload or replace a product photo (jpeg/png/webp, max 5 MB)."""
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = (
+        db.query(Product)
+        .filter(
+            Product.id == product_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -324,7 +395,14 @@ def delete_product_image(
     current_user: User = Depends(require_permissions("products:manage")),
 ):
     """Remove the product photo."""
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = (
+        db.query(Product)
+        .filter(
+            Product.id == product_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 

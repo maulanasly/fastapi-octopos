@@ -18,6 +18,7 @@ class Supplier(Base):
     __tablename__ = "suppliers"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     name = Column(String, nullable=False, index=True)
     contact_email = Column(String, nullable=True)
     phone = Column(String, nullable=True)
@@ -32,6 +33,7 @@ class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     supplier_id = Column(
         Integer, ForeignKey("suppliers.id"), nullable=False, index=True
     )
@@ -55,6 +57,7 @@ class PurchaseOrderItem(Base):
     __tablename__ = "purchase_order_items"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     purchase_order_id = Column(
         Integer, ForeignKey("purchase_orders.id"), nullable=False, index=True
     )
@@ -74,6 +77,7 @@ class PurchaseInvoice(Base):
     __tablename__ = "purchase_invoices"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     supplier_id = Column(
         Integer, ForeignKey("suppliers.id"), nullable=False, index=True
     )
@@ -108,6 +112,7 @@ class PurchaseInvoiceItem(Base):
     __tablename__ = "purchase_invoice_items"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     invoice_id = Column(
         Integer, ForeignKey("purchase_invoices.id"), nullable=False, index=True
     )

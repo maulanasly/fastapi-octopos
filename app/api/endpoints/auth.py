@@ -24,6 +24,7 @@ from app.models.user import User
 from app.schemas.token import RefreshTokenRequest, Token
 from app.schemas.user import User as UserSchema
 from app.schemas.user import UserCreate
+from app.services.tenants import create_tenant
 
 router = APIRouter()
 
@@ -40,11 +41,16 @@ def _issue_tokens(user: User, db: Session) -> dict:
     )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(user.id, expires_delta=access_token_expires)
+    access_token = create_access_token(
+        user.id, expires_delta=access_token_expires, tenant_id=user.tenant_id
+    )
 
     raw_refresh, expires_at = create_refresh_token()
     db_refresh = RefreshToken(
-        token=hash_refresh_token(raw_refresh), user_id=user.id, expires_at=expires_at
+        token=hash_refresh_token(raw_refresh),
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        expires_at=expires_at,
     )
     db.add(db_refresh)
     db.commit()
@@ -64,8 +70,22 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
     """
     Register a new user with email and password.
     """
-    existing = db.query(User).filter(User.email == user_in.email).first()
-    if existing:
+    tenant = create_tenant(db, name=user_in.full_name or "Business")
+    # Same email is allowed in different tenants; it is rejected within the
+    # tenant being joined, and platform superusers (tenant_id NULL) keep a
+    # globally unique email.
+    same_tenant = (
+        db.query(User)
+        .filter(User.email == user_in.email, User.tenant_id == tenant.id)
+        .first()
+    )
+    superuser = (
+        db.query(User)
+        .filter(User.email == user_in.email, User.tenant_id.is_(None))
+        .first()
+    )
+    if same_tenant or superuser:
+        db.rollback()
         raise HTTPException(status_code=400, detail="Email already registered")
 
     user = User(
@@ -74,6 +94,7 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
         hashed_password=get_password_hash(user_in.password),
         is_active=True,
         is_superuser=False,
+        tenant_id=tenant.id,
     )
     db.add(user)
     assign_default_cashier_role(db=db, user=user)
@@ -98,7 +119,13 @@ def login_access_token(
     """
     OAuth2 compatible token login. Returns access + refresh tokens.
     """
-    user = db.query(User).filter(User.email == form_data.username).first()
+    users = db.query(User).filter(User.email == form_data.username).all()
+    if len(users) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Multiple accounts are registered with this email",
+        )
+    user = users[0] if users else None
     if not user or not user.hashed_password:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
 
@@ -211,9 +238,21 @@ def google_auth(
         email = idinfo["email"]
         name = idinfo.get("name", "")
 
-        user = db.query(User).filter(User.email == email).first()
+        users = db.query(User).filter(User.email == email).all()
+        if len(users) > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Multiple accounts are registered with this email",
+            )
+        user = users[0] if users else None
         if not user:
-            user = User(email=email, full_name=name, is_active=True)
+            tenant = create_tenant(db, name=name or email)
+            user = User(
+                email=email,
+                full_name=name,
+                is_active=True,
+                tenant_id=tenant.id,
+            )
             db.add(user)
             assign_default_cashier_role(db=db, user=user)
             db.commit()
