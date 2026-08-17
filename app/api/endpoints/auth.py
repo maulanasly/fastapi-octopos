@@ -70,11 +70,24 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
     """
     Register a new user with email and password.
     """
-    existing = db.query(User).filter(User.email == user_in.email).all()
-    if existing:
+    tenant = create_tenant(db, name=user_in.full_name or "Business")
+    # Same email is allowed in different tenants; it is rejected within the
+    # tenant being joined, and platform superusers (tenant_id NULL) keep a
+    # globally unique email.
+    same_tenant = (
+        db.query(User)
+        .filter(User.email == user_in.email, User.tenant_id == tenant.id)
+        .first()
+    )
+    superuser = (
+        db.query(User)
+        .filter(User.email == user_in.email, User.tenant_id.is_(None))
+        .first()
+    )
+    if same_tenant or superuser:
+        db.rollback()
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    tenant = create_tenant(db, name=user_in.full_name or "Business")
     user = User(
         email=user_in.email,
         full_name=user_in.full_name,

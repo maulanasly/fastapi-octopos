@@ -20,6 +20,7 @@ os.environ["SQLALCHEMY_DATABASE_URI"] = TEST_DB_URL
 # Keep product-image uploads out of the repo tree.
 os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="octopos-test-media-")
 
+import _tenant_mode  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, inspect, text  # noqa: E402
@@ -86,6 +87,8 @@ def client(monkeypatch):
     from app.services.tenants import create_tenant as _create_tenant
 
     def _tenant_for_tests(db, name="Business"):
+        if not _tenant_mode.FORCE_DEFAULT_TENANT:
+            return _create_tenant(db, name)
         from app.models.tenant import Tenant
 
         tenant = db.query(Tenant).filter(Tenant.slug == "default").first()

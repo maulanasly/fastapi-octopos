@@ -134,6 +134,11 @@ def upgrade() -> None:
             ),
             [{"id": 1, "name": "Default Business", "slug": "default"}],
         )
+        if bind.dialect.name == "postgresql":
+            op.execute(
+                "SELECT setval(pg_get_serial_sequence('tenants', 'id'), "
+                "(SELECT MAX(id) FROM tenants))"
+            )
 
     # --- tenant_id on every tenant-scoped table --------------------------
     for table in TENANT_TABLES:

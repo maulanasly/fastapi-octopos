@@ -67,3 +67,32 @@ as well.
   superuser's tenant via the JWT claim).
 - RBAC (roles/permissions) stays global; `user_roles` is global too (the
   user row already carries the tenant).
+## Implementation status (commit e89522d + follow-ups)
+
+Implemented and verified (248 tests on PostgreSQL, incl. 8 cross-tenant
+isolation tests in `tests/test_tenant_isolation.py`):
+
+- Models: `Tenant` (id, name, slug unique, is_active, timestamps); `tenant_id`
+  on all 25 tenant-scoped tables (`users` nullable = superuser).
+- Migration `0011`: creates `tenants`, seeds tenant 1 "Default Business"
+  (PG sequence synced past the seed), adds `tenant_id`, backfills existing
+  rows (users only where `is_superuser = false`), sets NOT NULL except
+  `users`, drops `ix_{products_sku,promotions_code,users_email}` unique
+  indexes, creates composite uniques `uq_products_tenant_sku`,
+  `uq_promotions_tenant_code`, `uq_users_tenant_email`. Dialect-agnostic
+  (SQLite batch mode).
+- Auth: register/google-auth create a tenant per signup; same email is
+  rejected only within the joined tenant or for superuser emails; JWT `ten`
+  claim; login 400s on ambiguous (multi-tenant) emails; refresh tokens carry
+  tenant_id; `log_action` derives tenant from the acting user.
+- Scoping: all tenant-scoped endpoints/services filter by
+  `current_user.tenant_id`; services take an explicit `tenant_id` param;
+  auto-PO sweep attributes POs per supplier's tenant; localization settings
+  are per-tenant; audit endpoint stays superuser-only (cross-tenant read).
+- Deviations from the plan above: the tenant "owner" admin-role wiring is not
+  done (register still assigns the cashier role; ownership is implicit);
+  the login form accepts no tenant identifier (ambiguous email → 400);
+  the admin panel (`app/admin/views.py`) is still platform-wide (marked
+  TODO) and its service call sites pass `tenant_id=1` only inside tests;
+  reservation sweep runs platform-wide (only touches expired reservations
+  of inactive users); report cache is admin-only and intentionally unscoped.
