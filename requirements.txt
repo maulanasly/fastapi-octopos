@@ -9,6 +9,7 @@ google-auth==2.56.3
 python-multipart==0.0.32
 requests==2.34.2
 slowapi==0.1.10
+redis==8.1.0
 alembic==1.19.1
 pytest==9.1.1
 pytest-cov==7.1.0

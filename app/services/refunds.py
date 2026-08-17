@@ -119,7 +119,12 @@ def create_refund(
                 ),
             )
 
-        product = db.query(Product).filter(Product.id == order_item.product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == order_item.product_id)
+            .with_for_update()
+            .first()
+        )
         if not product:
             raise HTTPException(
                 status_code=404,

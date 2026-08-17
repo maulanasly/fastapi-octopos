@@ -2,7 +2,7 @@ from typing import List
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.dependencies import (
     get_current_active_user,
@@ -11,7 +11,7 @@ from app.api.dependencies import (
 )
 from app.core.database import get_db
 from app.core.money import money_to_float, to_decimal
-from app.models.order import Order
+from app.models.order import Order, OrderItem
 from app.models.user import User
 from app.schemas.order import Order as OrderSchema
 from app.schemas.order import (
@@ -43,16 +43,24 @@ def get_orders(
     current_user: User = Depends(get_current_active_user),
 ):
     # If not superuser, only return their own orders
+    _eager = (
+        selectinload(Order.items).selectinload(OrderItem.product),
+        selectinload(Order.payments),
+        selectinload(Order.tax_lines),
+        joinedload(Order.user),
+        joinedload(Order.customer),
+    )
     if not current_user.is_superuser:
         orders = (
             db.query(Order)
             .filter(Order.user_id == current_user.id)
+            .options(*_eager)
             .offset(skip)
             .limit(limit)
             .all()
         )
     else:
-        orders = db.query(Order).offset(skip).limit(limit).all()
+        orders = db.query(Order).options(*_eager).offset(skip).limit(limit).all()
     return orders
 
 
@@ -71,7 +79,18 @@ def get_order_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = (
+        db.query(Order)
+        .filter(Order.id == order_id)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.product),
+            selectinload(Order.payments),
+            selectinload(Order.tax_lines),
+            joinedload(Order.user),
+            joinedload(Order.customer),
+        )
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if not current_user.is_superuser and order.user_id != current_user.id:

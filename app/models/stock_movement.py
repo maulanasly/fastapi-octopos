@@ -27,7 +27,7 @@ class StockMovement(Base):
     quantity_delta = Column(Integer, nullable=False)
     quantity_after = Column(Integer, nullable=False)
     note = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     product = relationship("Product", back_populates="stock_movements")
     user = relationship("User")

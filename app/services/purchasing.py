@@ -568,7 +568,12 @@ def receive_purchase_order_items(
 
     for po_item_id, quantity_received in receipt_quantities.items():
         po_item = po_item_map[po_item_id]
-        product = db.query(Product).filter(Product.id == po_item.product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == po_item.product_id)
+            .with_for_update()
+            .first()
+        )
         if not product:
             raise HTTPException(
                 status_code=404,

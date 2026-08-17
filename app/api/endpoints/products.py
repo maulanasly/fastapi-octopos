@@ -165,7 +165,9 @@ def update_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = (
+        db.query(Product).filter(Product.id == product_id).with_for_update().first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 

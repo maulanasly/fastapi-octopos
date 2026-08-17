@@ -41,9 +41,16 @@ setup_logging()
 
 async def _reservation_expiry_loop() -> None:
     """Periodically release expired order reservations in the background."""
+    from app.core.exclusive_task import RESERVATION_SWEEP_LOCK, run_exclusive
+
     while True:
         await asyncio.sleep(settings.RESERVATION_AUTO_EXPIRE_INTERVAL_SECONDS)
-        await asyncio.to_thread(_release_expired_reservations_sync)
+        await asyncio.to_thread(
+            run_exclusive,
+            engine,
+            RESERVATION_SWEEP_LOCK,
+            _release_expired_reservations_sync,
+        )
 
 
 def _auto_po_sync() -> None:
@@ -62,9 +69,11 @@ def _auto_po_sync() -> None:
 
 async def _auto_po_loop() -> None:
     """Periodically generate draft purchase orders from reorder points."""
+    from app.core.exclusive_task import AUTO_PO_LOCK, run_exclusive
+
     while True:
         await asyncio.sleep(settings.REPLENISHMENT_CHECK_INTERVAL_SECONDS)
-        await asyncio.to_thread(_auto_po_sync)
+        await asyncio.to_thread(run_exclusive, engine, AUTO_PO_LOCK, _auto_po_sync)
 
 
 def _release_expired_reservations_sync() -> None:
@@ -91,8 +100,16 @@ async def lifespan(app: FastAPI):
     tasks = []
     if settings.RESERVATION_AUTO_EXPIRE_ENABLED:
         # One-shot sweep at startup catches reservations that expired while the
-        # process was down, then the periodic loop keeps them fresh.
-        await asyncio.to_thread(_release_expired_reservations_sync)
+        # process was down, then the periodic loop keeps them fresh. Guarded so
+        # only one worker of a multi-worker deployment runs it.
+        from app.core.exclusive_task import RESERVATION_SWEEP_LOCK, run_exclusive
+
+        await asyncio.to_thread(
+            run_exclusive,
+            engine,
+            RESERVATION_SWEEP_LOCK,
+            _release_expired_reservations_sync,
+        )
         tasks.append(asyncio.create_task(_reservation_expiry_loop()))
     if settings.REPLENISHMENT_AUTO_PO_ENABLED:
         tasks.append(asyncio.create_task(_auto_po_loop()))

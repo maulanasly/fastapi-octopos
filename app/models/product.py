@@ -44,7 +44,7 @@ class Product(Base):
     max_stock = Column(Integer, nullable=True)
     reorder_point = Column(Integer, nullable=False, default=0)
     lead_time_days = Column(Integer, nullable=False, default=0)
-    category_id = Column(Integer, ForeignKey("categories.id"))
+    category_id = Column(Integer, ForeignKey("categories.id"), index=True)
     image_url = Column(String, nullable=True)  # /media/... path
     updated_at = Column(
         DateTime(timezone=True),

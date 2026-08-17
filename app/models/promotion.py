@@ -35,8 +35,10 @@ class Promotion(Base):
     applies_to = Column(
         String, nullable=False, default="order"
     )  # order, product, category
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True, index=True)
+    category_id = Column(
+        Integer, ForeignKey("categories.id"), nullable=True, index=True
+    )
     starts_at = Column(DateTime(timezone=True), nullable=True)
     ends_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.core.money import quantize_money, to_decimal
@@ -208,7 +208,12 @@ def _restore_order_stock(
     note: str,
 ):
     for item in order.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == item.product_id)
+            .with_for_update()
+            .first()
+        )
         if product:
             quantity_before = product.stock_quantity
             product.stock_quantity += item.quantity
@@ -347,7 +352,12 @@ def create_order(
 
     # Verify stock and calculate total amount
     for item in order_in.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == item.product_id)
+            .with_for_update()
+            .first()
+        )
         if not product:
             raise HTTPException(
                 status_code=404, detail=f"Product with id {item.product_id} not found"
@@ -623,7 +633,7 @@ def add_payment_to_order(
         if existing_payment:
             return existing_payment
 
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
@@ -688,13 +698,14 @@ def add_split_payments_to_order(
             detail="Split payment must contain at least one payment line",
         )
 
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
     if not current_user.is_superuser and order.user_id != current_user.id:
         raise HTTPException(
-            status_code=403, detail="Not authorized to add payment to this order"
+            status_code=403,
+            detail="Not authorized to process payment for this order",
         )
 
     _validate_drawer_session_status(db=db, order=order)
@@ -771,6 +782,8 @@ def release_expired_reservations_for_user(
             Order.reservation_expires_at.isnot(None),
             Order.reservation_expires_at <= now,
         )
+        .options(selectinload(Order.payments))
+        .with_for_update()
         .all()
     )
 
@@ -807,7 +820,7 @@ def cancel_order(
     current_user: User,
     order_id: int,
 ) -> Order:
-    order = db.query(Order).filter(Order.id == order_id).first()
+    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
