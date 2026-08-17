@@ -45,6 +45,12 @@ class HomeShell extends ConsumerWidget {
         ),
       if (canViewReports)
         const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
+      if (auth.isSuperuser)
+        const _Dest(
+          icon: Icons.admin_panel_settings,
+          label: 'Admin',
+          path: '/admin',
+        ),
     ];
 
     final currentPath = GoRouterState.of(context).uri.path;
@@ -128,6 +134,8 @@ String _stringKeyForPath(String path) {
       return 'inventory';
     case '/promotions':
       return 'promotions';
+    case '/admin':
+      return 'admin';
     default:
       return 'pos';
   }

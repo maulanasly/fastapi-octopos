@@ -13,6 +13,7 @@ from app.core.rbac import (
 )
 from app.models.rbac import Permission, Role
 from app.models.user import User
+from app.schemas.rbac import Permission as PermissionSchema
 from app.schemas.rbac import Role as RoleSchema
 from app.schemas.rbac import (
     RoleCreate,
@@ -34,6 +35,16 @@ def seed_default_rbac(
     ensure_rbac_defaults(db)
     db.commit()
     return {"ok": True}
+
+
+@router.get("/permissions", response_model=List[PermissionSchema])
+def list_permissions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Permission catalog for role management."""
+    _ = current_user
+    return db.query(Permission).order_by(Permission.id.asc()).all()
 
 
 @router.get("/roles", response_model=List[RoleSchema])

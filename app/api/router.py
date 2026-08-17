@@ -18,6 +18,7 @@ from app.api.endpoints import (
     reports,
     sync,
     taxes,
+    users,
 )
 
 api_router = APIRouter()
@@ -39,3 +40,4 @@ api_router.include_router(drawers.router, prefix="/drawers", tags=["drawers"])
 api_router.include_router(sync.router, prefix="/sync", tags=["sync"])
 api_router.include_router(taxes.router, prefix="/taxes", tags=["taxes"])
 api_router.include_router(rbac.router, prefix="/rbac", tags=["rbac"])
+api_router.include_router(users.router, prefix="/users", tags=["users"])

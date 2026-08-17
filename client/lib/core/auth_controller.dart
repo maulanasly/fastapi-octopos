@@ -15,6 +15,7 @@ class AuthState {
   final String? fullName;
   final Set<String> permissions;
   final bool sessionExpired;
+  final bool isSuperuser;
 
   const AuthState({
     this.status = AuthStatus.unknown,
@@ -22,6 +23,7 @@ class AuthState {
     this.fullName,
     this.permissions = const {},
     this.sessionExpired = false,
+    this.isSuperuser = false,
   });
 
   /// Display name for the signed-in user (full name, fallback email).
@@ -35,12 +37,14 @@ class AuthState {
     String? fullName,
     Set<String>? permissions,
     bool? sessionExpired,
+    bool? isSuperuser,
   }) => AuthState(
     status: status ?? this.status,
     email: email ?? this.email,
     fullName: fullName ?? this.fullName,
     permissions: permissions ?? this.permissions,
     sessionExpired: sessionExpired ?? this.sessionExpired,
+    isSuperuser: isSuperuser ?? this.isSuperuser,
   );
 }
 
@@ -78,6 +82,7 @@ class AuthController extends Notifier<AuthState> {
       email: profile.email,
       fullName: profile.fullName,
       permissions: perms.toSet(),
+      isSuperuser: profile.isSuperuser,
     );
   }
 
