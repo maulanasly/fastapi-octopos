@@ -145,11 +145,11 @@ def get_sales_summary_data(
         func.coalesce(func.sum(Order.discount_amount), 0.0),
         func.coalesce(func.sum(Order.total_amount), 0.0),
         func.count(Order.id),
-    ).filter(Order.status == "completed")
+    ).filter(Order.status.in_(["serving", "completed"]))
     refunds_query = (
         db.query(func.coalesce(func.sum(Refund.total_amount), 0.0))
         .join(Order, Refund.order_id == Order.id)
-        .filter(Order.status == "completed")
+        .filter(Order.status.in_(["serving", "completed"]))
     )
 
     if tenant_id is not None:
@@ -199,7 +199,7 @@ def get_top_products_data(
         .select_from(OrderItem)
         .join(Product, OrderItem.product_id == Product.id)
         .join(Order, OrderItem.order_id == Order.id)
-        .filter(Order.status == "completed")
+        .filter(Order.status.in_(["serving", "completed"]))
     )
 
     if tenant_id is not None:
@@ -238,7 +238,7 @@ def get_category_sales_data(
         .join(Product, OrderItem.product_id == Product.id)
         .join(Order, OrderItem.order_id == Order.id)
         .outerjoin(Category, Product.category_id == Category.id)
-        .filter(Order.status == "completed")
+        .filter(Order.status.in_(["serving", "completed"]))
     )
 
     if tenant_id is not None:
@@ -310,7 +310,7 @@ def get_top_customers_data(
             func.sum(Order.total_amount).label("total_spent"),
         )
         .join(Order, Order.customer_id == Customer.id)
-        .filter(Order.status == "completed")
+        .filter(Order.status.in_(["serving", "completed"]))
     )
 
     if tenant_id is not None:

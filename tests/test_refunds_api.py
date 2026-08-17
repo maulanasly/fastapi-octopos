@@ -174,7 +174,7 @@ def test_refund_of_pending_order_rejected(
         quantity=1,
     )
     assert resp.status_code == 400
-    assert resp.json()["detail"] == "Only completed orders can be refunded"
+    assert resp.json()["detail"] == "Only paid orders can be refunded"
 
 
 def test_unknown_order_item_rejected(

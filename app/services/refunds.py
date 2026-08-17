@@ -62,10 +62,8 @@ def create_refund(
             status_code=403, detail="Not authorized to refund this order"
         )
 
-    if order.status != "completed":
-        raise HTTPException(
-            status_code=400, detail="Only completed orders can be refunded"
-        )
+    if order.status not in ("serving", "completed"):
+        raise HTTPException(status_code=400, detail="Only paid orders can be refunded")
 
     validate_drawer_session_status(db=db, order=order, action="refund")
 

@@ -51,14 +51,20 @@ def compute_drawer_totals(db: Session, drawer: DrawerSession) -> Dict[str, float
 
     raw_gross_sales_total = (
         db.query(func.coalesce(func.sum(Order.total_amount), 0.0))
-        .filter(Order.drawer_session_id == drawer.id, Order.status == "completed")
+        .filter(
+            Order.drawer_session_id == drawer.id,
+            Order.status.in_(["serving", "completed"]),
+        )
         .scalar()
     )
     gross_sales_total = money_to_float(raw_gross_sales_total)
 
     raw_completed_order_count = (
         db.query(func.count(Order.id))
-        .filter(Order.drawer_session_id == drawer.id, Order.status == "completed")
+        .filter(
+            Order.drawer_session_id == drawer.id,
+            Order.status.in_(["serving", "completed"]),
+        )
         .scalar()
     )
     completed_order_count = int(

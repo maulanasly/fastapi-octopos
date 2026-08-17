@@ -41,7 +41,7 @@ def get_serving_queue(
         db.query(Order)
         .filter(
             Order.tenant_id == current_user.tenant_id,
-            Order.status == "completed",
+            Order.status == "serving",
             Order.serving_status.in_(QUEUE_STATUSES),
         )
         .options(joinedload(Order.items), joinedload(Order.customer))

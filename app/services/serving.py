@@ -126,8 +126,8 @@ def transition_serving_status(
     """Advance an order through the serving state machine.
 
     Serving is a kitchen/prep action: any staff member with ``orders:manage``
-    may act on any completed order in the tenant's queue (unlike payments,
-    which are restricted to the order's own cashier).
+    may act on any order in the tenant's queue (unlike payments, which are
+    restricted to the order's own cashier).
     """
     if tenant_id is None:
         tenant_id = current_user.tenant_id
@@ -139,10 +139,10 @@ def transition_serving_status(
 
     order = _load_order(db, order_id, tenant_id)
 
-    if order.status != "completed":
+    if order.status != "serving":
         raise HTTPException(
             status_code=400,
-            detail="Only completed orders can be served",
+            detail="Only orders in serving can be advanced",
         )
     if order.serving_status not in _ALLOWED_TRANSITIONS:
         raise HTTPException(
@@ -160,6 +160,8 @@ def transition_serving_status(
     if getattr(order, timestamp_column) is None:
         setattr(order, timestamp_column, now)
     order.serving_status = new_status
+    if new_status == SERVING_SERVED:
+        order.status = "completed"
     db.add(order)
     db.commit()
     db.refresh(order)

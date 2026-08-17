@@ -105,6 +105,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 ),
                 _filterChip(
                   s,
+                  'serving',
+                  s.of('statusServing'),
+                  'filter-serving',
+                ),
+                _filterChip(
+                  s,
                   'completed',
                   s.of('statusCompleted'),
                   'filter-completed',
@@ -173,6 +179,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   Widget _orderTile(BuildContext context, Order order) {
     final s = ref.read(stringsProvider);
     final statusLabel = switch (order.status) {
+      'serving' => s.of('statusServing'),
       'completed' => s.of('statusCompleted'),
       'cancelled' => s.of('statusCancelled'),
       _ => s.of('statusPending'),

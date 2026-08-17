@@ -59,7 +59,7 @@ def test_payment_completes_order_when_fully_paid(
     )
     assert detail.status_code == 200, detail.text
     receipt = detail.json()
-    assert receipt["status"] == "completed"
+    assert receipt["status"] == "serving"
     assert receipt["paid_amount"] == 100.0
     assert receipt["remaining_amount"] == 0.0
 
@@ -83,7 +83,7 @@ def test_cash_overpayment_records_change(
     receipt = client.get(
         f"/api/v1/orders/{order['id']}/receipt", headers=cashier_headers
     ).json()
-    assert receipt["status"] == "completed"
+    assert receipt["status"] == "serving"
     assert receipt["change_amount"] == 10.0
 
 
@@ -128,7 +128,7 @@ def test_split_payments_settle_order(
     receipt = client.get(
         f"/api/v1/orders/{order['id']}/receipt", headers=cashier_headers
     ).json()
-    assert receipt["status"] == "completed"
+    assert receipt["status"] == "serving"
     assert receipt["paid_amount"] == 100.0
     assert len(receipt["payments"]) == 2
 
@@ -168,7 +168,7 @@ def test_split_payments_retry_is_idempotent(
     receipt = client.get(
         f"/api/v1/orders/{order['id']}/receipt", headers=cashier_headers
     ).json()
-    assert receipt["status"] == "completed"
+    assert receipt["status"] == "serving"
     assert receipt["paid_amount"] == 100.0
     assert len(receipt["payments"]) == 2
 

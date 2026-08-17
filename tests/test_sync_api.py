@@ -118,7 +118,7 @@ def test_batch_processes_mixed_events_independently(
     receipt = client.get(
         f"/api/v1/orders/{order_id}/receipt", headers=cashier_headers
     ).json()
-    assert receipt["status"] == "completed"
+    assert receipt["status"] == "serving"
 
 
 def test_catalog_full_sync_returns_all_rows(client, manager_headers, make_product):

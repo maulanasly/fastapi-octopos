@@ -38,6 +38,8 @@ def test_paid_order_enters_serving_queue(
         f"/api/v1/orders/{order['id']}/receipt", headers=cashier_headers
     ).json()
     assert receipt["serving_status"] == "queued"
+    # Paid orders are in the serving pipeline, not yet completed.
+    assert receipt["status"] == "serving"
 
     queue = client.get("/api/v1/orders/serving/", headers=cashier_headers)
     assert queue.status_code == 200, queue.text
@@ -91,6 +93,7 @@ def test_serving_transitions_happy_path(
     assert served.status_code == 200, served.text
     assert served.json()["serving_status"] == "served"
     assert served.json()["served_at"] is not None
+    assert served.json()["status"] == "completed"
 
     queue = client.get("/api/v1/orders/serving/", headers=cashier_headers)
     assert queue.json() == []
@@ -149,7 +152,7 @@ def test_serving_rejects_unpaid_and_cancelled_orders(
         f"/api/v1/orders/serving/{unpaid['id']}/start", headers=cashier_headers
     )
     assert resp.status_code == 400
-    assert "completed" in resp.json()["detail"]
+    assert "serving" in resp.json()["detail"]
 
     paid = _create_and_pay(client, cashier_headers, product["id"])
     client.post(f"/api/v1/orders/{paid['id']}/cancel", headers=cashier_headers)

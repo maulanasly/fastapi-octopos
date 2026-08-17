@@ -1857,7 +1857,7 @@ class WorkflowsAdmin(BaseView):
             completed_orders = (
                 db.query(Order)
                 .options(joinedload(Order.items))
-                .filter(Order.status == "completed")
+                .filter(Order.status.in_(["serving", "completed"]))
                 .order_by(Order.id.desc())
                 .limit(50)
                 .all()

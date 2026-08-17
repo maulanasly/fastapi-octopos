@@ -128,7 +128,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
         }
         final orders = snapshot.data ?? [];
         final refundable = orders
-            .where((o) => o.status == 'completed')
+            .where((o) => o.status == 'serving' || o.status == 'completed')
             .toList();
         if (refundable.isEmpty) {
           return const Center(child: Text('No completed orders yet'));

@@ -176,7 +176,9 @@ def _complete_order_if_paid(db: Session, order: Order) -> None:
     if order.remaining_amount > 0:
         return
 
-    order.status = "completed"
+    # Paid orders enter the serving pipeline first; they are only marked
+    # "completed" once served (see serving.transition_serving_status).
+    order.status = "serving"
     order.reservation_status = "committed"
     order.reservation_expires_at = None
     if order.serving_status == "none":
@@ -727,7 +729,7 @@ def add_payment_to_order(
 
     _validate_drawer_session_status(db=db, order=order)
 
-    if order.status in ("cancelled", "completed"):
+    if order.status in ("cancelled", "completed", "serving"):
         raise HTTPException(
             status_code=400, detail=f"Cannot add payment to a {order.status} order"
         )
@@ -834,7 +836,7 @@ def add_split_payments_to_order(
 
     _validate_drawer_session_status(db=db, order=order)
 
-    if order.status in ("cancelled", "completed"):
+    if order.status in ("cancelled", "completed", "serving"):
         raise HTTPException(
             status_code=400, detail=f"Cannot add payment to a {order.status} order"
         )

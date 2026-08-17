@@ -188,7 +188,7 @@ def get_tax_liability_summary(
         )
         .join(Order, Order.id == OrderTaxLineModel.order_id)
         .filter(
-            Order.status == "completed",
+            Order.status.in_(["serving", "completed"]),
             Order.tenant_id == current_user.tenant_id,
         )
     )

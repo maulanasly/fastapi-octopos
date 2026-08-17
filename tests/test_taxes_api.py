@@ -120,7 +120,7 @@ def test_cash_payment_accepted_for_taxed_order(
     receipt = client.get(
         f"/api/v1/orders/{order['id']}/receipt", headers=cashier_headers
     ).json()
-    assert receipt["status"] == "completed"
+    assert receipt["status"] == "serving"
     assert receipt["tax_total_amount"] == 10.0
 
 
