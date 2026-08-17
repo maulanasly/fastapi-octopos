@@ -153,6 +153,7 @@ def get_order_receipt(
         change_amount=money_to_float(order.change_amount),
         remaining_amount=money_to_float(order.remaining_amount),
         status=order.status,
+        serving_status=order.serving_status,
         reservation_status=order.reservation_status,
         items=item_lines,
         tax_lines=order.tax_lines,

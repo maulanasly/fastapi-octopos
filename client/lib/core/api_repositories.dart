@@ -1,6 +1,8 @@
 /// Thin repositories over the Dio client, one per backend module.
 library;
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -293,6 +295,64 @@ class OrderRepository {
       '/orders/$orderId/cancel',
     );
     return Order.fromJson(resp.data!);
+  }
+
+  Future<List<Order>> servingQueue({String? status}) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/orders/serving/',
+      queryParameters: {if (status != null) 'status': status},
+    );
+    return resp.data!
+        .map((e) => Order.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Order> startServing(int orderId) => _servingTransition(orderId, 'start');
+
+  Future<Order> markReady(int orderId) => _servingTransition(orderId, 'ready');
+
+  Future<Order> markServed(int orderId) => _servingTransition(orderId, 'serve');
+
+  Future<Order> _servingTransition(int orderId, String action) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/serving/$orderId/$action',
+    );
+    return Order.fromJson(resp.data!);
+  }
+
+  /// Server-Sent Events stream of serving transitions
+  /// (`{"order_id": int, "serving_status": string}`). Errors terminate
+  /// the stream; callers fall back to polling.
+  Stream<Map<String, dynamic>> servingEvents() async* {
+    final resp = await api.dio.get<ResponseBody>(
+      '/orders/serving/stream',
+      options: Options(responseType: ResponseType.stream),
+    );
+    final body = resp.data!;
+    final stream = body.stream;
+    final buffer = StringBuffer();
+    await for (final chunk in stream) {
+      final text = String.fromCharCodes(chunk);
+      var event = '';
+      for (final line in text.split('\n')) {
+        if (line.startsWith('event: ')) {
+          event = line.substring(7).trim();
+        } else if (line.startsWith('data: ') && event == 'serving') {
+          buffer.write(line.substring(6));
+        } else if (line.trim().isEmpty) {
+          if (buffer.isNotEmpty) {
+            final payload = buffer.toString();
+            buffer.clear();
+            event = '';
+            try {
+              yield jsonDecode(payload) as Map<String, dynamic>;
+            } on FormatException {
+              // ignore malformed frames
+            }
+          }
+        }
+      }
+    }
   }
 
   Future<Refund> createRefund({

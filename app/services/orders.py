@@ -179,6 +179,8 @@ def _complete_order_if_paid(db: Session, order: Order) -> None:
     order.status = "completed"
     order.reservation_status = "committed"
     order.reservation_expires_at = None
+    if order.serving_status == "none":
+        order.serving_status = "queued"
     db.add(order)
     if order.customer_id:
         customer = (

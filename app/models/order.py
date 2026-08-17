@@ -46,6 +46,12 @@ class Order(Base):
     status = Column(
         String, default="pending", index=True
     )  # pending, completed, cancelled
+    serving_status = Column(
+        String, nullable=False, default="none", index=True
+    )  # none, queued, preparing, ready, served
+    preparing_at = Column(DateTime(timezone=True), nullable=True)
+    ready_at = Column(DateTime(timezone=True), nullable=True)
+    served_at = Column(DateTime(timezone=True), nullable=True)
     reservation_status = Column(
         String, nullable=False, default="reserved", index=True
     )  # reserved, released, committed

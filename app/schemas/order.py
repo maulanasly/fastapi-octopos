@@ -59,6 +59,10 @@ class Order(OrderBase):
     remaining_amount: float
     redeemed_points: int
     status: str
+    serving_status: str
+    preparing_at: Optional[datetime] = None
+    ready_at: Optional[datetime] = None
+    served_at: Optional[datetime] = None
     reservation_status: str
     reservation_expires_at: Optional[datetime] = None
     created_at: datetime
@@ -101,6 +105,7 @@ class OrderReceipt(BaseModel):
     change_amount: float
     remaining_amount: float
     status: str
+    serving_status: str
     reservation_status: str
     items: List[ReceiptOrderItem]
     tax_lines: List[OrderTaxLine]

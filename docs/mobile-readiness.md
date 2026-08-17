@@ -54,12 +54,31 @@ experience, including offline-first sync. Covers work done on the
 
 ## Queue decision
 
-The order pipeline is synchronous and transactional (stock deduction,
-promotion usage, and points are all guarded by row locks). **No FIFO queue
-is needed** for the current architecture. A decoupled queue (e.g. Redis
-Streams — Redis is already in `docker-compose.yml`) should only be added if
-offline-sync ingestion needs to be decoupled from the API, not for order
-processing itself.
+The order *processing* pipeline is synchronous and transactional (stock
+deduction, promotion usage, and points are all guarded by row locks). **No
+FIFO processing queue is needed** for the current architecture. A decoupled
+queue (e.g. Redis Streams — Redis is already in `docker-compose.yml`) should
+only be added if offline-sync ingestion needs to be decoupled from the API,
+not for order processing itself.
+
+## Serving queue
+
+There *is* now a serving (kitchen/prep) queue, distinct from processing:
+
+- Fully paid orders automatically enter the queue (`serving_status`:
+  `none -> queued -> preparing -> ready -> served`), oldest-first. Cancelled
+  orders fall out automatically.
+- `GET /orders/serving/` lists the queue (`?status=` filter, `limit` cap 200,
+  `X-Total-Count`); `POST /orders/serving/{id}/start|ready|serve` advances
+  the strict forward-only state machine (400 on invalid transitions).
+- Real-time: `GET /orders/serving/stream` is an SSE feed
+  (`{"order_id", "serving_status"}` events, 15s keepalive); auth via
+  `Authorization` header or `?token=` for EventSource clients. The Flutter
+  serving screen uses SSE with a 10s polling fallback.
+- The hub is in-process: single uvicorn worker only. Multi-worker
+  deployments must swap `ServingHub.publish` for Redis pub/sub.
+- Client: "Serving" nav screen with queue cards and Start/Ready/Served
+  actions; serving chips on the orders list.
 
 ## Mobile client (Phase D)
 
