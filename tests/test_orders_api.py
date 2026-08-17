@@ -133,6 +133,46 @@ def test_split_payments_settle_order(
     assert len(receipt["payments"]) == 2
 
 
+def test_split_payments_retry_is_idempotent(
+    client, cashier_headers, make_product, open_drawer, manager_headers
+):
+    product = make_product(
+        manager_headers, name="Split Retry", sku="SKU-SPLIT-R", price=50.0
+    )
+    open_drawer(cashier_headers)
+    order = _create_checked_out_order(
+        client, cashier_headers, product["id"], quantity=2
+    )
+
+    payload = {
+        "payments": [
+            {"payment_method": "cash", "amount": 50.0, "idempotency_key": "split-k-1"},
+            {"payment_method": "card", "amount": 50.0, "idempotency_key": "split-k-2"},
+        ]
+    }
+    first = client.post(
+        f"/api/v1/orders/{order['id']}/payments/split",
+        headers=cashier_headers,
+        json=payload,
+    )
+    assert first.status_code == 200, first.text
+
+    # identical retry must not double-pay
+    retry = client.post(
+        f"/api/v1/orders/{order['id']}/payments/split",
+        headers=cashier_headers,
+        json=payload,
+    )
+    assert retry.status_code == 200, retry.text
+
+    receipt = client.get(
+        f"/api/v1/orders/{order['id']}/receipt", headers=cashier_headers
+    ).json()
+    assert receipt["status"] == "completed"
+    assert receipt["paid_amount"] == 100.0
+    assert len(receipt["payments"]) == 2
+
+
 def test_cancel_order_restores_stock(
     client, cashier_headers, make_product, open_drawer, manager_headers
 ):

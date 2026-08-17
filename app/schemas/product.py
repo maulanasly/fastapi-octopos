@@ -75,5 +75,6 @@ class Product(ProductBase):
     id: int
     category: Optional[Category] = None
     image_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
 
     model_config = {"from_attributes": True}

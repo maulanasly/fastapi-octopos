@@ -54,12 +54,14 @@ class Settings(BaseSettings):
     REPLENISHMENT_CHECK_INTERVAL_SECONDS: int = 3600
     REPLENISHMENT_LOOKBACK_DAYS: int = 30
 
-# Rate limiting — storage URI for slowapi. Empty = in-memory (single
+    # Rate limiting — storage URI for slowapi. Empty = in-memory (single
     # process only); set e.g. "redis://localhost:6380" for multi-worker
     # deployments so limits are shared across processes.
     RATE_LIMIT_STORAGE_URI: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=True, extra="ignore"
+    )
 
     def fail_closed(self) -> None:
         """Refuse to run with default/dummy credentials in production."""

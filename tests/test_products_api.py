@@ -1,7 +1,16 @@
 """Integration tests for the products API: delete guards, category delete,
 and unit_cost (COGS) persistence."""
 
+import io
+
 from conftest import order_payload
+from PIL import Image
+
+
+def _png_bytes() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 48), (200, 40, 90)).save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def _make_supplier(client, manager_headers):
@@ -31,6 +40,31 @@ def _make_po(client, manager_headers, supplier_id, product_id):
     )
     assert resp.status_code == 200, resp.text
     return resp.json()
+
+
+def test_product_search_filters_and_total(client, manager_headers, make_product):
+    make_product(
+        manager_headers, name="Espresso Beans", sku="SKU-BEAN", price=5.0, stock=5
+    )
+    make_product(manager_headers, name="Milk", sku="SKU-MILK", price=2.0, stock=5)
+    make_product(
+        manager_headers, name="Another Thing", sku="SKU-OTH", price=3.0, stock=5
+    )
+
+    resp = client.get("/api/v1/products?q=espresso", headers=manager_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [p["name"] for p in body] == ["Espresso Beans"]
+    assert resp.headers["x-total-count"] == "1"
+
+    resp = client.get("/api/v1/products?sku=SKU-MILK", headers=manager_headers)
+    assert resp.status_code == 200
+    assert [p["name"] for p in resp.json()] == ["Milk"]
+
+    resp = client.get("/api/v1/products?limit=9999", headers=manager_headers)
+    assert resp.status_code == 200
+    assert resp.headers["x-total-count"] == "3"
+    assert len(resp.json()) == 3  # capped at 200, but only 3 exist
 
 
 def test_delete_unreferenced_product_succeeds(client, manager_headers, make_product):
@@ -154,15 +188,18 @@ def test_upload_product_image(client, manager_headers, make_product):
     resp = client.post(
         f"/api/v1/products/{product['id']}/image",
         headers=manager_headers,
-        files={"file": ("p.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
+        files={"file": ("p.png", _png_bytes(), "image/png")},
     )
     assert resp.status_code == 200, resp.text
-    assert resp.json()["image_url"].startswith("/media/products/")
-    assert resp.json()["image_url"].endswith(".png")
+    assert resp.json()["image_url"].startswith("/media/1/products/")
+    assert resp.json()["image_url"].endswith("_orig.webp")
+    assert resp.json()["thumbnail_url"].endswith("_thumb.webp")
 
-    # served via the static mount
-    served = client.get(resp.json()["image_url"])
-    assert served.status_code == 200
+    # both variants served via the static mount with long-lived cache headers
+    for url in (resp.json()["image_url"], resp.json()["thumbnail_url"]):
+        served = client.get(url)
+        assert served.status_code == 200
+        assert served.headers["cache-control"] == "public, max-age=31536000, immutable"
 
 
 def test_upload_replaces_and_cleans_old_file(client, manager_headers, make_product):
@@ -172,16 +209,17 @@ def test_upload_replaces_and_cleans_old_file(client, manager_headers, make_produ
     first = client.post(
         f"/api/v1/products/{product['id']}/image",
         headers=manager_headers,
-        files={"file": ("a.png", b"first", "image/png")},
+        files={"file": ("a.png", _png_bytes(), "image/png")},
     ).json()
     second = client.post(
         f"/api/v1/products/{product['id']}/image",
         headers=manager_headers,
-        files={"file": ("b.png", b"second", "image/png")},
+        files={"file": ("b.png", _png_bytes(), "image/png")},
     ).json()
     assert first["image_url"] != second["image_url"]
-    # old file removed from disk
+    # old files removed from disk
     assert client.get(first["image_url"]).status_code == 404
+    assert client.get(first["thumbnail_url"]).status_code == 404
 
 
 def test_upload_rejects_unsupported_type(client, manager_headers, make_product):
@@ -196,6 +234,18 @@ def test_upload_rejects_unsupported_type(client, manager_headers, make_product):
     assert resp.status_code == 415
 
 
+def test_upload_rejects_spoofed_image_type(client, manager_headers, make_product):
+    product = make_product(
+        manager_headers, name="Photo Item 3b", sku="PHOTO-3B", price=5.0, stock=5
+    )
+    resp = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("f.png", b"not-an-image-at-all", "image/png")},
+    )
+    assert resp.status_code == 415
+
+
 def test_upload_requires_manager(
     client, cashier_headers, manager_headers, make_product
 ):
@@ -205,7 +255,7 @@ def test_upload_requires_manager(
     resp = client.post(
         f"/api/v1/products/{product['id']}/image",
         headers=cashier_headers,
-        files={"file": ("p.png", b"x", "image/png")},
+        files={"file": ("p.png", _png_bytes(), "image/png")},
     )
     assert resp.status_code == 403
 
@@ -217,13 +267,29 @@ def test_delete_product_image(client, manager_headers, make_product):
     client.post(
         f"/api/v1/products/{product['id']}/image",
         headers=manager_headers,
-        files={"file": ("p.png", b"x", "image/png")},
+        files={"file": ("p.png", _png_bytes(), "image/png")},
     )
     resp = client.delete(
         f"/api/v1/products/{product['id']}/image", headers=manager_headers
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["image_url"] is None
+    assert resp.json()["thumbnail_url"] is None
+
+
+def test_delete_product_cleans_stored_images(client, manager_headers, make_product):
+    product = make_product(
+        manager_headers, name="Photo Item 6", sku="PHOTO-6", price=5.0, stock=0
+    )
+    uploaded = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=manager_headers,
+        files={"file": ("p.png", _png_bytes(), "image/png")},
+    ).json()
+    resp = client.delete(f"/api/v1/products/{product['id']}", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    assert client.get(uploaded["image_url"]).status_code == 404
+    assert client.get(uploaded["thumbnail_url"]).status_code == 404
 
 
 def test_category_color_validation(client, manager_headers):

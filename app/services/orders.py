@@ -390,6 +390,7 @@ def create_order(
                 Customer.id == order_in.customer_id,
                 Customer.tenant_id == tenant_id,
             )
+            .with_for_update()
             .first()
         )
         if not customer:
@@ -397,8 +398,10 @@ def create_order(
         if not customer.is_active:
             raise HTTPException(status_code=400, detail="Customer is inactive")
 
-    # Verify stock and calculate total amount
-    for item in order_in.items:
+    # Verify stock and calculate total amount. Products are locked in
+    # ascending id order so concurrent carts with overlapping products
+    # cannot deadlock each other (lock-ordering).
+    for item in sorted(order_in.items, key=lambda it: it.product_id):
         product = (
             db.query(Product)
             .filter(
@@ -473,6 +476,7 @@ def create_order(
                 Promotion.code == normalized_code,
                 Promotion.tenant_id == tenant_id,
             )
+            .with_for_update()
             .first()
         )
         if not promotion:
@@ -780,6 +784,34 @@ def add_split_payments_to_order(
             detail="Split payment must contain at least one payment line",
         )
 
+    split_keys = [
+        line.idempotency_key for line in split_in.payments if line.idempotency_key
+    ]
+    if split_keys:
+        existing_count = (
+            db.query(func.count(Payment.id))
+            .filter(
+                Payment.user_id == current_user.id,
+                Payment.idempotency_key.in_(split_keys),
+                Payment.tenant_id == tenant_id,
+            )
+            .scalar()
+        )
+        if existing_count == len(split_keys):
+            return (
+                db.query(Order)
+                .filter(
+                    Order.id == order_id,
+                    Order.tenant_id == tenant_id,
+                )
+                .first()
+            )
+        if existing_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Split payment batch partially applied; do not retry with changed keys",
+            )
+
     order = (
         db.query(Order)
         .filter(
@@ -842,6 +874,7 @@ def add_split_payments_to_order(
                 user_id=current_user.id,
                 payment_method=_normalize_payment_method(line.payment_method),
                 amount=quantize_money(line.amount),
+                idempotency_key=line.idempotency_key,
             )
         )
 

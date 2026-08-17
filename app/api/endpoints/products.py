@@ -1,15 +1,13 @@
 import uuid
-from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
-from sqlalchemy import func
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.admin.color_field import CATEGORY_COLOR_PALETTE
 from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.audit import log_action
-from app.core.config import settings
 from app.core.database import get_db
 from app.models.order import OrderItem
 from app.models.product import Category, Product
@@ -21,6 +19,13 @@ from app.schemas.product import Category as CategorySchema
 from app.schemas.product import CategoryCreate, CategoryUpdate
 from app.schemas.product import Product as ProductSchema
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.services.images import (
+    _ALLOWED_IMAGE_TYPES,
+    _MAX_IMAGE_BYTES,
+    delete_media_file,
+    process_product_image,
+    product_media_dir,
+)
 
 router = APIRouter()
 
@@ -139,15 +144,30 @@ def get_products(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    q: Optional[str] = None,
+    sku: Optional[str] = None,
+    category_id: Optional[int] = None,
+    response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):
-    products = (
-        db.query(Product)
-        .filter(Product.tenant_id == current_user.tenant_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    query = db.query(Product).filter(Product.tenant_id == current_user.tenant_id)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                func.lower(Product.name).like(like.lower()),
+                func.lower(func.coalesce(Product.description, "")).like(like.lower()),
+            )
+        )
+    if sku:
+        query = query.filter(Product.sku == sku.strip())
+    if category_id is not None:
+        query = query.filter(Product.category_id == category_id)
+    limit = min(limit, 200)
+    total = query.count()
+    products = query.offset(skip).limit(limit).all()
+    if response is not None:
+        response.headers["X-Total-Count"] = str(total)
     return products
 
 
@@ -311,32 +331,15 @@ def delete_product(
             ),
         )
 
+    old_image_url, old_thumbnail_url = product.image_url, product.thumbnail_url
     db.delete(product)
     db.commit()
+    delete_media_file(old_image_url)
+    delete_media_file(old_thumbnail_url)
     return {"ok": True}
 
 
 # Image Endpoints
-
-_ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
-_MAX_IMAGE_BYTES = 5 * 1024 * 1024
-
-
-def _media_dir() -> Path:
-    path = Path(settings.MEDIA_DIR).resolve()
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _delete_stored_image(image_url: Optional[str]) -> None:
-    if not image_url or not image_url.startswith("/media/"):
-        return
-    try:
-        file_path = (_media_dir() / image_url.removeprefix("/media/")).resolve()
-        if file_path.is_file() and file_path.is_relative_to(_media_dir()):
-            file_path.unlink()
-    except OSError:
-        pass
 
 
 @router.post("/{product_id}/image", response_model=ProductSchema)
@@ -346,7 +349,12 @@ def upload_product_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    """Upload or replace a product photo (jpeg/png/webp, max 5 MB)."""
+    """Upload or replace a product photo (jpeg/png/webp, max 5 MB).
+
+    The upload is magic-byte verified, stripped of EXIF, downscaled and
+    re-encoded as WebP; a mobile-friendly thumbnail is generated alongside
+    it. Both files are stored under ``/media/<tenant_id>/products/``.
+    """
     product = (
         db.query(Product)
         .filter(
@@ -366,25 +374,28 @@ def upload_product_image(
         )
 
     content = file.file.read(_MAX_IMAGE_BYTES + 1)
-    if len(content) > _MAX_IMAGE_BYTES:
-        raise HTTPException(status_code=413, detail="Image exceeds 5 MB limit")
+    original_bytes, thumbnail_bytes = process_product_image(content)
 
-    extension = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}[
-        content_type
-    ]
-    media_dir = _media_dir()
-    (media_dir / "products").mkdir(parents=True, exist_ok=True)
-    file_name = f"{product_id}_{uuid.uuid4().hex}.{extension}"
-    destination = media_dir / "products" / file_name
+    file_stem = uuid.uuid4().hex
+    original_name = f"{file_stem}_orig.webp"
+    thumbnail_name = f"{file_stem}_thumb.webp"
+    tenant_dir = product_media_dir(current_user.tenant_id)
+    (tenant_dir / original_name).write_bytes(original_bytes)
+    (tenant_dir / thumbnail_name).write_bytes(thumbnail_bytes)
 
-    with destination.open("wb") as out:
-        out.write(content)
-
-    _delete_stored_image(product.image_url)
-    product.image_url = f"/media/products/{file_name}"
+    old_image_url, old_thumbnail_url = product.image_url, product.thumbnail_url
+    product.image_url = f"/media/{current_user.tenant_id}/products/{original_name}"
+    product.thumbnail_url = f"/media/{current_user.tenant_id}/products/{thumbnail_name}"
     db.add(product)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        (tenant_dir / original_name).unlink(missing_ok=True)
+        (tenant_dir / thumbnail_name).unlink(missing_ok=True)
+        raise
     db.refresh(product)
+    delete_media_file(old_image_url)
+    delete_media_file(old_thumbnail_url)
     return product
 
 
@@ -394,7 +405,7 @@ def delete_product_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    """Remove the product photo."""
+    """Remove the product photo and its thumbnail."""
     product = (
         db.query(Product)
         .filter(
@@ -406,9 +417,12 @@ def delete_product_image(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    _delete_stored_image(product.image_url)
+    old_image_url, old_thumbnail_url = product.image_url, product.thumbnail_url
     product.image_url = None
+    product.thumbnail_url = None
     db.add(product)
     db.commit()
     db.refresh(product)
+    delete_media_file(old_image_url)
+    delete_media_file(old_thumbnail_url)
     return product

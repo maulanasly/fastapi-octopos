@@ -1,6 +1,7 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_user, require_permissions
@@ -21,15 +22,26 @@ def get_customers(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    q: Optional[str] = None,
+    response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):
-    return (
-        db.query(Customer)
-        .filter(Customer.tenant_id == current_user.tenant_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    query = db.query(Customer).filter(Customer.tenant_id == current_user.tenant_id)
+    if q:
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                func.lower(Customer.name).like(like.lower()),
+                func.lower(func.coalesce(Customer.email, "")).like(like.lower()),
+                func.lower(func.coalesce(Customer.phone, "")).like(like.lower()),
+            )
+        )
+    limit = min(limit, 200)
+    total = query.count()
+    customers = query.offset(skip).limit(limit).all()
+    if response is not None:
+        response.headers["X-Total-Count"] = str(total)
+    return customers
 
 
 @router.post("/", response_model=CustomerSchema)

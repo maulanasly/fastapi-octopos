@@ -3,6 +3,7 @@
 /// stay uniform.
 library;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,7 +24,6 @@ class ProductTile extends ConsumerWidget {
     final s = ref.watch(stringsProvider);
     final outOfStock = product.stockQuantity <= 0;
     final categoryColor = colorFromHex(product.category?.color);
-    final imageUrl = product.imageUrl;
     final barColor = categoryColor != null
         ? softBackground(categoryColor)
         : Theme.of(context).colorScheme.surfaceContainerLow;
@@ -51,22 +51,10 @@ class ProductTile extends ConsumerWidget {
             ),
             // Flexible image: fills whatever remains above the fixed bar,
             // so the tile never overflows no matter the label length.
+            // Thumbnail is preferred for grid payloads; falls back to the
+            // full image, then to a monogram, and is cached on device.
             Expanded(
-              child: imageUrl != null
-                  ? Image.network(
-                      '${AppConfig.mediaBaseUrl}$imageUrl',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          _ProductMonogram(product: product),
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return _ProductMonogram(
-                          product: product,
-                          showIcon: true,
-                        );
-                      },
-                    )
-                  : _ProductMonogram(product: product),
+              child: _ProductImage(product: product),
             ),
             // Fixed bottom label bar: product name always visible.
             Container(
@@ -105,6 +93,25 @@ class ProductTile extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Cached product image (thumbnail preferred) with monogram fallbacks.
+class _ProductImage extends StatelessWidget {
+  const _ProductImage({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = product.thumbnailUrl ?? product.imageUrl;
+    if (url == null) return _ProductMonogram(product: product);
+    return CachedNetworkImage(
+      imageUrl: '${AppConfig.mediaBaseUrl}$url',
+      fit: BoxFit.cover,
+      errorWidget: (_, _, _) => _ProductMonogram(product: product),
+      placeholder: (_, _) => _ProductMonogram(product: product, showIcon: true),
     );
   }
 }

@@ -25,13 +25,13 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 # pyrefly: ignore [missing-import]
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.staticfiles import StaticFiles
 
 from app.admin import all_admin_views
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
 from app.core.limiter import limiter
+from app.core.media import CachedStaticFiles, SkipMediaGZipMiddleware
 from app.core.observability import RequestIDMiddleware, setup_logging
 from app.core.security import verify_password
 
@@ -141,6 +141,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(SkipMediaGZipMiddleware, minimum_size=500)
 
 
 @app.exception_handler(RequestValidationError)
@@ -177,7 +178,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 # Serve uploaded product images (public read for POS terminals).
 _MEDIA_PATH = Path(settings.MEDIA_DIR).resolve()
 _MEDIA_PATH.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=str(_MEDIA_PATH)), name="media")
+app.mount("/media", CachedStaticFiles(directory=str(_MEDIA_PATH)), name="media")
 
 
 def _admin_session_expiry() -> str:

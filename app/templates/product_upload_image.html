@@ -1,0 +1,51 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-cube me-2 text-primary"></i>Upload Photo: {{ product.name }}
+      </h3>
+      <a href="/admin/product/details/{{ product.id }}" class="btn btn-outline-secondary btn-sm">
+        Back to product
+      </a>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-secondary py-2 small mb-3">
+        SKU: <strong>{{ product.sku }}</strong>
+      </div>
+      {% if product.image_url %}
+      <div class="mb-3">
+        <p class="text-secondary small mb-2">Current photo:</p>
+        <img
+          src="{{ product.thumbnail_url or product.image_url }}"
+          alt="{{ product.name }}"
+          class="img-thumbnail"
+          style="max-height: 160px;"
+        />
+      </div>
+      {% endif %}
+      <p class="text-secondary small mb-3">
+        Upload a <code>jpeg</code>, <code>png</code> or <code>webp</code> photo (max 5 MB).
+        It is verified, downscaled and converted to WebP; a mobile thumbnail is generated
+        automatically. The previous photo is deleted.
+      </p>
+      <form method="post" enctype="multipart/form-data">
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label" for="image">Photo</label>
+            <input class="form-control" type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp" required />
+          </div>
+        </div>
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-upload me-1"></i>Upload Photo
+          </button>
+          <a href="/admin/product/details/{{ product.id }}" class="btn btn-light ms-2">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

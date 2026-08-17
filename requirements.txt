@@ -14,3 +14,4 @@ alembic==1.19.1
 pytest==9.1.1
 pytest-cov==7.1.0
 coverage==7.15.4
+Pillow==11.3.0

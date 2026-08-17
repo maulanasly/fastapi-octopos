@@ -33,6 +33,8 @@ String friendlyError(Object error, AppStrings strings) {
       case 415:
         return strings.of('unsupportedImage');
       case 422:
+        final fieldDetail = _fieldErrorsFrom(error);
+        if (fieldDetail != null) return fieldDetail;
         return strings.of('validationFailed');
       case 423:
         return strings.of('accountLocked');
@@ -56,4 +58,26 @@ String? _detailFrom(DioException error) {
     return data['detail'] as String;
   }
   return null;
+}
+
+/// Renders FastAPI's structured 422 body
+/// (`detail: [{loc, msg, type}, ...]`) as a readable, per-field string.
+String? _fieldErrorsFrom(DioException error) {
+  final data = error.response?.data;
+  if (data is! Map) return null;
+  final detail = data['detail'];
+  if (detail is! List || detail.isEmpty) return null;
+  final lines = <String>[];
+  for (final item in detail) {
+    if (item is! Map) continue;
+    final loc = item['loc'];
+    final field = loc is List && loc.isNotEmpty
+        ? loc[loc.length - 1].toString()
+        : null;
+    final msg = item['msg'];
+    if (msg is! String || msg.isEmpty) continue;
+    lines.add(field != null ? '$field: $msg' : msg);
+  }
+  if (lines.isEmpty) return null;
+  return lines.take(3).join('\n');
 }

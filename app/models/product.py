@@ -60,6 +60,7 @@ class Product(Base):
     lead_time_days = Column(Integer, nullable=False, default=0)
     category_id = Column(Integer, ForeignKey("categories.id"), index=True)
     image_url = Column(String, nullable=True)  # /media/... path
+    thumbnail_url = Column(String, nullable=True)  # /media/... WebP thumbnail
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

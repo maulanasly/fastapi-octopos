@@ -3,6 +3,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -253,16 +254,17 @@ class _ProductThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = product.imageUrl;
-    if (imageUrl != null) {
+    final url = product.thumbnailUrl ?? product.imageUrl;
+    if (url != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          '${AppConfig.mediaBaseUrl}$imageUrl',
+        child: CachedNetworkImage(
+          imageUrl: '${AppConfig.mediaBaseUrl}$url',
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _monogram(context),
+          errorWidget: (_, _, _) => _monogram(context),
+          placeholder: (_, _) => _monogram(context),
         ),
       );
     }
