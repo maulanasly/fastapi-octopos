@@ -9,7 +9,9 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    tenant_id = Column(
+        Integer, ForeignKey("tenants.id"), nullable=True, index=True
+    )  # NULL = platform-level (superuser) action
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     action = Column(String, nullable=False, index=True)
     resource_type = Column(String, nullable=True)

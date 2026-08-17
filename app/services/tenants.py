@@ -11,7 +11,12 @@ def _slugify(name: str) -> str:
 
 
 def create_tenant(db: Session, name: str = "Business") -> Tenant:
-    """Create a tenant with a unique slug. Caller must flush/commit."""
+    """Create a tenant with a unique slug. Caller must flush/commit.
+
+    The returned tenant carries a transient ``_is_new`` attribute (True when
+    the row was just created) so callers can, e.g., make the first user the
+    tenant owner.
+    """
     base = _slugify(name)
     slug = base
     counter = 1
@@ -19,6 +24,7 @@ def create_tenant(db: Session, name: str = "Business") -> Tenant:
         counter += 1
         slug = f"{base}-{counter}"
     tenant = Tenant(name=name, slug=slug, is_active=True)
+    tenant._is_new = True
     db.add(tenant)
     db.flush()
     return tenant

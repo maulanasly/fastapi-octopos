@@ -38,7 +38,8 @@ def get_localization_setting(
     if setting:
         return setting
 
-    setting = LocalizationSetting(tenant_id=tenant_id)
+    # Platform-level (admin) lookups without a tenant default to tenant 1.
+    setting = LocalizationSetting(tenant_id=tenant_id or 1)
     db.add(setting)
     db.commit()
     db.refresh(setting)
