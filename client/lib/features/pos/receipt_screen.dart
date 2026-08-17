@@ -10,8 +10,7 @@ import '../../core/dates.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
-import 'print_stub.dart'
-    if (dart.library.js_interop) 'print_web.dart';
+import 'print_stub.dart' if (dart.library.js_interop) 'print_web.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
   const ReceiptScreen({super.key, required this.orderId});

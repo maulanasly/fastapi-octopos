@@ -26,15 +26,15 @@ class StockMovement {
   });
 
   factory StockMovement.fromJson(Map<String, dynamic> json) => StockMovement(
-        id: json['id'] as int,
-        productId: json['product_id'] as int,
-        movementType: json['movement_type'] as String,
-        quantityBefore: json['quantity_before'] as int? ?? 0,
-        quantityDelta: json['quantity_delta'] as int? ?? 0,
-        quantityAfter: json['quantity_after'] as int? ?? 0,
-        note: json['note'] as String?,
-        createdAt: json['created_at'] as String?,
-      );
+    id: json['id'] as int,
+    productId: json['product_id'] as int,
+    movementType: json['movement_type'] as String,
+    quantityBefore: json['quantity_before'] as int? ?? 0,
+    quantityDelta: json['quantity_delta'] as int? ?? 0,
+    quantityAfter: json['quantity_after'] as int? ?? 0,
+    note: json['note'] as String?,
+    createdAt: json['created_at'] as String?,
+  );
 }
 
 class ReplenishmentSuggestion {
@@ -64,22 +64,72 @@ class ReplenishmentSuggestion {
     required this.shouldReorder,
   });
 
-  factory ReplenishmentSuggestion.fromJson(Map<String, dynamic> json) =>
-      ReplenishmentSuggestion(
-        productId: json['product_id'] as int,
-        productName: json['product_name'] as String,
-        sku: json['sku'] as String,
-        currentStock: json['current_stock'] as int? ?? 0,
-        minStock: json['min_stock'] as int? ?? 0,
-        reorderPoint: json['reorder_point'] as int? ?? 0,
-        leadTimeDays: json['lead_time_days'] as int? ?? 0,
-        soldQuantity: json['sold_quantity'] as int? ?? 0,
-        projectedStockAtLeadTime:
-            json['projected_stock_at_lead_time'] as int? ?? 0,
-        recommendedOrderQuantity:
-            json['recommended_order_quantity'] as int? ?? 0,
-        shouldReorder: json['should_reorder'] as bool? ?? false,
-      );
+  factory ReplenishmentSuggestion.fromJson(
+    Map<String, dynamic> json,
+  ) => ReplenishmentSuggestion(
+    productId: json['product_id'] as int,
+    productName: json['product_name'] as String,
+    sku: json['sku'] as String,
+    currentStock: json['current_stock'] as int? ?? 0,
+    minStock: json['min_stock'] as int? ?? 0,
+    reorderPoint: json['reorder_point'] as int? ?? 0,
+    leadTimeDays: json['lead_time_days'] as int? ?? 0,
+    soldQuantity: json['sold_quantity'] as int? ?? 0,
+    projectedStockAtLeadTime: json['projected_stock_at_lead_time'] as int? ?? 0,
+    recommendedOrderQuantity: json['recommended_order_quantity'] as int? ?? 0,
+    shouldReorder: json['should_reorder'] as bool? ?? false,
+  );
+}
+
+class Promotion {
+  final int id;
+  final String code;
+  final String name;
+  final String? description;
+  final String discountType;
+  final double discountValue;
+  final double minOrderAmount;
+  final double? maxDiscountAmount;
+  final String appliesTo;
+  final int? productId;
+  final int? categoryId;
+  final bool isActive;
+  final int? usageLimit;
+  final int usageCount;
+
+  const Promotion({
+    required this.id,
+    required this.code,
+    required this.name,
+    this.description,
+    required this.discountType,
+    required this.discountValue,
+    required this.minOrderAmount,
+    this.maxDiscountAmount,
+    required this.appliesTo,
+    this.productId,
+    this.categoryId,
+    required this.isActive,
+    this.usageLimit,
+    required this.usageCount,
+  });
+
+  factory Promotion.fromJson(Map<String, dynamic> json) => Promotion(
+    id: json['id'] as int,
+    code: json['code'] as String,
+    name: json['name'] as String,
+    description: json['description'] as String?,
+    discountType: json['discount_type'] as String,
+    discountValue: (json['discount_value'] as num?)?.toDouble() ?? 0,
+    minOrderAmount: (json['min_order_amount'] as num?)?.toDouble() ?? 0,
+    maxDiscountAmount: (json['max_discount_amount'] as num?)?.toDouble(),
+    appliesTo: json['applies_to'] as String? ?? 'order',
+    productId: json['product_id'] as int?,
+    categoryId: json['category_id'] as int?,
+    isActive: json['is_active'] as bool? ?? true,
+    usageLimit: json['usage_limit'] as int?,
+    usageCount: json['usage_count'] as int? ?? 0,
+  );
 }
 
 class UserProfile {
@@ -98,12 +148,12 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
-        id: json['id'] as int,
-        email: json['email'] as String,
-        fullName: json['full_name'] as String?,
-        isActive: json['is_active'] as bool? ?? true,
-        isSuperuser: json['is_superuser'] as bool? ?? false,
-      );
+    id: json['id'] as int,
+    email: json['email'] as String,
+    fullName: json['full_name'] as String?,
+    isActive: json['is_active'] as bool? ?? true,
+    isSuperuser: json['is_superuser'] as bool? ?? false,
+  );
 }
 
 class TokenResponse {
@@ -814,22 +864,20 @@ class DailyShiftItem {
     required this.cashVariance,
   });
 
-  factory DailyShiftItem.fromJson(Map<String, dynamic> json) =>
-      DailyShiftItem(
-        reconciliationId: json['reconciliation_id'] as int,
-        drawerSessionId: json['drawer_session_id'] as int,
-        openedAt: json['opened_at'] as String?,
-        closedAt: json['closed_at'] as String?,
-        operatorName: json['operator_name'] as String?,
-        cashSalesTotal: (json['cash_sales_total'] as num?)?.toDouble() ?? 0,
-        nonCashSalesTotal:
-            (json['non_cash_sales_total'] as num?)?.toDouble() ?? 0,
-        refundsTotal: (json['refunds_total'] as num?)?.toDouble() ?? 0,
-        grossSalesTotal: (json['gross_sales_total'] as num?)?.toDouble() ?? 0,
-        netSalesTotal: (json['net_sales_total'] as num?)?.toDouble() ?? 0,
-        completedOrderCount: json['completed_order_count'] as int? ?? 0,
-        cashVariance: (json['cash_variance'] as num?)?.toDouble() ?? 0,
-      );
+  factory DailyShiftItem.fromJson(Map<String, dynamic> json) => DailyShiftItem(
+    reconciliationId: json['reconciliation_id'] as int,
+    drawerSessionId: json['drawer_session_id'] as int,
+    openedAt: json['opened_at'] as String?,
+    closedAt: json['closed_at'] as String?,
+    operatorName: json['operator_name'] as String?,
+    cashSalesTotal: (json['cash_sales_total'] as num?)?.toDouble() ?? 0,
+    nonCashSalesTotal: (json['non_cash_sales_total'] as num?)?.toDouble() ?? 0,
+    refundsTotal: (json['refunds_total'] as num?)?.toDouble() ?? 0,
+    grossSalesTotal: (json['gross_sales_total'] as num?)?.toDouble() ?? 0,
+    netSalesTotal: (json['net_sales_total'] as num?)?.toDouble() ?? 0,
+    completedOrderCount: json['completed_order_count'] as int? ?? 0,
+    cashVariance: (json['cash_variance'] as num?)?.toDouble() ?? 0,
+  );
 }
 
 class DailyCloseTotals {

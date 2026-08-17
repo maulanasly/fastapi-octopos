@@ -20,8 +20,7 @@ final catalogRepositoryProvider = Provider<CatalogRepository>(
 
 /// Curated category color palette from the backend (fallback list for
 /// offline use keeps the same tones).
-final categoryColorPaletteProvider =
-    FutureProvider<List<String>>((ref) async {
+final categoryColorPaletteProvider = FutureProvider<List<String>>((ref) async {
   try {
     return await ref.watch(catalogRepositoryProvider).categoryColorPalette();
   } catch (_) {
@@ -64,6 +63,10 @@ final syncRepositoryProvider = Provider<SyncRepository>(
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
   (ref) => InventoryRepository(ref.watch(apiClientProvider)),
+);
+
+final promotionRepositoryProvider = Provider<PromotionRepository>(
+  (ref) => PromotionRepository(ref.watch(apiClientProvider)),
 );
 
 final localizationRepositoryProvider = Provider<LocalizationRepository>(
@@ -137,8 +140,9 @@ class CatalogRepository {
 
   /// Curated category color palette (single source of truth with the admin).
   Future<List<String>> categoryColorPalette() async {
-    final resp =
-        await api.dio.get<List<dynamic>>('/products/categories/colors');
+    final resp = await api.dio.get<List<dynamic>>(
+      '/products/categories/colors',
+    );
     return resp.data!.cast<String>();
   }
 
@@ -409,7 +413,9 @@ class ReportRepository {
   }
 
   Future<DailyCloseTotals> dailyClose() async {
-    final resp = await api.dio.get<Map<String, dynamic>>('/reports/daily-close');
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/reports/daily-close',
+    );
     return DailyCloseTotals.fromJson(
       (resp.data!['totals'] as Map<String, dynamic>),
     );
@@ -420,6 +426,38 @@ class ReportRepository {
       '/reports/shift/$reconciliationId',
     );
     return ShiftReport.fromJson(resp.data!);
+  }
+}
+
+class PromotionRepository {
+  final ApiClient api;
+  PromotionRepository(this.api);
+
+  Future<List<Promotion>> list() async {
+    final resp = await api.dio.get<List<dynamic>>('/promotions/');
+    return resp.data!
+        .map((e) => Promotion.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Promotion> create(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/promotions/',
+      data: body,
+    );
+    return Promotion.fromJson(resp.data!);
+  }
+
+  Future<Promotion> update(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/promotions/$id',
+      data: body,
+    );
+    return Promotion.fromJson(resp.data!);
+  }
+
+  Future<void> deactivate(int id) async {
+    await api.dio.delete('/promotions/$id');
   }
 }
 
