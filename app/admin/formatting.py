@@ -104,6 +104,15 @@ def _render_relation(value: Any) -> Any:
     return _label(value)
 
 
+def _make_relation_formatter(name: str) -> Callable[[Any, str], str]:
+    # sqladmin 0.31 introspects formatter signatures and passes `request`
+    # when a third parameter exists; keep the signature exactly (obj, prop).
+    def fmt(obj, prop):
+        return _render_relation(getattr(obj, name))
+
+    return fmt
+
+
 def _build_relation_formatters(
     model: type,
     columns: List[InstrumentedAttribute],
@@ -113,9 +122,7 @@ def _build_relation_formatters(
     for attr in columns:
         name = getattr(attr, "key", None)
         if name in relation_names:
-            formatters[attr] = lambda obj, prop, _name=name: _render_relation(
-                getattr(obj, _name)
-            )
+            formatters[attr] = _make_relation_formatter(name)
     return formatters
 
 

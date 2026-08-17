@@ -1,0 +1,20 @@
+# Development override: hot-reload the backend from the local source.
+#
+# Usage:  make docker-dev          (or: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build)
+#         make docker-dev-logs     (follow backend logs)
+#         make docker-dev-down
+#
+# The bind mounts keep the container in sync with ./app and ./alembic;
+# uvicorn --reload restarts the process automatically on source changes.
+# ENVIRONMENT=development re-enables the admin bootstrap fallback and
+# disables fail_closed so local iteration is frictionless.
+services:
+  backend:
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+    environment:
+      ENVIRONMENT: "development"
+      UVICORN_RELOAD: "1"
+      SECRET_KEY: "${SECRET_KEY:-dev-secret-key-not-for-production}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin}"

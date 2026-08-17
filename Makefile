@@ -98,3 +98,12 @@ docker-migrate: ## Run alembic upgrade head in the backend container
 
 docker-shell: ## Open a shell in the backend container
 	$(DOCKER_COMPOSE) exec backend sh
+
+docker-dev: ## Start the dev stack (source mounted, uvicorn --reload)
+	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+docker-dev-down: ## Stop the dev stack
+	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml down
+
+docker-dev-logs: ## Follow backend logs (dev)
+	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml logs -f backend

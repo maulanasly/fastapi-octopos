@@ -32,4 +32,8 @@ if [ -n "$DB_URL" ]; then
 fi
 
 echo "[entrypoint] starting uvicorn..."
+if [ "${UVICORN_RELOAD:-0}" = "1" ]; then
+  # Dev mode: watch the mounted source for changes (no restart needed).
+  exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+fi
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
