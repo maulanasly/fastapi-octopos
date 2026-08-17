@@ -14,10 +14,13 @@
         <li class="breadcrumb-item {% if step == 'generate' %}active{% endif %}">
           {% if step != 'generate' %}<a href="/admin/workflows/restock?step=generate">1. Generate POs</a>{% else %}1. Generate POs{% endif %}
         </li>
-        <li class="breadcrumb-item {% if step == 'receive' %}active{% endif %}">
-          {% if step != 'receive' %}<a href="/admin/workflows/restock?step=receive">2. Receive</a>{% else %}2. Receive{% endif %}
+        <li class="breadcrumb-item {% if step == 'create' %}active{% endif %}">
+          {% if step != 'create' %}<a href="/admin/workflows/restock?step=create">2. Create PO</a>{% else %}2. Create PO{% endif %}
         </li>
-        <li class="breadcrumb-item {% if step == 'done' %}active{% endif %}">3. Done</li>
+        <li class="breadcrumb-item {% if step == 'receive' %}active{% endif %}">
+          {% if step != 'receive' %}<a href="/admin/workflows/restock?step=receive">3. Receive</a>{% else %}3. Receive{% endif %}
+        </li>
+        <li class="breadcrumb-item {% if step == 'done' %}active{% endif %}">4. Done</li>
       </ol>
 
       {% if step == 'generate' %}
@@ -58,6 +61,53 @@
       </form>
       {% endif %}
 
+      {% if step == 'create' %}
+      <h6 class="text-secondary small text-uppercase mb-3">Create a purchase order manually</h6>
+      {% if not suppliers %}
+      <div class="alert alert-warning py-2">
+        No active suppliers. <a href="/admin/supplier/list">Create a supplier first</a>.
+      </div>
+      {% else %}
+      <form method="post" action="">
+        <input type="hidden" name="step" value="create" />
+        <div class="row g-3 align-items-end mb-3">
+          <div class="col-md-5">
+            <label class="form-label" for="supplier_id">Supplier</label>
+            <select class="form-select" id="supplier_id" name="supplier_id" required>
+              {% for supplier in suppliers %}
+              <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="notes">Notes (optional)</label>
+            <input class="form-control" type="text" id="notes" name="notes" />
+          </div>
+        </div>
+        <table class="table table-sm table-bordered">
+          <thead>
+            <tr><th>Product</th><th>SKU</th><th>Stock</th><th class="col-3">Quantity to order</th><th class="col-2">Unit cost</th></tr>
+          </thead>
+          <tbody>
+            {% for product in catalog_products %}
+            <tr>
+              <td>{{ product.name }}</td>
+              <td>{{ product.sku }}</td>
+              <td>{{ product.stock_quantity }}</td>
+              <td><input class="form-control form-control-sm" type="number" name="qty_{{ product.id }}" min="0" value="0" /></td>
+              <td><input class="form-control form-control-sm" type="number" step="0.01" name="cost_{{ product.id }}" min="0" value="0" /></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-file-circle-plus me-1"></i>Create Draft Purchase Order
+        </button>
+        <a href="/admin/workflows/restock?step=receive" class="btn btn-light ms-2">Go to Receive</a>
+      </form>
+      {% endif %}
+      {% endif %}
+
       {% if step == 'receive' %}
       <h6 class="text-secondary small text-uppercase mb-3">Receive a draft purchase order</h6>
       {% if selected_po %}
@@ -89,6 +139,15 @@
         </button>
         <a href="/admin/workflows/restock?step=receive" class="btn btn-light ms-2">Choose another PO</a>
       </form>
+      {% if selected_po.status == 'draft' %}
+      <form method="post" action="" class="mt-3">
+        <input type="hidden" name="step" value="order" />
+        <input type="hidden" name="po_id" value="{{ selected_po.id }}" />
+        <button type="submit" class="btn btn-outline-primary btn-sm">
+          <i class="fa-solid fa-truck me-1"></i>Mark PO #{{ selected_po.id }} as ordered
+        </button>
+      </form>
+      {% endif %}
       {% elif draft_pos %}
       <form method="post" action="">
         <input type="hidden" name="step" value="select_po" />

@@ -721,6 +721,134 @@ def test_restock_workflow_generate_empty_when_healthy(client, auth_factory, db):
     assert "No draft purchase orders to receive" in page.text
 
 
+def test_restock_workflow_manual_create_po(client, auth_factory, db):
+    from decimal import Decimal
+
+    from app.models.product import Product
+    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
+
+    user_id = _workflow_admin(client, auth_factory, db, "manual-po-boss@example.com")
+    supplier, product = _seed_low_stock(db)
+
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={
+            "step": "create",
+            "supplier_id": str(supplier.id),
+            "notes": "manual order",
+            f"qty_{product.id}": "7",
+            f"cost_{product.id}": "4.50",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=receive" in resp.headers["location"]
+
+    po = db.query(PurchaseOrder).order_by(PurchaseOrder.id.desc()).first()
+    assert po is not None
+    assert po.supplier_id == supplier.id
+    assert po.user_id == user_id
+    assert po.status == "draft"
+    assert po.tenant_id == 1
+    assert po.notes == "manual order"
+    assert len(po.items) == 1
+    item = po.items[0]
+    assert item.product_id == product.id
+    assert item.quantity_ordered == 7
+    assert item.quantity_received == 0
+    assert item.unit_cost == Decimal("4.50")
+    assert po.total_estimated_amount == Decimal("31.50")
+
+
+def test_restock_workflow_mark_ordered(client, auth_factory, db):
+    from decimal import Decimal
+
+    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
+
+    user_id = _workflow_admin(client, auth_factory, db, "order-po-boss@example.com")
+    supplier, product = _seed_low_stock(db)
+    po = PurchaseOrder(
+        supplier_id=supplier.id, user_id=user_id, status="draft", tenant_id=1
+    )
+    db.add(po)
+    db.flush()
+    db.add(
+        PurchaseOrderItem(
+            purchase_order_id=po.id,
+            product_id=product.id,
+            quantity_ordered=3,
+            quantity_received=0,
+            unit_cost=Decimal("4.00"),
+            tenant_id=1,
+        )
+    )
+    db.commit()
+    po_id = po.id
+
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={"step": "order", "po_id": str(po_id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+    db.expire_all()
+    marked = db.get(PurchaseOrder, po_id)
+    assert marked.status == "ordered"
+    assert marked.ordered_at is not None
+
+
+def test_restock_workflow_manual_create_rejects_no_supplier(client, auth_factory, db):
+    _workflow_admin(client, auth_factory, db, "bad-po-boss@example.com")
+    _, product = _seed_low_stock(db)
+
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={"step": "create", f"qty_{product.id}": "2", f"cost_{product.id}": "1"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=create" in resp.headers["location"]
+
+
+def test_restock_workflow_manual_create_rejects_no_items(client, auth_factory, db):
+    _workflow_admin(client, auth_factory, db, "noitem-po-boss@example.com")
+    supplier, _ = _seed_low_stock(db)
+
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={"step": "create", "supplier_id": str(supplier.id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    assert "step=create" in resp.headers["location"]
+
+
+def test_restock_workflow_scoped_to_admin_tenant(client, auth_factory, db):
+    """Products/POs from other tenants are not offered to the admin workflow."""
+    from app.models.tenant import Tenant
+
+    _workflow_admin(client, auth_factory, db, "scoped-po-boss@example.com")
+    supplier, product = _seed_low_stock(db, supplier_name="Other Tenant Supplier")
+    tenant2 = Tenant(name="Other Tenant", slug="other-tenant")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+    product.tenant_id = tenant2.id
+    product.category.tenant_id = tenant2.id
+    supplier.tenant_id = tenant2.id
+    db.commit()
+
+    page = client.get("/admin/workflows/restock?step=create")
+    assert page.status_code == 200
+    assert "Other Tenant Supplier" not in page.text
+    assert "Workflow Widget" not in page.text
+
+    page = client.get("/admin/workflows/restock")
+    assert page.status_code == 200
+    assert "Workflow Widget" not in page.text
+
+
 def test_invoice_workflow_creates_and_approves(client, auth_factory, db):
     """Create an invoice from a received PO, then approve it."""
     from decimal import Decimal

@@ -120,3 +120,38 @@ def test_auto_po_skips_products_without_supplier_history(
         skip["product_id"] == product["id"] and "supplier" in skip["reason"]
         for skip in result["skipped_products"]
     ), result
+
+
+def test_auto_po_defaults_to_sole_active_supplier(
+    client: TestClient, db, manager_headers, auth_factory
+):
+    """A product with no supplier history uses the tenant's only active
+    supplier instead of being skipped."""
+    owner = auth_factory.register("po-owner3@example.com")
+    u = db.get(User, owner["id"])
+    u.is_superuser = True
+    db.commit()
+
+    supplier = client.post(
+        "/api/v1/purchasing/suppliers",
+        headers=manager_headers,
+        json={"name": "Sole Supplier", "is_active": True},
+    )
+    assert supplier.status_code == 200, supplier.text
+    supplier_id = supplier.json()["id"]
+
+    product = _seed(
+        db, client, manager_headers, "Fallback Item", "FALL-1", 8.0, 2, reorder_point=40
+    )
+
+    result = auto_generate_purchase_orders(db=db, lookback_days=30)
+    db.commit()
+    assert result["generated"] == 1, result
+    po_id = result["po_ids"][0]
+
+    owner_h = _login(client, "po-owner3@example.com")
+    resp = client.get(f"/api/v1/purchasing/orders/{po_id}", headers=owner_h)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["supplier_id"] == supplier_id
+    assert body["items"][0]["product_id"] == product["id"]

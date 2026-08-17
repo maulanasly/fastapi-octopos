@@ -45,6 +45,8 @@ from app.schemas.purchase import (
     PurchaseInvoiceCreate,
     PurchaseInvoiceItemCreate,
     PurchaseInvoiceReviewAction,
+    PurchaseOrderCreate,
+    PurchaseOrderItemCreate,
     PurchaseOrderReceive,
     PurchaseOrderReceiveItem,
 )
@@ -60,6 +62,8 @@ from app.services.images import (
 from app.services.purchasing import (
     approve_purchase_invoice,
     create_purchase_invoice,
+    create_purchase_order,
+    mark_purchase_order_ordered,
     receive_purchase_order_items,
     reject_purchase_invoice,
     submit_purchase_invoice_for_review,
@@ -1306,19 +1310,35 @@ class WorkflowsAdmin(BaseView):
         try:
             low_stock_count = (
                 db.query(Product)
-                .filter(Product.stock_quantity <= Product.reorder_point)
+                .filter(
+                    Product.stock_quantity <= Product.reorder_point,
+                    Product.tenant_id == ADMIN_TENANT_ID,
+                )
                 .count()
             )
             draft_po_count = (
-                db.query(PurchaseOrder).filter(PurchaseOrder.status == "draft").count()
+                db.query(PurchaseOrder)
+                .filter(
+                    PurchaseOrder.status == "draft",
+                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                )
+                .count()
             )
             pending_invoice_count = (
                 db.query(PurchaseInvoice)
-                .filter(PurchaseInvoice.status == "pending_review")
+                .filter(
+                    PurchaseInvoice.status == "pending_review",
+                    PurchaseInvoice.tenant_id == ADMIN_TENANT_ID,
+                )
                 .count()
             )
             open_drawer_count = (
-                db.query(DrawerSession).filter(DrawerSession.status == "open").count()
+                db.query(DrawerSession)
+                .filter(
+                    DrawerSession.status == "open",
+                    DrawerSession.tenant_id == ADMIN_TENANT_ID,
+                )
+                .count()
             )
             return await self.templates.TemplateResponse(
                 request,
@@ -1349,12 +1369,16 @@ class WorkflowsAdmin(BaseView):
                     PurchaseOrderItem.purchase_order_id == PurchaseOrder.id,
                 )
                 .filter(
-                    PurchaseOrder.status.in_(("draft", "ordered", "partially_received"))
+                    PurchaseOrder.status.in_(
+                        ("draft", "ordered", "partially_received")
+                    ),
+                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
                 )
                 .all()
             }
             low_stock_query = db.query(Product).filter(
-                Product.stock_quantity <= Product.reorder_point
+                Product.stock_quantity <= Product.reorder_point,
+                Product.tenant_id == ADMIN_TENANT_ID,
             )
             if pending_product_ids:
                 low_stock_query = low_stock_query.filter(
@@ -1398,6 +1422,101 @@ class WorkflowsAdmin(BaseView):
                         po_id = int(form.get("po_id") or "")
                     except (TypeError, ValueError):
                         raise HTTPException(status_code=400, detail="Select a PO")
+                    return RedirectResponse(
+                        url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
+                        status_code=303,
+                    )
+
+                if step == "create":
+                    try:
+                        supplier_id = int(form.get("supplier_id") or "")
+                    except (TypeError, ValueError):
+                        supplier_id = 0
+                    try:
+                        if supplier_id <= 0:
+                            raise HTTPException(
+                                status_code=400, detail="Select a supplier"
+                            )
+                        items = []
+                        for key, value in form.multi_items():
+                            if not key.startswith("qty_"):
+                                continue
+                            try:
+                                product_id = int(key.removeprefix("qty_"))
+                                qty = int(value)
+                            except (TypeError, ValueError):
+                                continue
+                            if qty <= 0:
+                                continue
+                            try:
+                                unit_cost = float(form.get(f"cost_{product_id}") or 0)
+                            except (TypeError, ValueError):
+                                unit_cost = 0.0
+                            items.append(
+                                PurchaseOrderItemCreate(
+                                    product_id=product_id,
+                                    quantity_ordered=qty,
+                                    unit_cost=unit_cost,
+                                )
+                            )
+                        if not items:
+                            raise HTTPException(
+                                status_code=400,
+                                detail="Enter at least one product with a quantity",
+                            )
+                        user = self._admin_user(db, request)
+                        if user is None:
+                            raise HTTPException(
+                                status_code=403, detail="Admin user missing"
+                            )
+                        purchase_order = create_purchase_order(
+                            db=db,
+                            current_user=user,
+                            purchase_order_in=PurchaseOrderCreate(
+                                supplier_id=supplier_id,
+                                items=items,
+                                notes=form.get("notes") or None,
+                            ),
+                            tenant_id=ADMIN_TENANT_ID,
+                        )
+                    except HTTPException as exc:
+                        self._flash_http_error(request, exc)
+                        return RedirectResponse(
+                            url="/admin/workflows/restock?step=create",
+                            status_code=303,
+                        )
+                    Flash.success(
+                        request, f"Purchase order #{purchase_order.id} created (draft)."
+                    )
+                    return RedirectResponse(
+                        url=f"/admin/workflows/restock?step=receive&po_id={purchase_order.id}",
+                        status_code=303,
+                    )
+
+                if step == "order":
+                    try:
+                        po_id = int(form.get("po_id") or "")
+                    except (TypeError, ValueError):
+                        raise HTTPException(status_code=400, detail="Select a PO")
+                    try:
+                        user = self._admin_user(db, request)
+                        if user is None:
+                            raise HTTPException(
+                                status_code=403, detail="Admin user missing"
+                            )
+                        mark_purchase_order_ordered(
+                            db=db,
+                            current_user=user,
+                            purchase_order_id=po_id,
+                            tenant_id=ADMIN_TENANT_ID,
+                        )
+                    except HTTPException as exc:
+                        self._flash_http_error(request, exc)
+                        return RedirectResponse(
+                            url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
+                            status_code=303,
+                        )
+                    Flash.success(request, f"PO #{po_id} marked as ordered.")
                     return RedirectResponse(
                         url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
                         status_code=303,
@@ -1461,8 +1580,26 @@ class WorkflowsAdmin(BaseView):
                     ),
                     joinedload(PurchaseOrder.supplier),
                 )
-                .filter(PurchaseOrder.status == "draft")
+                .filter(
+                    PurchaseOrder.status == "draft",
+                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                )
                 .order_by(PurchaseOrder.id.asc())
+                .all()
+            )
+            suppliers = (
+                db.query(Supplier)
+                .filter(
+                    Supplier.is_active.is_(True),
+                    Supplier.tenant_id == ADMIN_TENANT_ID,
+                )
+                .order_by(Supplier.name.asc())
+                .all()
+            )
+            catalog_products = (
+                db.query(Product)
+                .filter(Product.tenant_id == ADMIN_TENANT_ID)
+                .order_by(Product.name.asc())
                 .all()
             )
             selected_po = None
@@ -1480,6 +1617,8 @@ class WorkflowsAdmin(BaseView):
                     "step": step,
                     "low_stock": low_stock,
                     "draft_pos": draft_pos,
+                    "suppliers": suppliers,
+                    "catalog_products": catalog_products,
                     "selected_po": selected_po,
                     "done_po_id": request.query_params.get("po_id"),
                 },
@@ -1508,7 +1647,10 @@ class WorkflowsAdmin(BaseView):
                     ),
                     joinedload(PurchaseOrder.supplier),
                 )
-                .filter(PurchaseOrder.status != "cancelled")
+                .filter(
+                    PurchaseOrder.status != "cancelled",
+                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                )
                 .order_by(PurchaseOrder.id.desc())
                 .limit(50)
                 .all()
