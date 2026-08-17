@@ -113,6 +113,7 @@ class UserAdmin(LabeledRelationsMixin, TenantScopedModelView, model=User):
     can_delete = False
 
     column_labels = {User.hashed_password: "Password"}
+    column_default_sort = [(User.id, True)]
     form_overrides = {User.hashed_password: AdminPasswordField}
 
     async def on_model_change(
@@ -154,6 +155,7 @@ class LocalizationSettingAdmin(
         LocalizationSetting.country_code,
         LocalizationSetting.updated_at,
     ]
+    column_default_sort = [(LocalizationSetting.updated_at, True)]
     can_create = False
     can_delete = False
 
@@ -183,6 +185,7 @@ class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
     ]
     column_searchable_list = [Role.name, Role.description]
     column_sortable_list = [Role.id, Role.name]
+    column_default_sort = [(Role.id, True)]
 
     async def check_can_edit(self, request: Request, model: Role) -> bool:
         if getattr(model, "is_system", False):
@@ -209,6 +212,7 @@ class PermissionAdmin(LabeledRelationsMixin, ModelView, model=Permission):
     ]
     column_searchable_list = [Permission.code, Permission.description]
     column_sortable_list = [Permission.id, Permission.code]
+    column_default_sort = [(Permission.id, True)]
 
 
 class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
@@ -219,6 +223,7 @@ class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
 
     column_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
     column_sortable_list = [UserRole.id, UserRole.user_id, UserRole.role_id]
+    column_default_sort = [(UserRole.id, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -240,6 +245,7 @@ class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission
         RolePermission.role_id,
         RolePermission.permission_id,
     ]
+    column_default_sort = [(RolePermission.id, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -258,6 +264,7 @@ class CategoryAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Category
         Category.color,
     ]
     column_searchable_list = [Category.name]
+    column_default_sort = [(Category.updated_at, True)]
     form_overrides = {"color": ColorField}
 
 
@@ -288,6 +295,7 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.reorder_point,
         Product.lead_time_days,
     ]
+    column_default_sort = [(Product.updated_at, True)]
 
     # Stock is ledger-managed via the stock-adjustment action below; never
     # edit it directly through the create/edit forms. Photos go through the
@@ -503,6 +511,7 @@ class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promoti
     ]
     column_searchable_list = [Promotion.code, Promotion.name, Promotion.description]
     column_sortable_list = [Promotion.id, Promotion.usage_count, Promotion.starts_at]
+    column_default_sort = [(Promotion.created_at, True)]
 
 
 class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer):
@@ -522,6 +531,7 @@ class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer
     ]
     column_searchable_list = [Customer.name, Customer.email, Customer.phone]
     column_sortable_list = [Customer.id, Customer.points_balance, Customer.created_at]
+    column_default_sort = [(Customer.created_at, True)]
 
 
 class LoyaltyTransactionAdmin(
@@ -546,6 +556,7 @@ class LoyaltyTransactionAdmin(
         LoyaltyTransaction.note,
     ]
     column_sortable_list = [LoyaltyTransaction.id, LoyaltyTransaction.created_at]
+    column_default_sort = [(LoyaltyTransaction.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -567,6 +578,7 @@ class SupplierAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Supplier
     ]
     column_searchable_list = [Supplier.name, Supplier.contact_email, Supplier.phone]
     column_sortable_list = [Supplier.created_at, Supplier.id]
+    column_default_sort = [(Supplier.created_at, True)]
 
 
 class PurchaseOrderAdmin(
@@ -589,6 +601,7 @@ class PurchaseOrderAdmin(
     ]
     column_searchable_list = [PurchaseOrder.status]
     column_sortable_list = [PurchaseOrder.created_at, PurchaseOrder.received_at]
+    column_default_sort = [(PurchaseOrder.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -612,6 +625,7 @@ class PurchaseOrderItemAdmin(
     ]
     column_searchable_list = [PurchaseOrderItem.purchase_order_id]
     column_sortable_list = [PurchaseOrderItem.id]
+    column_default_sort = [(PurchaseOrderItem.id, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -644,6 +658,7 @@ class PurchaseInvoiceAdmin(
         PurchaseInvoice.total_amount,
         PurchaseInvoice.variance_amount,
     ]
+    column_default_sort = [(PurchaseInvoice.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -675,6 +690,7 @@ class PurchaseInvoiceItemAdmin(
         PurchaseInvoiceItem.purchase_order_item_id,
     ]
     column_sortable_list = [PurchaseInvoiceItem.id, PurchaseInvoiceItem.line_total]
+    column_default_sort = [(PurchaseInvoiceItem.id, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -719,6 +735,7 @@ class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
     ]
     column_sortable_list = [Order.created_at, Order.total_amount]
     column_searchable_list = [Order.id]
+    column_default_sort = [(Order.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -738,6 +755,7 @@ class OrderItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=OrderIt
         OrderItem.unit_price,
     ]
     column_searchable_list = [OrderItem.order_id]
+    column_default_sort = [(OrderItem.id, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -766,6 +784,7 @@ class DrawerSessionAdmin(
     ]
     column_searchable_list = [DrawerSession.status]
     column_sortable_list = [DrawerSession.opened_at, DrawerSession.closed_at]
+    column_default_sort = [(DrawerSession.opened_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -793,6 +812,7 @@ class ShiftReconciliationAdmin(
     ]
     column_searchable_list = [ShiftReconciliation.drawer_session_id]
     column_sortable_list = [ShiftReconciliation.created_at, ShiftReconciliation.id]
+    column_default_sort = [(ShiftReconciliation.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -813,6 +833,7 @@ class RefundAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund):
     ]
     column_searchable_list = [Refund.order_id]
     column_sortable_list = [Refund.created_at, Refund.total_amount]
+    column_default_sort = [(Refund.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -833,6 +854,7 @@ class RefundItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund
         RefundItem.unit_price,
     ]
     column_searchable_list = [RefundItem.refund_id, RefundItem.order_item_id]
+    column_default_sort = [(RefundItem.id, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -860,6 +882,7 @@ class StockMovementAdmin(
     ]
     column_searchable_list = [StockMovement.movement_type, StockMovement.note]
     column_sortable_list = [StockMovement.created_at, StockMovement.id]
+    column_default_sort = [(StockMovement.created_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -891,6 +914,7 @@ class SyncEventLogAdmin(
         SyncEventLog.status,
     ]
     column_sortable_list = [SyncEventLog.processed_at, SyncEventLog.id]
+    column_default_sort = [(SyncEventLog.processed_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
@@ -917,6 +941,7 @@ class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
     ]
     column_searchable_list = [TaxRule.name, TaxRule.description]
     column_sortable_list = [TaxRule.id, TaxRule.rate, TaxRule.updated_at]
+    column_default_sort = [(TaxRule.updated_at, True)]
 
 
 class OrderTaxLineAdmin(
@@ -941,6 +966,7 @@ class OrderTaxLineAdmin(
     ]
     column_searchable_list = [OrderTaxLine.tax_name, OrderTaxLine.tax_scope]
     column_sortable_list = [OrderTaxLine.applied_at, OrderTaxLine.id]
+    column_default_sort = [(OrderTaxLine.applied_at, True)]
     can_create = False
     can_edit = False
     can_delete = False
