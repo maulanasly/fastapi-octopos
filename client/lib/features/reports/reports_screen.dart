@@ -1,13 +1,14 @@
-/// Reports screen: sales summary + low stock + shift reports.
+/// Reports screen: sales summary, daily close, low stock, shift reports.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
-import '../../core/strings.dart';
+import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../core/strings.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -19,6 +20,8 @@ class ReportsScreen extends ConsumerStatefulWidget {
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   late Future<SalesSummary> _salesFuture;
   late Future<List<Product>> _lowStockFuture;
+  late Future<DailyCloseTotals> _dailyCloseFuture;
+  late Future<List<DailyShiftItem>> _shiftsFuture;
 
   @override
   void initState() {
@@ -27,8 +30,90 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   }
 
   void _load() {
-    _salesFuture = ref.read(reportRepositoryProvider).sales();
-    _lowStockFuture = ref.read(reportRepositoryProvider).lowStock();
+    final repo = ref.read(reportRepositoryProvider);
+    _salesFuture = repo.sales();
+    _lowStockFuture = repo.lowStock();
+    _dailyCloseFuture = repo.dailyClose();
+    _shiftsFuture = repo.shifts();
+  }
+
+  Future<void> _showShiftReport(DailyShiftItem shift) async {
+    final s = ref.read(stringsProvider);
+    final report = await ref
+        .read(reportRepositoryProvider)
+        .shiftReport(shift.reconciliationId);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${s.of('shifts')} #${report.reconciliationId}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '${s.of('operator')}: ${report.operatorName ?? '-'}',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+              Text(
+                '${s.of('date')}: ${formatDateTimeIso(report.closedAt)}',
+                style: Theme.of(ctx).textTheme.bodySmall,
+              ),
+              const Divider(height: 20),
+              _dialogRow(ctx, s.of('grossRevenue'), report.grossSalesTotal),
+              _dialogRow(ctx, s.of('netRevenue'), report.netSalesTotal),
+              _dialogRow(ctx, s.of('cashSales'), report.cashSalesTotal),
+              _dialogRow(ctx, s.of('nonCashSales'), report.nonCashSalesTotal),
+              _dialogRow(ctx, s.of('refunds'), report.refundsTotal),
+              _dialogRow(
+                ctx,
+                s.of('orders'),
+                report.completedOrderCount.toDouble(),
+              ),
+              _dialogRow(
+                ctx,
+                s.of('variance'),
+                report.cashVariance,
+                highlight: report.cashVariance != 0,
+              ),
+              const Divider(height: 20),
+              for (final p in report.paymentBreakdown)
+                _dialogRow(ctx, p.paymentMethod, p.amount),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.of('done')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dialogRow(
+    BuildContext context,
+    String label,
+    double amount, {
+    bool highlight = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(
+            formatCents(centsFromApi(amount)),
+            style: TextStyle(
+              fontWeight: highlight ? FontWeight.bold : FontWeight.w500,
+              color: highlight ? Theme.of(context).colorScheme.error : null,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -109,6 +194,62 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             },
           ),
           const SizedBox(height: 16),
+          FutureBuilder<DailyCloseTotals>(
+            future: _dailyCloseFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const SizedBox.shrink();
+              }
+              final t = snapshot.data;
+              if (t == null) return const SizedBox.shrink();
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        strings.of('todayClose'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      _metric(
+                        context,
+                        strings.of('grossRevenue'),
+                        formatCents(centsFromApi(t.grossSalesTotal)),
+                      ),
+                      _metric(
+                        context,
+                        strings.of('netRevenue'),
+                        formatCents(centsFromApi(t.netSalesTotal)),
+                      ),
+                      _metric(
+                        context,
+                        strings.of('cashSales'),
+                        formatCents(centsFromApi(t.cashSalesTotal)),
+                      ),
+                      _metric(
+                        context,
+                        strings.of('refunds'),
+                        formatCents(centsFromApi(t.refundsTotal)),
+                      ),
+                      _metric(
+                        context,
+                        strings.of('orders'),
+                        '${t.completedOrderCount}',
+                      ),
+                      _metric(
+                        context,
+                        strings.of('shiftCount', args: {'count': t.shiftCount}),
+                        '',
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
           FutureBuilder<List<Product>>(
             future: _lowStockFuture,
             builder: (context, snapshot) {
@@ -137,6 +278,46 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                               'reorder at ${product.reorderPoint}',
                             ),
                             trailing: Text(formatCents(product.priceCents)),
+                          ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<DailyShiftItem>>(
+            future: _shiftsFuture,
+            builder: (context, snapshot) {
+              final shifts = snapshot.data ?? [];
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        strings.of('shifts'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      if (shifts.isEmpty)
+                        Text(strings.of('noOrders'))
+                      else
+                        for (final shift in shifts)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              '${strings.of('shifts')} #'
+                              '${shift.reconciliationId} — '
+                              '${shift.operatorName ?? '-'}',
+                            ),
+                            subtitle: Text(formatDateTimeIso(shift.closedAt)),
+                            trailing: Text(
+                              formatCents(centsFromApi(shift.netSalesTotal)),
+                            ),
+                            onTap: () => _showShiftReport(shift),
                           ),
                     ],
                   ),

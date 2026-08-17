@@ -17,6 +17,7 @@ from app.schemas.purchase import PurchaseInvoiceSummary
 from app.schemas.report import (
     CategorySalesItem,
     DailyClose,
+    DailyShiftItem,
     SalesSummary,
     ShiftReport,
     TopCustomerItem,
@@ -29,6 +30,7 @@ from app.services.reports import (
     get_invoice_summary_data,
     get_low_stock_products_data,
     get_sales_summary_data,
+    get_shift_list_data,
     get_shift_report_data,
     get_top_customers_data,
     get_top_products_data,
@@ -242,6 +244,21 @@ def get_shift_report(
         net_sales_total=float(rec.net_sales_total or 0.0),
         completed_order_count=int(rec.completed_order_count or 0),
         payment_breakdown=data["payment_breakdown"],
+    )
+
+
+@router.get("/shifts", response_model=List[DailyShiftItem])
+def get_shift_list(
+    db: Session = Depends(get_db),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(require_permissions("reports:view")),
+):
+    """Recent reconciled shifts (newest first)."""
+    return get_shift_list_data(
+        db=db, date_from=date_from, date_to=date_to, skip=skip, limit=limit
     )
 
 

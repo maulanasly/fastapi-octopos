@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import List, Optional
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
@@ -74,8 +74,8 @@ def get_daily_close_data(db: Session, report_date: Optional[datetime]) -> dict:
         report_date = datetime.now().astimezone()
     local_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
     start = local_start.astimezone(timezone.utc).replace(tzinfo=None)
-    end = (local_start + timedelta(days=1)).astimezone(timezone.utc).replace(
-        tzinfo=None
+    end = (
+        (local_start + timedelta(days=1)).astimezone(timezone.utc).replace(tzinfo=None)
     )
 
     shifts = (
@@ -436,3 +436,51 @@ def get_executive_summary_data(
         )
 
     return summary
+
+
+def get_shift_list_data(
+    db: Session,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> List[dict]:
+    """Recent reconciled shifts (newest first) with operator details."""
+    query = (
+        db.query(ShiftReconciliation)
+        .join(DrawerSession, DrawerSession.id == ShiftReconciliation.drawer_session_id)
+        .filter(DrawerSession.closed_at.isnot(None))
+    )
+    if date_from is not None:
+        query = query.filter(DrawerSession.closed_at >= date_from)
+    if date_to is not None:
+        query = query.filter(DrawerSession.closed_at <= date_to)
+    rows = (
+        query.order_by(DrawerSession.closed_at.desc()).offset(skip).limit(limit).all()
+    )
+    items = []
+    for rec in rows:
+        drawer = (
+            db.query(DrawerSession)
+            .filter(DrawerSession.id == rec.drawer_session_id)
+            .first()
+        )
+        items.append(
+            {
+                "reconciliation_id": rec.id,
+                "drawer_session_id": rec.drawer_session_id,
+                "opened_at": drawer.opened_at if drawer else None,
+                "closed_at": drawer.closed_at if drawer else None,
+                "operator_name": drawer.user.full_name
+                if drawer and drawer.user
+                else None,
+                "cash_sales_total": float(rec.cash_sales_total or 0.0),
+                "non_cash_sales_total": float(rec.non_cash_sales_total or 0.0),
+                "refunds_total": float(rec.refunds_total or 0.0),
+                "gross_sales_total": float(rec.gross_sales_total or 0.0),
+                "net_sales_total": float(rec.net_sales_total or 0.0),
+                "completed_order_count": int(rec.completed_order_count or 0),
+                "cash_variance": float(rec.cash_variance or 0.0),
+            }
+        )
+    return items
