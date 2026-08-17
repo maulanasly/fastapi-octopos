@@ -10,6 +10,7 @@ process dev mode) the task always runs.
 """
 from typing import Callable
 
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 # Arbitrary stable identifiers (must fit PostgreSQL bigint).
@@ -29,7 +30,7 @@ def run_exclusive(engine: Engine, lock_key: int, task: Callable[[], None]) -> bo
     conn = engine.connect()
     try:
         acquired = conn.execute(
-            "SELECT pg_try_advisory_lock(:key)", {"key": lock_key}
+            text("SELECT pg_try_advisory_lock(:key)"), {"key": lock_key}
         ).scalar()
         if not acquired:
             return False
@@ -37,6 +38,6 @@ def run_exclusive(engine: Engine, lock_key: int, task: Callable[[], None]) -> bo
             task()
             return True
         finally:
-            conn.execute("SELECT pg_advisory_unlock(:key)", {"key": lock_key})
+            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": lock_key})
     finally:
         conn.close()

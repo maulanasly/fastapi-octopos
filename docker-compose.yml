@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 10
 
-redis:
+  redis:
     image: redis:7
     container_name: octopos-redis
     ports:
@@ -63,5 +63,9 @@ redis:
       retries: 3
 
 volumes:
+  # Adopt the pre-existing postgres volume so the migrated SQLite data and
+  # any prior state remain visible; the orphaned containers that owned it
+  # were removed so compose manages this stack.
   octopos_pgdata:
+    name: fastapi-octopos-multi-tenant_octopos_pgdata
   media:
