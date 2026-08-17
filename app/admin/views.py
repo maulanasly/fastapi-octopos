@@ -15,9 +15,11 @@ from starlette.responses import RedirectResponse
 
 from app.admin.color_field import ColorField
 from app.admin.formatting import LabeledRelationsMixin
+from app.admin.password_field import AdminPasswordField
 from app.core.audit import log_action
 from app.core.database import SessionLocal
 from app.core.localization import format_currency, get_localization_setting
+from app.core.security import get_password_hash
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
 from app.models.localization import LocalizationSetting
@@ -103,6 +105,29 @@ class UserAdmin(LabeledRelationsMixin, TenantScopedModelView, model=User):
     ]
     column_searchable_list = [User.email, User.full_name]
     can_delete = False
+
+    column_labels = {User.hashed_password: "Password"}
+    form_overrides = {User.hashed_password: AdminPasswordField}
+
+    async def on_model_change(
+        self, data: dict, model: User, is_created: bool, request: Request
+    ) -> None:
+        """Hash the typed password; never persist a raw string.
+
+        sqladmin calls this before applying the form values to the model,
+        so mutating ``data`` here is authoritative. A blank submission
+        keeps the existing hash on edits and leaves ``None`` on creates
+        (Google-only users).
+        """
+        submitted = (data.get("hashed_password") or "").strip()
+        if submitted:
+            data["hashed_password"] = get_password_hash(submitted)
+        elif is_created:
+            data.pop("hashed_password", None)
+        else:
+            # Preserve the current hash (form value is blank).
+            data.pop("hashed_password", None)
+        await super().on_model_change(data, model, is_created, request)
 
 
 class LocalizationSettingAdmin(
