@@ -9,10 +9,13 @@ RELOAD ?= --reload
 MSG ?= update-schema
 FLUTTER ?= flutter
 CLIENT_WEB_PORT ?= 3001
+DOCKER ?= docker
+DOCKER_COMPOSE ?= docker compose
+IMG_NAME ?= octopos-backend
 
 .PHONY: help install run dev migrate migrate-down makemigration \
 	migration-history migration-current lint format check test pre-commit clean \
-	client client-run client-test client-analyze
+	client client-run client-test client-analyze 	docker-build docker-up docker-down docker-logs docker-ps 	docker-migrate docker-shell
 
 help: ## Show available commands
 	@echo "FastAPI OctoPOS - Make targets"
@@ -74,3 +77,24 @@ client-test: ## Run Flutter tests
 
 client-analyze: ## Run Flutter static analysis
 	cd client && $(FLUTTER) analyze
+
+docker-build: ## Build the backend image
+	$(DOCKER) build -t $(IMG_NAME) .
+
+docker-up: ## Build & start the stack (db + backend)
+	$(DOCKER_COMPOSE) up -d --build
+
+docker-down: ## Stop the stack
+	$(DOCKER_COMPOSE) down
+
+docker-logs: ## Follow backend logs
+	$(DOCKER_COMPOSE) logs -f backend
+
+docker-ps: ## Show running services
+	$(DOCKER_COMPOSE) ps
+
+docker-migrate: ## Run alembic upgrade head in the backend container
+	$(DOCKER_COMPOSE) exec backend alembic upgrade head
+
+docker-shell: ## Open a shell in the backend container
+	$(DOCKER_COMPOSE) exec backend sh

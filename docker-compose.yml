@@ -18,5 +18,38 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build: .
+    image: octopos-backend
+    container_name: octopos-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      # Values are interpolated from .env; secrets are REQUIRED (fail_closed
+      # refuses the tutorial default SECRET_KEY / 'admin' password).
+      ENVIRONMENT: "${ENVIRONMENT:-production}"
+      SECRET_KEY: "${SECRET_KEY:?set SECRET_KEY in .env}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}"
+      BACKEND_CORS_ORIGINS: '${BACKEND_CORS_ORIGINS:-["http://localhost:3001"]}'
+      SQLALCHEMY_DATABASE_URI: "${SQLALCHEMY_DATABASE_URI:-postgresql+psycopg://postgres:postgres@postgres:5432/octopos}"
+      RESERVATION_AUTO_EXPIRE_ENABLED: "${RESERVATION_AUTO_EXPIRE_ENABLED:-true}"
+      DEFAULT_TAX_RATE: "${DEFAULT_TAX_RATE:-0.0}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      LOG_JSON: "true"
+      MEDIA_DIR: "/data/media"
+    volumes:
+      - media:/data/media
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
 volumes:
   octopos_pgdata:
+  media:
