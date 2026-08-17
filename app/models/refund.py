@@ -23,8 +23,8 @@ class Refund(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     idempotency_key = Column(String, nullable=True, index=True)
     payment_method = Column(
         String, nullable=True
@@ -42,9 +42,11 @@ class RefundItem(Base):
     __tablename__ = "refund_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    refund_id = Column(Integer, ForeignKey("refunds.id"), nullable=False)
-    order_item_id = Column(Integer, ForeignKey("order_items.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    refund_id = Column(Integer, ForeignKey("refunds.id"), nullable=False, index=True)
+    order_item_id = Column(
+        Integer, ForeignKey("order_items.id"), nullable=False, index=True
+    )
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
 

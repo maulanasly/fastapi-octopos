@@ -22,10 +22,14 @@ class Order(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
-    promotion_id = Column(Integer, ForeignKey("promotions.id"), nullable=True)
-    drawer_session_id = Column(Integer, ForeignKey("drawer_sessions.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    promotion_id = Column(
+        Integer, ForeignKey("promotions.id"), nullable=True, index=True
+    )
+    drawer_session_id = Column(
+        Integer, ForeignKey("drawer_sessions.id"), nullable=True, index=True
+    )
     drawer_session = relationship("DrawerSession", back_populates="orders")
     idempotency_key = Column(String, nullable=True, index=True)
     subtotal_amount = Column(Numeric(12, 2), nullable=True)
@@ -38,7 +42,9 @@ class Order(Base):
     change_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     remaining_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     redeemed_points = Column(Integer, nullable=False, default=0)
-    status = Column(String, default="pending")  # pending, completed, cancelled
+    status = Column(
+        String, default="pending", index=True
+    )  # pending, completed, cancelled
     reservation_status = Column(
         String, nullable=False, default="reserved", index=True
     )  # reserved, released, committed
@@ -58,8 +64,8 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
 

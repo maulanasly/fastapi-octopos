@@ -11,7 +11,7 @@ class DrawerSession(Base):
     __tablename__ = "drawer_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     opened_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

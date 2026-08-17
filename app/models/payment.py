@@ -22,7 +22,7 @@ class Payment(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     idempotency_key = Column(String, nullable=True, index=True)
     payment_method = Column(String, nullable=False)  # e.g. "cash", "card", "mobile"

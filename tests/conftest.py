@@ -10,12 +10,15 @@ Start the local Postgres with ``docker compose up -d`` (docker-compose.yml
 creates the ``octopos_test`` database via scripts/init-test-db.sql).
 """
 import os
+import tempfile
 from pathlib import Path
 
 DEFAULT_TEST_URL = "postgresql+psycopg://postgres:postgres@localhost:5433/octopos_test"
 TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_TEST_URL)
 os.environ["ENVIRONMENT"] = "development"
 os.environ["SQLALCHEMY_DATABASE_URI"] = TEST_DB_URL
+# Keep product-image uploads out of the repo tree.
+os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="octopos-test-media-")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

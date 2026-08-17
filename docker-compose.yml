@@ -18,6 +18,17 @@ services:
       timeout: 5s
       retries: 10
 
+redis:
+    image: redis:7
+    container_name: octopos-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build: .
     image: octopos-backend
@@ -41,6 +52,7 @@ services:
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_JSON: "true"
       MEDIA_DIR: "/data/media"
+      RATE_LIMIT_STORAGE_URI: "${RATE_LIMIT_STORAGE_URI:-}"
     volumes:
       - media:/data/media
     healthcheck:
