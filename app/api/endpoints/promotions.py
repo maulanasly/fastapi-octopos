@@ -15,7 +15,9 @@ from app.schemas.promotion import PromotionCreate, PromotionUpdate
 router = APIRouter()
 
 
-def _validate_promotion_scope(db: Session, promotion_data: dict) -> None:
+def _validate_promotion_scope(
+    db: Session, promotion_data: dict, tenant_id: int
+) -> None:
     applies_to = promotion_data.get("applies_to")
     product_id = promotion_data.get("product_id")
     category_id = promotion_data.get("category_id")
@@ -31,7 +33,11 @@ def _validate_promotion_scope(db: Session, promotion_data: dict) -> None:
             raise HTTPException(
                 status_code=400, detail="product_id is required when applies_to=product"
             )
-        product = db.query(Product).filter(Product.id == product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == product_id, Product.tenant_id == tenant_id)
+            .first()
+        )
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
     elif applies_to == "category":
@@ -40,7 +46,11 @@ def _validate_promotion_scope(db: Session, promotion_data: dict) -> None:
                 status_code=400,
                 detail="category_id is required when applies_to=category",
             )
-        category = db.query(Category).filter(Category.id == category_id).first()
+        category = (
+            db.query(Category)
+            .filter(Category.id == category_id, Category.tenant_id == tenant_id)
+            .first()
+        )
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
     else:
@@ -80,7 +90,13 @@ def get_promotions(
     limit: int = 100,
     current_user: User = Depends(get_current_active_user),
 ):
-    return db.query(Promotion).offset(skip).limit(limit).all()
+    return (
+        db.query(Promotion)
+        .filter(Promotion.tenant_id == current_user.tenant_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{promotion_id}", response_model=PromotionSchema)
@@ -89,7 +105,14 @@ def get_promotion(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
+    promotion = (
+        db.query(Promotion)
+        .filter(
+            Promotion.id == promotion_id,
+            Promotion.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not promotion:
         raise HTTPException(status_code=404, detail="Promotion not found")
     return promotion
@@ -105,16 +128,21 @@ def create_promotion(
     promotion_data["code"] = promotion_data["code"].strip().upper()
 
     existing = (
-        db.query(Promotion).filter(Promotion.code == promotion_data["code"]).first()
+        db.query(Promotion)
+        .filter(
+            Promotion.code == promotion_data["code"],
+            Promotion.tenant_id == current_user.tenant_id,
+        )
+        .first()
     )
     if existing:
         raise HTTPException(status_code=400, detail="Promotion code already exists")
 
-    _validate_promotion_scope(db, promotion_data)
+    _validate_promotion_scope(db, promotion_data, current_user.tenant_id)
     _validate_promotion_dates(promotion_data)
     _validate_promotion_discount(promotion_data)
 
-    promotion = Promotion(**promotion_data)
+    promotion = Promotion(**promotion_data, tenant_id=current_user.tenant_id)
     db.add(promotion)
     db.commit()
     db.refresh(promotion)
@@ -128,7 +156,14 @@ def update_promotion(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("promotions:manage")),
 ):
-    promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
+    promotion = (
+        db.query(Promotion)
+        .filter(
+            Promotion.id == promotion_id,
+            Promotion.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not promotion:
         raise HTTPException(status_code=404, detail="Promotion not found")
 
@@ -137,7 +172,11 @@ def update_promotion(
         update_data["code"] = update_data["code"].strip().upper()
         existing = (
             db.query(Promotion)
-            .filter(Promotion.code == update_data["code"], Promotion.id != promotion_id)
+            .filter(
+                Promotion.code == update_data["code"],
+                Promotion.id != promotion_id,
+                Promotion.tenant_id == current_user.tenant_id,
+            )
             .first()
         )
         if existing:
@@ -154,7 +193,7 @@ def update_promotion(
     }
     merged_data.update(update_data)
 
-    _validate_promotion_scope(db, merged_data)
+    _validate_promotion_scope(db, merged_data, current_user.tenant_id)
     _validate_promotion_dates(merged_data)
     _validate_promotion_discount(merged_data)
 
@@ -173,7 +212,14 @@ def deactivate_promotion(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("promotions:manage")),
 ):
-    promotion = db.query(Promotion).filter(Promotion.id == promotion_id).first()
+    promotion = (
+        db.query(Promotion)
+        .filter(
+            Promotion.id == promotion_id,
+            Promotion.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not promotion:
         raise HTTPException(status_code=404, detail="Promotion not found")
 

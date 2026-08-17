@@ -31,11 +31,15 @@ def _get_purchase_invoice_for_user(
     db: Session,
     invoice_id: int,
     current_user: User,
+    tenant_id: int,
 ) -> PurchaseInvoice:
     invoice = (
         db.query(PurchaseInvoice)
         .options(joinedload(PurchaseInvoice.items))
-        .filter(PurchaseInvoice.id == invoice_id)
+        .filter(
+            PurchaseInvoice.id == invoice_id,
+            PurchaseInvoice.tenant_id == tenant_id,
+        )
         .first()
     )
     if not invoice:
@@ -51,6 +55,7 @@ def create_purchase_invoice(
     db: Session,
     current_user: User,
     invoice_in: PurchaseInvoiceCreate,
+    tenant_id: int,
 ) -> PurchaseInvoice:
     if not invoice_in.items:
         raise HTTPException(
@@ -60,7 +65,10 @@ def create_purchase_invoice(
     purchase_order = (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == invoice_in.purchase_order_id)
+        .filter(
+            PurchaseOrder.id == invoice_in.purchase_order_id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )
     if not purchase_order:
@@ -83,6 +91,7 @@ def create_purchase_invoice(
         .filter(
             PurchaseInvoice.supplier_id == purchase_order.supplier_id,
             PurchaseInvoice.invoice_number == normalized_invoice_number,
+            PurchaseInvoice.tenant_id == tenant_id,
         )
         .first()
     )
@@ -109,6 +118,7 @@ def create_purchase_invoice(
         .filter(
             PurchaseInvoice.purchase_order_id == purchase_order.id,
             PurchaseInvoice.status != "rejected",
+            PurchaseInvoice.tenant_id == tenant_id,
         )
         .group_by(PurchaseInvoiceItem.purchase_order_item_id)
         .all()
@@ -168,6 +178,7 @@ def create_purchase_invoice(
             PurchaseInvoiceItem(
                 purchase_order_item_id=po_item.id,
                 product_id=po_item.product_id,
+                tenant_id=tenant_id,
                 billed_quantity=billed_quantity,
                 billed_unit_cost=billed_unit_cost,
                 expected_quantity=expected_quantity,
@@ -182,6 +193,7 @@ def create_purchase_invoice(
         supplier_id=purchase_order.supplier_id,
         purchase_order_id=purchase_order.id,
         user_id=current_user.id,
+        tenant_id=tenant_id,
         invoice_number=normalized_invoice_number,
         status="draft",
         invoice_date=invoice_in.invoice_date,
@@ -204,7 +216,10 @@ def create_purchase_invoice(
     return (
         db.query(PurchaseInvoice)
         .options(joinedload(PurchaseInvoice.items))
-        .filter(PurchaseInvoice.id == purchase_invoice.id)
+        .filter(
+            PurchaseInvoice.id == purchase_invoice.id,
+            PurchaseInvoice.tenant_id == tenant_id,
+        )
         .first()
     )
 
@@ -214,11 +229,13 @@ def submit_purchase_invoice_for_review(
     current_user: User,
     invoice_id: int,
     action_in: PurchaseInvoiceReviewAction,
+    tenant_id: int,
 ) -> PurchaseInvoice:
     invoice = _get_purchase_invoice_for_user(
         db=db,
         invoice_id=invoice_id,
         current_user=current_user,
+        tenant_id=tenant_id,
     )
     if invoice.status != "draft":
         raise HTTPException(
@@ -238,11 +255,13 @@ def approve_purchase_invoice(
     current_user: User,
     invoice_id: int,
     action_in: PurchaseInvoiceReviewAction,
+    tenant_id: int,
 ) -> PurchaseInvoice:
     invoice = _get_purchase_invoice_for_user(
         db=db,
         invoice_id=invoice_id,
         current_user=current_user,
+        tenant_id=tenant_id,
     )
     if invoice.status != "pending_review":
         raise HTTPException(
@@ -256,7 +275,14 @@ def approve_purchase_invoice(
     db.add(invoice)
 
     for item in invoice.items:
-        product = db.query(Product).filter(Product.id == item.product_id).first()
+        product = (
+            db.query(Product)
+            .filter(
+                Product.id == item.product_id,
+                Product.tenant_id == tenant_id,
+            )
+            .first()
+        )
         if product:
             product.unit_cost = item.billed_unit_cost
             db.add(product)
@@ -271,11 +297,13 @@ def reject_purchase_invoice(
     current_user: User,
     invoice_id: int,
     action_in: PurchaseInvoiceReviewAction,
+    tenant_id: int,
 ) -> PurchaseInvoice:
     invoice = _get_purchase_invoice_for_user(
         db=db,
         invoice_id=invoice_id,
         current_user=current_user,
+        tenant_id=tenant_id,
     )
     if invoice.status != "pending_review":
         raise HTTPException(
@@ -296,6 +324,7 @@ def create_purchase_order(
     db: Session,
     current_user: User,
     purchase_order_in: PurchaseOrderCreate,
+    tenant_id: int,
 ) -> PurchaseOrder:
     if not purchase_order_in.items:
         raise HTTPException(
@@ -303,7 +332,12 @@ def create_purchase_order(
         )
 
     supplier = (
-        db.query(Supplier).filter(Supplier.id == purchase_order_in.supplier_id).first()
+        db.query(Supplier)
+        .filter(
+            Supplier.id == purchase_order_in.supplier_id,
+            Supplier.tenant_id == tenant_id,
+        )
+        .first()
     )
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
@@ -311,7 +345,14 @@ def create_purchase_order(
         raise HTTPException(status_code=400, detail="Supplier is inactive")
 
     product_ids = [item.product_id for item in purchase_order_in.items]
-    products = db.query(Product).filter(Product.id.in_(product_ids)).all()
+    products = (
+        db.query(Product)
+        .filter(
+            Product.id.in_(product_ids),
+            Product.tenant_id == tenant_id,
+        )
+        .all()
+    )
     product_map = {product.id: product for product in products}
     missing_product_ids = [pid for pid in product_ids if pid not in product_map]
     if missing_product_ids:
@@ -331,6 +372,7 @@ def create_purchase_order(
     purchase_order = PurchaseOrder(
         supplier_id=purchase_order_in.supplier_id,
         user_id=current_user.id,
+        tenant_id=tenant_id,
         status="draft",
         total_estimated_amount=total_estimated_amount,
         notes=purchase_order_in.notes,
@@ -343,6 +385,7 @@ def create_purchase_order(
             PurchaseOrderItem(
                 purchase_order_id=purchase_order.id,
                 product_id=item.product_id,
+                tenant_id=tenant_id,
                 quantity_ordered=item.quantity_ordered,
                 quantity_received=0,
                 unit_cost=item.unit_cost,
@@ -353,7 +396,10 @@ def create_purchase_order(
     return (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order.id)
+        .filter(
+            PurchaseOrder.id == purchase_order.id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )
 
@@ -362,14 +408,26 @@ def create_purchase_order_from_replenishment(
     db: Session,
     current_user: User,
     payload: PurchaseOrderFromSuggestionsCreate,
+    tenant_id: int,
 ) -> PurchaseOrder:
-    supplier = db.query(Supplier).filter(Supplier.id == payload.supplier_id).first()
+    supplier = (
+        db.query(Supplier)
+        .filter(
+            Supplier.id == payload.supplier_id,
+            Supplier.tenant_id == tenant_id,
+        )
+        .first()
+    )
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
     if not supplier.is_active:
         raise HTTPException(status_code=400, detail="Supplier is inactive")
 
-    product_query = db.query(Product).order_by(Product.id.asc())
+    product_query = (
+        db.query(Product)
+        .filter(Product.tenant_id == tenant_id)
+        .order_by(Product.id.asc())
+    )
     requested_product_ids = payload.product_ids or []
     if requested_product_ids:
         unique_product_ids = sorted(set(requested_product_ids))
@@ -420,6 +478,7 @@ def create_purchase_order_from_replenishment(
     purchase_order = PurchaseOrder(
         supplier_id=supplier.id,
         user_id=current_user.id,
+        tenant_id=tenant_id,
         status="draft",
         total_estimated_amount=total_estimated_amount,
         notes=notes,
@@ -433,6 +492,7 @@ def create_purchase_order_from_replenishment(
             PurchaseOrderItem(
                 purchase_order_id=purchase_order.id,
                 product_id=product.id,
+                tenant_id=tenant_id,
                 quantity_ordered=suggestion.recommended_order_quantity,
                 quantity_received=0,
                 unit_cost=product.price,
@@ -443,7 +503,10 @@ def create_purchase_order_from_replenishment(
     return (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order.id)
+        .filter(
+            PurchaseOrder.id == purchase_order.id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )
 
@@ -452,11 +515,15 @@ def mark_purchase_order_ordered(
     db: Session,
     current_user: User,
     purchase_order_id: int,
+    tenant_id: int,
 ) -> PurchaseOrder:
     purchase_order = (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order_id)
+        .filter(
+            PurchaseOrder.id == purchase_order_id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )
     if not purchase_order:
@@ -482,11 +549,15 @@ def cancel_purchase_order(
     db: Session,
     current_user: User,
     purchase_order_id: int,
+    tenant_id: int,
 ) -> PurchaseOrder:
     purchase_order = (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order_id)
+        .filter(
+            PurchaseOrder.id == purchase_order_id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )
     if not purchase_order:
@@ -517,6 +588,7 @@ def receive_purchase_order_items(
     current_user: User,
     purchase_order_id: int,
     receive_in: PurchaseOrderReceive,
+    tenant_id: int,
 ) -> PurchaseOrder:
     if not receive_in.items:
         raise HTTPException(
@@ -526,7 +598,10 @@ def receive_purchase_order_items(
     purchase_order = (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order_id)
+        .filter(
+            PurchaseOrder.id == purchase_order_id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )
     if not purchase_order:
@@ -570,7 +645,10 @@ def receive_purchase_order_items(
         po_item = po_item_map[po_item_id]
         product = (
             db.query(Product)
-            .filter(Product.id == po_item.product_id)
+            .filter(
+                Product.id == po_item.product_id,
+                Product.tenant_id == tenant_id,
+            )
             .with_for_update()
             .first()
         )
@@ -590,6 +668,7 @@ def receive_purchase_order_items(
             StockMovement(
                 product_id=product.id,
                 user_id=current_user.id,
+                tenant_id=tenant_id,
                 purchase_order_id=purchase_order.id,
                 purchase_order_item_id=po_item.id,
                 movement_type="purchase_receipt",
@@ -619,6 +698,9 @@ def receive_purchase_order_items(
     return (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order.id)
+        .filter(
+            PurchaseOrder.id == purchase_order.id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
         .first()
     )

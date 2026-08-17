@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.observability import get_request_id
 from app.models.audit_log import AuditLog
+from app.models.user import User
 
 
 def log_action(
@@ -25,8 +26,12 @@ def log_action(
     ip_address: Optional[str] = None,
 ) -> AuditLog:
     """Append an audit entry (does not commit; caller controls the commit)."""
+    tenant_id = None
+    if user_id is not None:
+        tenant_id = db.query(User.tenant_id).filter(User.id == user_id).scalar()
     entry = AuditLog(
         user_id=user_id,
+        tenant_id=tenant_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,

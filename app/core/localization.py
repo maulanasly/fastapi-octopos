@@ -28,14 +28,17 @@ REGION_PRESETS: Dict[str, Dict[str, str]] = {
 }
 
 
-def get_localization_setting(db: Session) -> LocalizationSetting:
-    setting = (
-        db.query(LocalizationSetting).order_by(LocalizationSetting.id.asc()).first()
-    )
+def get_localization_setting(
+    db: Session, tenant_id: Optional[int] = None
+) -> LocalizationSetting:
+    query = db.query(LocalizationSetting).order_by(LocalizationSetting.id.asc())
+    if tenant_id is not None:
+        query = query.filter(LocalizationSetting.tenant_id == tenant_id)
+    setting = query.first()
     if setting:
         return setting
 
-    setting = LocalizationSetting()
+    setting = LocalizationSetting(tenant_id=tenant_id)
     db.add(setting)
     db.commit()
     db.refresh(setting)
@@ -46,13 +49,14 @@ def resolve_user_localization(db: Session, user: User) -> LocalizationSetting:
     """Effective localization for a user.
 
     A user with ``region`` set gets the preset's values; otherwise the
-    global LocalizationSetting applies.
+    tenant's LocalizationSetting applies.
     """
+    tenant_id = user.tenant_id
     preset = REGION_PRESETS.get(user.region.upper() if user.region else "")
     if not preset:
-        return get_localization_setting(db)
+        return get_localization_setting(db, tenant_id)
 
-    global_setting = get_localization_setting(db)
+    tenant_setting = get_localization_setting(db, tenant_id)
     return LocalizationSetting(
         language=preset["language"],
         timezone=preset["timezone"],
@@ -60,9 +64,10 @@ def resolve_user_localization(db: Session, user: User) -> LocalizationSetting:
         date_format=preset["date_format"],
         number_format=preset["number_format"],
         country_code=user.region.upper(),
-        id=global_setting.id,
-        created_at=global_setting.created_at,
-        updated_at=global_setting.updated_at,
+        id=tenant_setting.id,
+        tenant_id=tenant_id,
+        created_at=tenant_setting.created_at,
+        updated_at=tenant_setting.updated_at,
     )
 
 

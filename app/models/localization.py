@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
 from app.core.database import Base
@@ -8,6 +8,7 @@ class LocalizationSetting(Base):
     __tablename__ = "localization_settings"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     language = Column(String, nullable=False, default="en")
     timezone = Column(String, nullable=False, default="UTC")
     currency = Column(String, nullable=False, default="USD")

@@ -79,7 +79,22 @@ def fresh_database():
 
 
 @pytest.fixture()
-def client():
+def client(monkeypatch):
+    # Tests run single-tenant: force register/google-auth to reuse the
+    # seeded "default" tenant (id 1) so users share one data world.
+    from app.api.endpoints import auth as auth_endpoint
+    from app.services.tenants import create_tenant as _create_tenant
+
+    def _tenant_for_tests(db, name="Business"):
+        from app.models.tenant import Tenant
+
+        tenant = db.query(Tenant).filter(Tenant.slug == "default").first()
+        if tenant is None:
+            tenant = _create_tenant(db, name)
+        return tenant
+
+    monkeypatch.setattr(auth_endpoint, "create_tenant", _tenant_for_tests)
+
     from app.core.limiter import limiter
     from app.main import app
 

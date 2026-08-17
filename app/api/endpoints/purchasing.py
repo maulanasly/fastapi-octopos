@@ -59,7 +59,11 @@ def get_suppliers(
     active_only: bool = Query(False),
     current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(Supplier).order_by(Supplier.id.desc())
+    query = (
+        db.query(Supplier)
+        .filter(Supplier.tenant_id == current_user.tenant_id)
+        .order_by(Supplier.id.desc())
+    )
     if active_only:
         query = query.filter(Supplier.is_active == True)  # noqa: E712
     return query.offset(skip).limit(limit).all()
@@ -71,7 +75,7 @@ def create_supplier(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    supplier = Supplier(**supplier_in.model_dump())
+    supplier = Supplier(**supplier_in.model_dump(), tenant_id=current_user.tenant_id)
     db.add(supplier)
     db.commit()
     db.refresh(supplier)
@@ -85,7 +89,14 @@ def update_supplier(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+    supplier = (
+        db.query(Supplier)
+        .filter(
+            Supplier.id == supplier_id,
+            Supplier.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
 
@@ -112,6 +123,7 @@ def get_purchase_invoices(
     query = (
         db.query(PurchaseInvoice)
         .options(joinedload(PurchaseInvoice.items))
+        .filter(PurchaseInvoice.tenant_id == current_user.tenant_id)
         .order_by(PurchaseInvoice.id.desc())
     )
     if not current_user.is_superuser:
@@ -135,6 +147,7 @@ def get_purchase_invoice(
         db=db,
         invoice_id=invoice_id,
         current_user=current_user,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -145,7 +158,10 @@ def create_purchase_invoice(
     current_user: User = Depends(get_current_active_user),
 ):
     return create_purchase_invoice_service(
-        db=db, current_user=current_user, invoice_in=invoice_in
+        db=db,
+        current_user=current_user,
+        invoice_in=invoice_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -159,7 +175,11 @@ def submit_purchase_invoice_for_review(
     current_user: User = Depends(get_current_active_user),
 ):
     return submit_purchase_invoice_for_review_service(
-        db=db, current_user=current_user, invoice_id=invoice_id, action_in=action_in
+        db=db,
+        current_user=current_user,
+        invoice_id=invoice_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -179,7 +199,11 @@ def approve_purchase_invoice(
         )
 
     return approve_purchase_invoice_service(
-        db=db, current_user=current_user, invoice_id=invoice_id, action_in=action_in
+        db=db,
+        current_user=current_user,
+        invoice_id=invoice_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -199,7 +223,11 @@ def reject_purchase_invoice(
         )
 
     return reject_purchase_invoice_service(
-        db=db, current_user=current_user, invoice_id=invoice_id, action_in=action_in
+        db=db,
+        current_user=current_user,
+        invoice_id=invoice_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -215,6 +243,7 @@ def get_purchase_orders(
     query = (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
+        .filter(PurchaseOrder.tenant_id == current_user.tenant_id)
         .order_by(PurchaseOrder.id.desc())
     )
     if not current_user.is_superuser:
@@ -235,7 +264,10 @@ def get_purchase_order(
     purchase_order = (
         db.query(PurchaseOrder)
         .options(joinedload(PurchaseOrder.items))
-        .filter(PurchaseOrder.id == purchase_order_id)
+        .filter(
+            PurchaseOrder.id == purchase_order_id,
+            PurchaseOrder.tenant_id == current_user.tenant_id,
+        )
         .first()
     )
     if not purchase_order:
@@ -254,7 +286,10 @@ def create_purchase_order(
     current_user: User = Depends(get_current_active_user),
 ):
     return create_purchase_order_service(
-        db=db, current_user=current_user, purchase_order_in=purchase_order_in
+        db=db,
+        current_user=current_user,
+        purchase_order_in=purchase_order_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -265,7 +300,10 @@ def create_purchase_order_from_replenishment(
     current_user: User = Depends(get_current_active_user),
 ):
     return create_purchase_order_from_replenishment_service(
-        db=db, current_user=current_user, payload=payload
+        db=db,
+        current_user=current_user,
+        payload=payload,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -278,7 +316,10 @@ def mark_purchase_order_ordered(
     current_user: User = Depends(get_current_active_user),
 ):
     return mark_purchase_order_ordered_service(
-        db=db, current_user=current_user, purchase_order_id=purchase_order_id
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -289,7 +330,10 @@ def cancel_purchase_order(
     current_user: User = Depends(get_current_active_user),
 ):
     return cancel_purchase_order_service(
-        db=db, current_user=current_user, purchase_order_id=purchase_order_id
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -305,4 +349,5 @@ def receive_purchase_order_items(
         current_user=current_user,
         purchase_order_id=purchase_order_id,
         receive_in=receive_in,
+        tenant_id=current_user.tenant_id,
     )

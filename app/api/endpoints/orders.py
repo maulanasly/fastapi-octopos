@@ -53,14 +53,24 @@ def get_orders(
     if not current_user.is_superuser:
         orders = (
             db.query(Order)
-            .filter(Order.user_id == current_user.id)
+            .filter(
+                Order.user_id == current_user.id,
+                Order.tenant_id == current_user.tenant_id,
+            )
             .options(*_eager)
             .offset(skip)
             .limit(limit)
             .all()
         )
     else:
-        orders = db.query(Order).options(*_eager).offset(skip).limit(limit).all()
+        orders = (
+            db.query(Order)
+            .filter(Order.tenant_id == current_user.tenant_id)
+            .options(*_eager)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
     return orders
 
 
@@ -70,7 +80,12 @@ def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return create_order_service(db=db, current_user=current_user, order_in=order_in)
+    return create_order_service(
+        db=db,
+        current_user=current_user,
+        order_in=order_in,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.get("/{order_id}/receipt", response_model=OrderReceipt)
@@ -81,7 +96,10 @@ def get_order_receipt(
 ):
     order = (
         db.query(Order)
-        .filter(Order.id == order_id)
+        .filter(
+            Order.id == order_id,
+            Order.tenant_id == current_user.tenant_id,
+        )
         .options(
             selectinload(Order.items).selectinload(OrderItem.product),
             selectinload(Order.payments),
@@ -146,6 +164,7 @@ def add_payment_to_order(
         current_user=current_user,
         order_id=order_id,
         payment_in=payment_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -161,6 +180,7 @@ def add_split_payments_to_order(
         current_user=current_user,
         order_id=order_id,
         split_in=split_in,
+        tenant_id=current_user.tenant_id,
     )
 
 
@@ -179,7 +199,9 @@ def release_expired_reservations(
             detail="Missing permission: orders:release_reservations",
         )
 
-    return release_expired_reservations_service(db=db, current_user=current_user)
+    return release_expired_reservations_service(
+        db=db, current_user=current_user, tenant_id=current_user.tenant_id
+    )
 
 
 @router.post("/{order_id}/cancel", response_model=OrderSchema)
@@ -188,4 +210,9 @@ def cancel_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return cancel_order_service(db=db, current_user=current_user, order_id=order_id)
+    return cancel_order_service(
+        db=db,
+        current_user=current_user,
+        order_id=order_id,
+        tenant_id=current_user.tenant_id,
+    )

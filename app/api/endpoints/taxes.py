@@ -15,7 +15,7 @@ from app.schemas.tax import TaxRuleCreate, TaxRuleUpdate
 router = APIRouter()
 
 
-def _validate_tax_scope(db: Session, tax_data: dict) -> None:
+def _validate_tax_scope(db: Session, tax_data: dict, tenant_id: int) -> None:
     tax_scope = tax_data.get("tax_scope")
     product_id = tax_data.get("product_id")
     category_id = tax_data.get("category_id")
@@ -31,7 +31,11 @@ def _validate_tax_scope(db: Session, tax_data: dict) -> None:
             raise HTTPException(
                 status_code=400, detail="product_id is required when tax_scope=product"
             )
-        product = db.query(Product).filter(Product.id == product_id).first()
+        product = (
+            db.query(Product)
+            .filter(Product.id == product_id, Product.tenant_id == tenant_id)
+            .first()
+        )
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
     elif tax_scope == "category":
@@ -40,7 +44,11 @@ def _validate_tax_scope(db: Session, tax_data: dict) -> None:
                 status_code=400,
                 detail="category_id is required when tax_scope=category",
             )
-        category = db.query(Category).filter(Category.id == category_id).first()
+        category = (
+            db.query(Category)
+            .filter(Category.id == category_id, Category.tenant_id == tenant_id)
+            .first()
+        )
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
     else:
@@ -74,7 +82,13 @@ def get_tax_rules(
     limit: int = 100,
     current_user: User = Depends(require_permissions("taxes:read")),
 ):
-    return db.query(TaxRule).offset(skip).limit(limit).all()
+    return (
+        db.query(TaxRule)
+        .filter(TaxRule.tenant_id == current_user.tenant_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{tax_rule_id}", response_model=TaxRuleSchema)
@@ -83,7 +97,14 @@ def get_tax_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("taxes:read")),
 ):
-    tax_rule = db.query(TaxRule).filter(TaxRule.id == tax_rule_id).first()
+    tax_rule = (
+        db.query(TaxRule)
+        .filter(
+            TaxRule.id == tax_rule_id,
+            TaxRule.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not tax_rule:
         raise HTTPException(status_code=404, detail="Tax rule not found")
     return tax_rule
@@ -96,11 +117,11 @@ def create_tax_rule(
     current_user: User = Depends(require_permissions("taxes:manage")),
 ):
     tax_data = tax_in.model_dump()
-    _validate_tax_scope(db, tax_data)
+    _validate_tax_scope(db, tax_data, current_user.tenant_id)
     _validate_tax_mode(tax_data)
     _validate_tax_dates(tax_data)
 
-    tax_rule = TaxRule(**tax_data)
+    tax_rule = TaxRule(**tax_data, tenant_id=current_user.tenant_id)
     db.add(tax_rule)
     db.commit()
     db.refresh(tax_rule)
@@ -114,7 +135,14 @@ def update_tax_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("taxes:manage")),
 ):
-    tax_rule = db.query(TaxRule).filter(TaxRule.id == tax_rule_id).first()
+    tax_rule = (
+        db.query(TaxRule)
+        .filter(
+            TaxRule.id == tax_rule_id,
+            TaxRule.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not tax_rule:
         raise HTTPException(status_code=404, detail="Tax rule not found")
 
@@ -129,7 +157,7 @@ def update_tax_rule(
     }
     merged_data.update(update_data)
 
-    _validate_tax_scope(db, merged_data)
+    _validate_tax_scope(db, merged_data, current_user.tenant_id)
     _validate_tax_mode(merged_data)
     _validate_tax_dates(merged_data)
 
@@ -147,7 +175,14 @@ def deactivate_tax_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("taxes:manage")),
 ):
-    tax_rule = db.query(TaxRule).filter(TaxRule.id == tax_rule_id).first()
+    tax_rule = (
+        db.query(TaxRule)
+        .filter(
+            TaxRule.id == tax_rule_id,
+            TaxRule.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
     if not tax_rule:
         raise HTTPException(status_code=404, detail="Tax rule not found")
 

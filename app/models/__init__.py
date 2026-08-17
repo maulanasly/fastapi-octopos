@@ -13,4 +13,5 @@ from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
 from app.models.tax import OrderTaxLine, TaxRule
+from app.models.tenant import Tenant
 from app.models.user import User

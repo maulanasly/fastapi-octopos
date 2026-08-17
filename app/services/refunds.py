@@ -1,6 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -22,7 +22,11 @@ def create_refund(
     db: Session,
     current_user: User,
     refund_in: RefundCreate,
+    tenant_id: Optional[int] = None,
 ) -> Refund:
+    if tenant_id is None:
+        tenant_id = current_user.tenant_id
+
     if not refund_in.items:
         raise HTTPException(
             status_code=400, detail="Refund must contain at least one item"
@@ -34,6 +38,7 @@ def create_refund(
             .filter(
                 Refund.user_id == current_user.id,
                 Refund.idempotency_key == refund_in.idempotency_key,
+                Refund.tenant_id == tenant_id,
             )
             .first()
         )
@@ -43,7 +48,10 @@ def create_refund(
     order = (
         db.query(Order)
         .options(joinedload(Order.items))
-        .filter(Order.id == refund_in.order_id)
+        .filter(
+            Order.id == refund_in.order_id,
+            Order.tenant_id == tenant_id,
+        )
         .first()
     )
     if not order:
@@ -96,6 +104,7 @@ def create_refund(
         .filter(
             Refund.order_id == order.id,
             RefundItem.order_item_id.in_(requested_item_ids),
+            Refund.tenant_id == tenant_id,
         )
         .group_by(RefundItem.order_item_id)
         .all()
@@ -121,7 +130,10 @@ def create_refund(
 
         product = (
             db.query(Product)
-            .filter(Product.id == order_item.product_id)
+            .filter(
+                Product.id == order_item.product_id,
+                Product.tenant_id == tenant_id,
+            )
             .with_for_update()
             .first()
         )
@@ -139,6 +151,7 @@ def create_refund(
         refund_items.append(
             RefundItem(
                 order_item_id=order_item.id,
+                tenant_id=tenant_id,
                 product_id=order_item.product_id,
                 quantity=quantity,
                 unit_price=order_item.unit_price,
@@ -156,6 +169,7 @@ def create_refund(
 
     refund = Refund(
         order_id=order.id,
+        tenant_id=tenant_id,
         user_id=current_user.id,
         idempotency_key=refund_in.idempotency_key,
         payment_method=payment_method,
@@ -173,6 +187,7 @@ def create_refund(
         db.add(
             StockMovement(
                 product_id=movement_input["product_id"],
+                tenant_id=tenant_id,
                 user_id=current_user.id,
                 order_id=order.id,
                 order_item_id=movement_input["order_item_id"],
@@ -186,7 +201,14 @@ def create_refund(
         )
 
     if order.customer_id:
-        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        customer = (
+            db.query(Customer)
+            .filter(
+                Customer.id == order.customer_id,
+                Customer.tenant_id == tenant_id,
+            )
+            .first()
+        )
         if customer:
             points_to_reverse = min(int(total_amount), customer.points_balance)
             if points_to_reverse > 0:
@@ -195,6 +217,7 @@ def create_refund(
                 db.add(
                     LoyaltyTransaction(
                         customer_id=customer.id,
+                        tenant_id=tenant_id,
                         order_id=order.id,
                         transaction_type="adjust",
                         points_delta=-points_to_reverse,
@@ -221,6 +244,9 @@ def create_refund(
     return (
         db.query(Refund)
         .options(joinedload(Refund.items))
-        .filter(Refund.id == refund.id)
+        .filter(
+            Refund.id == refund.id,
+            Refund.tenant_id == tenant_id,
+        )
         .first()
     )

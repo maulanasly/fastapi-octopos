@@ -102,11 +102,13 @@ def test_login_cleans_up_expired_refresh_tokens(client, auth_factory, db):
         token="expired-hash-1",
         user_id=user["id"],
         expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+        tenant_id=1,
     )
     active_old = RefreshToken(
         token="active-hash-1",
         user_id=user["id"],
         expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        tenant_id=1,
     )
     db.add_all([expired, active_old])
     db.commit()

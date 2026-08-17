@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -8,9 +17,18 @@ from app.core.database import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        # Email is unique per tenant (same staff email may exist in other
+        # tenants). Superusers have tenant_id NULL; PG treats NULLs as
+        # distinct, so superuser emails never conflict here.
+        UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    tenant_id = Column(
+        Integer, ForeignKey("tenants.id"), nullable=True, index=True
+    )  # NULL = platform superuser
+    email = Column(String, index=True, nullable=False)
     hashed_password = Column(
         String, nullable=True
     )  # nullable for google auth only users

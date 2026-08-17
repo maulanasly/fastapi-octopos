@@ -14,27 +14,35 @@ from app.models.refund import Refund
 from app.models.shift_reconciliation import ShiftReconciliation
 
 
-def get_shift_report_data(db: Session, reconciliation_id: int) -> dict:
+def get_shift_report_data(
+    db: Session,
+    reconciliation_id: int,
+    tenant_id: Optional[int] = None,
+) -> dict:
     """Full shift report for one drawer reconciliation."""
-    reconciliation = (
-        db.query(ShiftReconciliation)
-        .filter(ShiftReconciliation.id == reconciliation_id)
-        .first()
+    reconciliation_query = db.query(ShiftReconciliation).filter(
+        ShiftReconciliation.id == reconciliation_id
     )
+    if tenant_id is not None:
+        reconciliation_query = reconciliation_query.filter(
+            ShiftReconciliation.tenant_id == tenant_id
+        )
+    reconciliation = reconciliation_query.first()
     if not reconciliation:
         return None
-    drawer = (
-        db.query(DrawerSession)
-        .filter(DrawerSession.id == reconciliation.drawer_session_id)
-        .first()
+    drawer_query = db.query(DrawerSession).filter(
+        DrawerSession.id == reconciliation.drawer_session_id
     )
+    if tenant_id is not None:
+        drawer_query = drawer_query.filter(DrawerSession.tenant_id == tenant_id)
+    drawer = drawer_query.first()
     operator = None
     closer = None
     if drawer:
         operator = drawer.user
         closer = reconciliation.closed_by_user
 
-    payment_rows = (
+    payment_query = (
         db.query(
             Payment.payment_method,
             func.count(Payment.id),
@@ -42,7 +50,11 @@ def get_shift_report_data(db: Session, reconciliation_id: int) -> dict:
         )
         .join(Order, Payment.order_id == Order.id)
         .filter(Order.drawer_session_id == reconciliation.drawer_session_id)
-        .group_by(Payment.payment_method)
+    )
+    if tenant_id is not None:
+        payment_query = payment_query.filter(Order.tenant_id == tenant_id)
+    payment_rows = (
+        payment_query.group_by(Payment.payment_method)
         .order_by(Payment.payment_method.asc())
         .all()
     )
@@ -63,7 +75,11 @@ def get_shift_report_data(db: Session, reconciliation_id: int) -> dict:
     }
 
 
-def get_daily_close_data(db: Session, report_date: Optional[datetime]) -> dict:
+def get_daily_close_data(
+    db: Session,
+    report_date: Optional[datetime],
+    tenant_id: Optional[int] = None,
+) -> dict:
     """All shift reconciliations closed on a given day + day totals.
 
     ``DrawerSession.closed_at`` is stored as naive UTC (SQLite); the local
@@ -78,7 +94,7 @@ def get_daily_close_data(db: Session, report_date: Optional[datetime]) -> dict:
         (local_start + timedelta(days=1)).astimezone(timezone.utc).replace(tzinfo=None)
     )
 
-    shifts = (
+    shifts_query = (
         db.query(ShiftReconciliation)
         .join(DrawerSession, DrawerSession.id == ShiftReconciliation.drawer_session_id)
         .filter(
@@ -86,9 +102,10 @@ def get_daily_close_data(db: Session, report_date: Optional[datetime]) -> dict:
             DrawerSession.closed_at >= start,
             DrawerSession.closed_at < end,
         )
-        .order_by(DrawerSession.closed_at.asc())
-        .all()
     )
+    if tenant_id is not None:
+        shifts_query = shifts_query.filter(DrawerSession.tenant_id == tenant_id)
+    shifts = shifts_query.order_by(DrawerSession.closed_at.asc()).all()
 
     totals = {
         "gross_sales_total": 0.0,
@@ -119,6 +136,7 @@ def get_sales_summary_data(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     cashier_id: Optional[int] = None,
+    tenant_id: Optional[int] = None,
 ) -> dict:
     sales_query = db.query(
         func.coalesce(
@@ -134,6 +152,9 @@ def get_sales_summary_data(
         .filter(Order.status == "completed")
     )
 
+    if tenant_id is not None:
+        sales_query = sales_query.filter(Order.tenant_id == tenant_id)
+        refunds_query = refunds_query.filter(Refund.tenant_id == tenant_id)
     if start_date:
         sales_query = sales_query.filter(Order.created_at >= start_date)
         refunds_query = refunds_query.filter(Refund.created_at >= start_date)
@@ -165,6 +186,7 @@ def get_top_products_data(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 10,
+    tenant_id: Optional[int] = None,
 ):
     query = (
         db.query(
@@ -180,6 +202,12 @@ def get_top_products_data(
         .filter(Order.status == "completed")
     )
 
+    if tenant_id is not None:
+        query = query.filter(
+            Order.tenant_id == tenant_id,
+            OrderItem.tenant_id == tenant_id,
+            Product.tenant_id == tenant_id,
+        )
     if start_date:
         query = query.filter(Order.created_at >= start_date)
     if end_date:
@@ -197,6 +225,7 @@ def get_category_sales_data(
     db: Session,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    tenant_id: Optional[int] = None,
 ):
     query = (
         db.query(
@@ -212,6 +241,13 @@ def get_category_sales_data(
         .filter(Order.status == "completed")
     )
 
+    if tenant_id is not None:
+        query = query.filter(
+            Order.tenant_id == tenant_id,
+            OrderItem.tenant_id == tenant_id,
+            Product.tenant_id == tenant_id,
+            Category.tenant_id == tenant_id,
+        )
     if start_date:
         query = query.filter(Order.created_at >= start_date)
     if end_date:
@@ -227,6 +263,7 @@ def get_category_sales_data(
 def get_low_stock_products_data(
     db: Session,
     threshold: Optional[int] = None,
+    tenant_id: Optional[int] = None,
 ):
     """Products at or below stock threshold.
 
@@ -234,6 +271,8 @@ def get_low_stock_products_data(
     back to min_stock), and a default of 10 when both are unset/zero.
     """
     query = db.query(Product)
+    if tenant_id is not None:
+        query = query.filter(Product.tenant_id == tenant_id)
     if threshold is not None:
         query = query.filter(Product.stock_quantity <= threshold)
     else:
@@ -259,6 +298,7 @@ def get_top_customers_data(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = 10,
+    tenant_id: Optional[int] = None,
 ):
     query = (
         db.query(
@@ -273,6 +313,11 @@ def get_top_customers_data(
         .filter(Order.status == "completed")
     )
 
+    if tenant_id is not None:
+        query = query.filter(
+            Customer.tenant_id == tenant_id,
+            Order.tenant_id == tenant_id,
+        )
     if start_date:
         query = query.filter(Order.created_at >= start_date)
     if end_date:
@@ -293,8 +338,11 @@ def get_invoice_summary_data(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     supplier_id: Optional[int] = None,
+    tenant_id: Optional[int] = None,
 ) -> dict:
     query = db.query(PurchaseInvoice)
+    if tenant_id is not None:
+        query = query.filter(PurchaseInvoice.tenant_id == tenant_id)
     if start_date:
         query = query.filter(PurchaseInvoice.created_at >= start_date)
     if end_date:
@@ -362,43 +410,63 @@ def get_invoice_summary_data(
 def get_executive_summary_data(
     db: Session,
     invoice_summary: Optional[dict] = None,
+    tenant_id: Optional[int] = None,
 ) -> dict:
-    active_customers_count = (
-        db.query(func.count(Customer.id))
-        .filter(Customer.is_active == True)  # noqa: E712
-        .scalar()
+    customers_query = db.query(func.count(Customer.id)).filter(
+        Customer.is_active == True  # noqa: E712
     )
-    raw_points_issued = (
-        db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
-        .filter(LoyaltyTransaction.points_delta > 0)
-        .scalar()
+    points_issued_query = db.query(
+        func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0)
+    ).filter(LoyaltyTransaction.points_delta > 0)
+    points_redeemed_query = db.query(
+        func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0)
+    ).filter(
+        LoyaltyTransaction.transaction_type == "redeem",
+        LoyaltyTransaction.points_delta < 0,
     )
-    raw_points_redeemed = (
-        db.query(func.coalesce(func.sum(LoyaltyTransaction.points_delta), 0))
-        .filter(
-            LoyaltyTransaction.transaction_type == "redeem",
-            LoyaltyTransaction.points_delta < 0,
-        )
-        .scalar()
-    )
-    open_purchase_orders_count = (
-        db.query(func.count(PurchaseOrder.id))
-        .filter(PurchaseOrder.status.in_(("draft", "ordered", "partially_received")))
-        .scalar()
+    open_pos_query = db.query(func.count(PurchaseOrder.id)).filter(
+        PurchaseOrder.status.in_(("draft", "ordered", "partially_received"))
     )
     received_value_expr = (
         PurchaseOrderItem.quantity_received * PurchaseOrderItem.unit_cost
     )
-    raw_purchase_received_value = db.query(
+    purchase_received_query = db.query(
         func.coalesce(
             func.sum(received_value_expr),
             0.0,
         )
-    ).scalar()
-    reconciled_shift_count = db.query(func.count(ShiftReconciliation.id)).scalar()
-    raw_avg_cash_variance = db.query(
+    )
+    reconciled_shifts_query = db.query(func.count(ShiftReconciliation.id))
+    avg_cash_variance_query = db.query(
         func.coalesce(func.avg(ShiftReconciliation.cash_variance), 0.0)
-    ).scalar()
+    )
+
+    if tenant_id is not None:
+        customers_query = customers_query.filter(Customer.tenant_id == tenant_id)
+        points_issued_query = points_issued_query.filter(
+            LoyaltyTransaction.tenant_id == tenant_id
+        )
+        points_redeemed_query = points_redeemed_query.filter(
+            LoyaltyTransaction.tenant_id == tenant_id
+        )
+        open_pos_query = open_pos_query.filter(PurchaseOrder.tenant_id == tenant_id)
+        purchase_received_query = purchase_received_query.filter(
+            PurchaseOrderItem.tenant_id == tenant_id
+        )
+        reconciled_shifts_query = reconciled_shifts_query.filter(
+            ShiftReconciliation.tenant_id == tenant_id
+        )
+        avg_cash_variance_query = avg_cash_variance_query.filter(
+            ShiftReconciliation.tenant_id == tenant_id
+        )
+
+    active_customers_count = customers_query.scalar()
+    raw_points_issued = points_issued_query.scalar()
+    raw_points_redeemed = points_redeemed_query.scalar()
+    open_purchase_orders_count = open_pos_query.scalar()
+    raw_purchase_received_value = purchase_received_query.scalar()
+    reconciled_shift_count = reconciled_shifts_query.scalar()
+    raw_avg_cash_variance = avg_cash_variance_query.scalar()
 
     summary = {
         "active_customers_count": int(
@@ -444,6 +512,7 @@ def get_shift_list_data(
     date_to: Optional[datetime] = None,
     skip: int = 0,
     limit: int = 100,
+    tenant_id: Optional[int] = None,
 ) -> List[dict]:
     """Recent reconciled shifts (newest first) with operator details."""
     query = (
@@ -451,6 +520,8 @@ def get_shift_list_data(
         .join(DrawerSession, DrawerSession.id == ShiftReconciliation.drawer_session_id)
         .filter(DrawerSession.closed_at.isnot(None))
     )
+    if tenant_id is not None:
+        query = query.filter(DrawerSession.tenant_id == tenant_id)
     if date_from is not None:
         query = query.filter(DrawerSession.closed_at >= date_from)
     if date_to is not None:
@@ -460,11 +531,12 @@ def get_shift_list_data(
     )
     items = []
     for rec in rows:
-        drawer = (
-            db.query(DrawerSession)
-            .filter(DrawerSession.id == rec.drawer_session_id)
-            .first()
+        drawer_query = db.query(DrawerSession).filter(
+            DrawerSession.id == rec.drawer_session_id
         )
+        if tenant_id is not None:
+            drawer_query = drawer_query.filter(DrawerSession.tenant_id == tenant_id)
+        drawer = drawer_query.first()
         items.append(
             {
                 "reconciliation_id": rec.id,

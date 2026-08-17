@@ -9,6 +9,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -23,9 +24,13 @@ def _utcnow():
 
 class Promotion(Base):
     __tablename__ = "promotions"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_promotions_tenant_code"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, nullable=False, unique=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    code = Column(String, nullable=False)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     discount_type = Column(String, nullable=False)  # percentage, fixed

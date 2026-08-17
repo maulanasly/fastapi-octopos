@@ -29,7 +29,11 @@ def get_inventory_movements(
     end_date: Optional[datetime] = Query(None),
     current_user: User = Depends(require_permissions("inventory:view")),
 ):
-    query = db.query(StockMovement).order_by(StockMovement.id.desc())
+    query = (
+        db.query(StockMovement)
+        .filter(StockMovement.tenant_id == current_user.tenant_id)
+        .order_by(StockMovement.id.desc())
+    )
 
     if product_id:
         query = query.filter(StockMovement.product_id == product_id)
@@ -55,9 +59,16 @@ def get_replenishment_suggestions(
     only_reorder_needed: bool = Query(True),
     current_user: User = Depends(require_permissions("inventory:view")),
 ):
-    query = db.query(Product).order_by(Product.id.asc())
+    query = (
+        db.query(Product)
+        .filter(Product.tenant_id == current_user.tenant_id)
+        .order_by(Product.id.asc())
+    )
     if product_id is not None:
-        query = query.filter(Product.id == product_id)
+        query = query.filter(
+            Product.id == product_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
 
     products = query.all()
     suggestions = build_replenishment_suggestions(

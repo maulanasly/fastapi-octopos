@@ -1,6 +1,15 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -16,6 +25,7 @@ class Category(Base):
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     name = Column(String, index=True, nullable=False)
     description = Column(Text, nullable=True)
     color = Column(String, nullable=True)  # hex, e.g. "#E8F5E9"
@@ -32,10 +42,14 @@ class Category(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "sku", name="uq_products_tenant_sku"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     name = Column(String, index=True, nullable=False)
-    sku = Column(String, unique=True, index=True, nullable=False)
+    sku = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     price = Column(Numeric(12, 2), nullable=False)
     unit_cost = Column(Numeric(12, 2), nullable=True)

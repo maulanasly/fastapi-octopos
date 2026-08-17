@@ -9,6 +9,7 @@ class ShiftReconciliation(Base):
     __tablename__ = "shift_reconciliations"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     drawer_session_id = Column(
         Integer,
         ForeignKey("drawer_sessions.id"),

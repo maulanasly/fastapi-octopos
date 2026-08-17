@@ -1,3 +1,4 @@
+# TODO(tenant): admin panel is platform-wide; scope when admin is tenant-aware
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 

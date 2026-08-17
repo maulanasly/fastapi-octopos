@@ -22,6 +22,7 @@ class SyncEventLog(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     client_event_id = Column(String, nullable=False, index=True)
     event_type = Column(String, nullable=False, index=True)

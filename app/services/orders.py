@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -49,7 +50,10 @@ def _calculate_settlement_totals(
 ) -> tuple[Decimal, Decimal, Decimal]:
     total_paid_raw = (
         db.query(func.coalesce(func.sum(Payment.amount), 0.0))
-        .filter(Payment.order_id == order.id)
+        .filter(
+            Payment.order_id == order.id,
+            Payment.tenant_id == order.tenant_id,
+        )
         .scalar()
     )
     total_paid = quantize_money(total_paid_raw)
@@ -109,9 +113,14 @@ def _calculate_order_taxes(
     db: Session,
     movement_inputs: list[dict],
     taxable_base_amount: Decimal,
+    tenant_id: int,
     now: datetime,
 ) -> tuple[list[dict], Decimal, Decimal]:
-    active_rules = db.query(TaxRule).filter(TaxRule.is_active.is_(True)).all()
+    active_rules = (
+        db.query(TaxRule)
+        .filter(TaxRule.is_active.is_(True), TaxRule.tenant_id == tenant_id)
+        .all()
+    )
     subtotal = quantize_money(
         sum(to_decimal(item["line_total"]) for item in movement_inputs)
     )
@@ -172,7 +181,14 @@ def _complete_order_if_paid(db: Session, order: Order) -> None:
     order.reservation_expires_at = None
     db.add(order)
     if order.customer_id:
-        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        customer = (
+            db.query(Customer)
+            .filter(
+                Customer.id == order.customer_id,
+                Customer.tenant_id == order.tenant_id,
+            )
+            .first()
+        )
         if customer:
             existing_earn = (
                 db.query(LoyaltyTransaction)
@@ -180,6 +196,7 @@ def _complete_order_if_paid(db: Session, order: Order) -> None:
                     LoyaltyTransaction.order_id == order.id,
                     LoyaltyTransaction.customer_id == customer.id,
                     LoyaltyTransaction.transaction_type == "earn",
+                    LoyaltyTransaction.tenant_id == order.tenant_id,
                 )
                 .first()
             )
@@ -191,6 +208,7 @@ def _complete_order_if_paid(db: Session, order: Order) -> None:
                     db.add(
                         LoyaltyTransaction(
                             customer_id=customer.id,
+                            tenant_id=order.tenant_id,
                             order_id=order.id,
                             transaction_type="earn",
                             points_delta=earned_points,
@@ -210,7 +228,10 @@ def _restore_order_stock(
     for item in order.items:
         product = (
             db.query(Product)
-            .filter(Product.id == item.product_id)
+            .filter(
+                Product.id == item.product_id,
+                Product.tenant_id == order.tenant_id,
+            )
             .with_for_update()
             .first()
         )
@@ -221,6 +242,7 @@ def _restore_order_stock(
             db.add(
                 StockMovement(
                     product_id=product.id,
+                    tenant_id=order.tenant_id,
                     user_id=user_id,
                     order_id=order.id,
                     order_item_id=item.id,
@@ -238,13 +260,21 @@ def _revert_order_customer_and_promotion_effects(
     order: Order,
 ):
     if order.customer_id:
-        customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
+        customer = (
+            db.query(Customer)
+            .filter(
+                Customer.id == order.customer_id,
+                Customer.tenant_id == order.tenant_id,
+            )
+            .first()
+        )
         if customer:
             if order.redeemed_points > 0:
                 customer.points_balance += order.redeemed_points
                 db.add(
                     LoyaltyTransaction(
                         customer_id=customer.id,
+                        tenant_id=order.tenant_id,
                         order_id=order.id,
                         transaction_type="adjust",
                         points_delta=order.redeemed_points,
@@ -259,6 +289,7 @@ def _revert_order_customer_and_promotion_effects(
                     LoyaltyTransaction.order_id == order.id,
                     LoyaltyTransaction.customer_id == customer.id,
                     LoyaltyTransaction.transaction_type == "earn",
+                    LoyaltyTransaction.tenant_id == order.tenant_id,
                 )
                 .scalar()
             )
@@ -268,6 +299,7 @@ def _revert_order_customer_and_promotion_effects(
                 db.add(
                     LoyaltyTransaction(
                         customer_id=customer.id,
+                        tenant_id=order.tenant_id,
                         order_id=order.id,
                         transaction_type="adjust",
                         points_delta=-earned_points,
@@ -279,7 +311,12 @@ def _revert_order_customer_and_promotion_effects(
 
     if order.promotion_id:
         promotion = (
-            db.query(Promotion).filter(Promotion.id == order.promotion_id).first()
+            db.query(Promotion)
+            .filter(
+                Promotion.id == order.promotion_id,
+                Promotion.tenant_id == order.tenant_id,
+            )
+            .first()
         )
         if promotion and promotion.usage_count > 0:
             promotion.usage_count -= 1
@@ -314,7 +351,11 @@ def create_order(
     db: Session,
     current_user: User,
     order_in: OrderCreate,
+    tenant_id: Optional[int] = None,
 ) -> Order:
+    if tenant_id is None:
+        tenant_id = current_user.tenant_id
+
     if not order_in.items:
         raise HTTPException(
             status_code=400, detail="Order must contain at least one item"
@@ -326,6 +367,7 @@ def create_order(
             .filter(
                 Order.user_id == current_user.id,
                 Order.idempotency_key == order_in.idempotency_key,
+                Order.tenant_id == tenant_id,
             )
             .first()
         )
@@ -343,7 +385,12 @@ def create_order(
 
     if order_in.customer_id is not None:
         customer = (
-            db.query(Customer).filter(Customer.id == order_in.customer_id).first()
+            db.query(Customer)
+            .filter(
+                Customer.id == order_in.customer_id,
+                Customer.tenant_id == tenant_id,
+            )
+            .first()
         )
         if not customer:
             raise HTTPException(status_code=404, detail="Customer not found")
@@ -354,7 +401,10 @@ def create_order(
     for item in order_in.items:
         product = (
             db.query(Product)
-            .filter(Product.id == item.product_id)
+            .filter(
+                Product.id == item.product_id,
+                Product.tenant_id == tenant_id,
+            )
             .with_for_update()
             .first()
         )
@@ -380,7 +430,10 @@ def create_order(
 
         db_items.append(
             OrderItem(
-                product_id=product.id, quantity=item.quantity, unit_price=unit_price
+                product_id=product.id,
+                tenant_id=tenant_id,
+                quantity=item.quantity,
+                unit_price=unit_price,
             )
         )
         movement_inputs.append(
@@ -400,6 +453,7 @@ def create_order(
         .filter(
             DrawerSession.user_id == current_user.id,
             DrawerSession.status == "open",
+            DrawerSession.tenant_id == tenant_id,
         )
         .first()
     )
@@ -414,7 +468,12 @@ def create_order(
     if order_in.promotion_code:
         normalized_code = order_in.promotion_code.strip().upper()
         promotion = (
-            db.query(Promotion).filter(Promotion.code == normalized_code).first()
+            db.query(Promotion)
+            .filter(
+                Promotion.code == normalized_code,
+                Promotion.tenant_id == tenant_id,
+            )
+            .first()
         )
         if not promotion:
             raise HTTPException(status_code=404, detail="Promotion not found")
@@ -532,6 +591,7 @@ def create_order(
         db=db,
         movement_inputs=movement_inputs,
         taxable_base_amount=taxable_base_amount,
+        tenant_id=tenant_id,
         now=datetime.now(timezone.utc),
     )
     total_amount = quantize_money(grand_total_amount)
@@ -541,6 +601,7 @@ def create_order(
     )
     order = Order(
         user_id=current_user.id,
+        tenant_id=tenant_id,
         customer_id=order_in.customer_id,
         promotion_id=promotion.id if promotion else None,
         drawer_session_id=drawer_session_id,
@@ -570,6 +631,7 @@ def create_order(
         db.add(
             OrderTaxLine(
                 order_id=order.id,
+                tenant_id=tenant_id,
                 tax_rule_id=tax_line_data["tax_rule_id"],
                 tax_name=tax_line_data["tax_name"],
                 tax_scope=tax_line_data["tax_scope"],
@@ -585,6 +647,7 @@ def create_order(
         db.add(
             StockMovement(
                 product_id=movement_input["product_id"],
+                tenant_id=tenant_id,
                 user_id=current_user.id,
                 order_id=order.id,
                 order_item_id=db_item.id,
@@ -602,6 +665,7 @@ def create_order(
         db.add(
             LoyaltyTransaction(
                 customer_id=customer.id,
+                tenant_id=tenant_id,
                 order_id=order.id,
                 transaction_type="redeem",
                 points_delta=-redeemed_points,
@@ -620,20 +684,33 @@ def add_payment_to_order(
     current_user: User,
     order_id: int,
     payment_in: PaymentCreate,
+    tenant_id: Optional[int] = None,
 ) -> Payment:
+    if tenant_id is None:
+        tenant_id = current_user.tenant_id
+
     if payment_in.idempotency_key:
         existing_payment = (
             db.query(Payment)
             .filter(
                 Payment.user_id == current_user.id,
                 Payment.idempotency_key == payment_in.idempotency_key,
+                Payment.tenant_id == tenant_id,
             )
             .first()
         )
         if existing_payment:
             return existing_payment
 
-    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.tenant_id == tenant_id,
+        )
+        .with_for_update()
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
@@ -670,6 +747,7 @@ def add_payment_to_order(
 
     payment = Payment(
         order_id=order.id,
+        tenant_id=tenant_id,
         user_id=current_user.id,
         idempotency_key=payment_in.idempotency_key,
         payment_method=payment_method,
@@ -691,14 +769,26 @@ def add_split_payments_to_order(
     current_user: User,
     order_id: int,
     split_in: SplitPaymentCreate,
+    tenant_id: Optional[int] = None,
 ) -> Order:
+    if tenant_id is None:
+        tenant_id = current_user.tenant_id
+
     if not split_in.payments:
         raise HTTPException(
             status_code=400,
             detail="Split payment must contain at least one payment line",
         )
 
-    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.tenant_id == tenant_id,
+        )
+        .with_for_update()
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
@@ -748,6 +838,7 @@ def add_split_payments_to_order(
         db.add(
             Payment(
                 order_id=order.id,
+                tenant_id=tenant_id,
                 user_id=current_user.id,
                 payment_method=_normalize_payment_method(line.payment_method),
                 amount=quantize_money(line.amount),
@@ -765,26 +856,31 @@ def add_split_payments_to_order(
 def release_expired_reservations(
     db: Session,
     current_user: User,
+    tenant_id: Optional[int] = None,
 ) -> ReservationReleaseSummary:
-    return release_expired_reservations_for_user(db=db, user_id=current_user.id)
+    if tenant_id is None:
+        tenant_id = current_user.tenant_id
+    return release_expired_reservations_for_user(
+        db=db, user_id=current_user.id, tenant_id=tenant_id
+    )
 
 
 def release_expired_reservations_for_user(
     db: Session,
     user_id: int,
+    tenant_id: Optional[int] = None,
 ) -> ReservationReleaseSummary:
     now = datetime.now(timezone.utc)
+    candidate_orders = db.query(Order).filter(
+        Order.status == "pending",
+        Order.reservation_status == "reserved",
+        Order.reservation_expires_at.isnot(None),
+        Order.reservation_expires_at <= now,
+    )
+    if tenant_id is not None:
+        candidate_orders = candidate_orders.filter(Order.tenant_id == tenant_id)
     candidate_orders = (
-        db.query(Order)
-        .filter(
-            Order.status == "pending",
-            Order.reservation_status == "reserved",
-            Order.reservation_expires_at.isnot(None),
-            Order.reservation_expires_at <= now,
-        )
-        .options(selectinload(Order.payments))
-        .with_for_update()
-        .all()
+        candidate_orders.options(selectinload(Order.payments)).with_for_update().all()
     )
 
     released_order_ids = []
@@ -819,8 +915,20 @@ def cancel_order(
     db: Session,
     current_user: User,
     order_id: int,
+    tenant_id: Optional[int] = None,
 ) -> Order:
-    order = db.query(Order).filter(Order.id == order_id).with_for_update().first()
+    if tenant_id is None:
+        tenant_id = current_user.tenant_id
+
+    order = (
+        db.query(Order)
+        .filter(
+            Order.id == order_id,
+            Order.tenant_id == tenant_id,
+        )
+        .with_for_update()
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
