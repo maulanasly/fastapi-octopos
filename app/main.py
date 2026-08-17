@@ -144,6 +144,11 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
 
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
+    import logging
+
+    logging.getLogger("app").exception(
+        "Database error on %s %s", request.method, request.url.path
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal database error"},

@@ -11,6 +11,7 @@ forms show the same labels instead of object reprs.
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 import anyio
+
 # pyrefly: ignore [missing-import]
 from sqladmin.forms import ModelConverter
 from sqladmin.helpers import is_async_session_maker
@@ -24,8 +25,13 @@ from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
-from app.models.purchase import (PurchaseInvoice, PurchaseInvoiceItem,
-                                 PurchaseOrder, PurchaseOrderItem, Supplier)
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseInvoiceItem,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    Supplier,
+)
 from app.models.rbac import Permission, Role
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation

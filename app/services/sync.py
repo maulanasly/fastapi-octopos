@@ -20,9 +20,12 @@ def get_catalog_delta(
     Without ``since`` the full catalog is returned (first-time sync).
     ``server_time`` lets terminals clock-skew-adjust their watermark.
     """
-    # SQLite stores naive datetimes; normalize the watermark to match.
-    if since is not None and since.tzinfo is not None:
-        since = since.astimezone(timezone.utc).replace(tzinfo=None)
+    # Normalize the watermark to aware-UTC. Legacy SQLite stores naive
+    # datetimes, so strip the tzinfo there to keep string comparisons valid.
+    if since is not None:
+        since = since.astimezone(timezone.utc)
+        if db.bind.dialect.name == "sqlite":
+            since = since.replace(tzinfo=None)
 
     if since is None:
         categories = db.query(Category).all()

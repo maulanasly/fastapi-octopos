@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: octopos-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: octopos
+      TZ: UTC
+    ports:
+      - "5433:5432"
+    volumes:
+      - octopos_pgdata:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d octopos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  octopos_pgdata:
