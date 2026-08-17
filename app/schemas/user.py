@@ -12,6 +12,11 @@ class UserBase(BaseModel):
     is_active: bool = True
     is_superuser: bool = False
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def lowercase_email(cls, value: str) -> str:
+        return value.lower().strip()
+
 
 class UserCreate(UserBase):
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)

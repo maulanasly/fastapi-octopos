@@ -122,7 +122,8 @@ def login_access_token(
     """
     OAuth2 compatible token login. Returns access + refresh tokens.
     """
-    users = db.query(User).filter(User.email == form_data.username).all()
+    username = form_data.username.lower().strip()
+    users = db.query(User).filter(User.email == username).all()
     if len(users) > 1:
         raise HTTPException(
             status_code=400,
