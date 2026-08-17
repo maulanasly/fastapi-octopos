@@ -34,6 +34,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final catalog = ref.watch(catalogControllerProvider);
     final cart = ref.watch(cartControllerProvider);
     final drawer = ref.watch(drawerControllerProvider);
+    // Restore the persisted draft once the catalog is available.
+    ref.watch(cartRestoreProvider);
 
     final products = _filtered(catalog.products);
 

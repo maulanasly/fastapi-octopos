@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/features/pos/cart_controller.dart';
 
@@ -19,6 +20,7 @@ void main() {
   late CartController controller;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     container = ProviderContainer();
     controller = container.read(cartControllerProvider.notifier);
   });
