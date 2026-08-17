@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     # CORS — set explicit origins in production (e.g. ["https://yourapp.com"])
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:8080"]
+    # Optional regex of additional origins. Set to a localhost pattern for
+    # dev clients on ephemeral ports (e.g. `flutter run -d chrome`).
+    BACKEND_CORS_ORIGIN_REGEX: str = ""
 
     # Database
     SQLALCHEMY_DATABASE_URI: str = (
