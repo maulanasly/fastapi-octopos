@@ -1,9 +1,14 @@
-/// Cart state for the cashier screen.
+/// Cart state for the cashier screen, with draft persistence.
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_repositories.dart';
+import '../../core/local_persistence.dart';
 import '../../core/models.dart';
+import 'catalog_controller.dart';
+
+final localStoreProvider = Provider<LocalStore>((ref) => LocalStore());
 
 class CartLine {
   final Product product;
@@ -48,8 +53,54 @@ class CartState {
 }
 
 class CartController extends Notifier<CartState> {
+  bool _restored = false;
+
   @override
   CartState build() => const CartState();
+
+  /// Restores the persisted draft once, when the catalog is available to
+  /// resolve products.
+  Future<void> restoreFromStorage(List<Product> catalogProducts) async {
+    if (_restored) return;
+    _restored = true;
+    final persisted = await ref.read(localStoreProvider).loadCart();
+    if (persisted == null) return;
+
+    final byId = {for (final p in catalogProducts) p.id: p};
+    final lines = <int, CartLine>{};
+    for (final entry in persisted.quantities.entries) {
+      final product = byId[entry.key];
+      if (product == null || product.stockQuantity <= 0) continue;
+      lines[entry.key] = CartLine(
+        product: product,
+        quantity: entry.value.clamp(1, product.stockQuantity),
+      );
+    }
+    if (lines.isEmpty) {
+      await ref.read(localStoreProvider).clearCart();
+      return;
+    }
+
+    Customer? customer;
+    if (persisted.customerId != null) {
+      try {
+        final customers = await ref.read(customerRepositoryProvider).list();
+        for (final c in customers) {
+          if (c.id == persisted.customerId) customer = c;
+        }
+      } catch (_) {
+        // Customer unavailable offline: keep the cart without it.
+      }
+    }
+
+    state = CartState(
+      lines: lines,
+      customer: customer,
+      promotionCode: persisted.promotionCode,
+      redeemPoints: persisted.redeemPoints,
+    );
+    await ref.read(localStoreProvider).clearCart();
+  }
 
   void addProduct(Product product) {
     final lines = Map<int, CartLine>.from(state.lines);
@@ -64,6 +115,7 @@ class CartController extends Notifier<CartState> {
       }
     }
     state = state.copyWith(lines: lines);
+    _persist();
   }
 
   void setQuantity(int productId, int quantity) {
@@ -77,23 +129,54 @@ class CartController extends Notifier<CartState> {
       line.quantity = quantity > max ? max : quantity;
     }
     state = state.copyWith(lines: lines);
+    _persist();
   }
 
   void removeLine(int productId) {
     final lines = Map<int, CartLine>.from(state.lines)..remove(productId);
     state = state.copyWith(lines: lines);
+    _persist();
   }
 
-  void setCustomer(Customer? customer) =>
-      state = state.copyWith(customer: customer);
+  void setCustomer(Customer? customer) {
+    state = state.copyWith(customer: customer);
+    _persist();
+  }
 
-  void setPromotionCode(String code) =>
-      state = state.copyWith(promotionCode: code);
+  void setPromotionCode(String code) {
+    state = state.copyWith(promotionCode: code);
+    _persist();
+  }
 
-  void setRedeemPoints(int points) =>
-      state = state.copyWith(redeemPoints: points);
+  void setRedeemPoints(int points) {
+    state = state.copyWith(redeemPoints: points);
+    _persist();
+  }
 
-  void clear() => state = const CartState();
+  void clear() {
+    state = const CartState();
+    ref.read(localStoreProvider).clearCart();
+  }
+
+  void _persist() {
+    if (state.isEmpty) {
+      ref.read(localStoreProvider).clearCart();
+      return;
+    }
+    ref
+        .read(localStoreProvider)
+        .saveCart(
+          PersistedCart(
+            quantities: {
+              for (final entry in state.lines.entries)
+                entry.key: entry.value.quantity,
+            },
+            customerId: state.customer?.id,
+            promotionCode: state.promotionCode,
+            redeemPoints: state.redeemPoints,
+          ),
+        );
+  }
 
   /// Builds the /orders item payload.
   List<Map<String, dynamic>> orderItems() => [
@@ -105,3 +188,12 @@ class CartController extends Notifier<CartState> {
 final cartControllerProvider = NotifierProvider<CartController, CartState>(
   CartController.new,
 );
+
+/// Restores the persisted draft once the catalog has loaded.
+final cartRestoreProvider = Provider<void>((ref) {
+  final catalog = ref.watch(catalogControllerProvider);
+  if (catalog.loading || catalog.products.isEmpty) return;
+  ref
+      .read(cartControllerProvider.notifier)
+      .restoreFromStorage(catalog.products);
+});
