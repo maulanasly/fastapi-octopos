@@ -181,3 +181,44 @@ def test_superuser_gets_all_permissions(client, auth_factory, db):
     perms = client.get("/api/v1/rbac/me/permissions", headers=headers).json()
     assert "settings:manage" in perms["permissions"]
     assert "users:manage_roles" in perms["permissions"]
+
+
+def test_permissions_catalog_lists_definitions(client, manager_headers):
+    resp = client.get("/api/v1/rbac/permissions", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    codes = {p["code"] for p in resp.json()}
+    assert "products:manage" in codes
+    assert "users:manage_roles" in codes
+
+
+def test_users_list_requires_superuser(client, auth_factory, cashier_headers):
+    auth_factory.register("user-list@example.com")
+    resp = client.get("/api/v1/users/", headers=cashier_headers)
+    assert resp.status_code == 400  # existing superuser-gate behavior
+
+    owner = auth_factory.register("owner2@example.com")
+    from app.models.user import User
+
+    u = client.get("/api/v1/users/", headers=cashier_headers)
+    _ = u
+    # promote owner via db fixture style
+    from conftest import SessionLocal
+
+    db = SessionLocal()
+    user = db.get(User, owner["id"])
+    user.is_superuser = True
+    db.commit()
+    db.close()
+
+    from app.core.limiter import limiter
+
+    limiter.enabled = False
+    resp2 = client.post(
+        "/api/v1/auth/token",
+        data={"username": "owner2@example.com", "password": "TestPass123"},
+    )
+    headers = {"Authorization": f"Bearer {resp2.json()['access_token']}"}
+    resp = client.get("/api/v1/users/", headers=headers)
+    assert resp.status_code == 200, resp.text
+    emails = {u_["email"] for u_ in resp.json()}
+    assert "user-list@example.com" in emails

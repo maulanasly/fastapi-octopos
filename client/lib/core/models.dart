@@ -132,6 +132,86 @@ class Promotion {
   );
 }
 
+class AuditLogEntry {
+  final int id;
+  final int? userId;
+  final String action;
+  final String? resourceType;
+  final int? resourceId;
+  final String? detailsJson;
+  final String? ipAddress;
+  final String? requestId;
+  final String? createdAt;
+
+  const AuditLogEntry({
+    required this.id,
+    this.userId,
+    required this.action,
+    this.resourceType,
+    this.resourceId,
+    this.detailsJson,
+    this.ipAddress,
+    this.requestId,
+    this.createdAt,
+  });
+
+  factory AuditLogEntry.fromJson(Map<String, dynamic> json) => AuditLogEntry(
+    id: json['id'] as int,
+    userId: json['user_id'] as int?,
+    action: json['action'] as String,
+    resourceType: json['resource_type'] as String?,
+    resourceId: json['resource_id'] as int?,
+    detailsJson: json['details_json'] as String?,
+    ipAddress: json['ip_address'] as String?,
+    requestId: json['request_id'] as String?,
+    createdAt: json['created_at'] as String?,
+  );
+}
+
+class PermissionInfo {
+  final int id;
+  final String code;
+  final String? description;
+
+  const PermissionInfo({
+    required this.id,
+    required this.code,
+    this.description,
+  });
+
+  factory PermissionInfo.fromJson(Map<String, dynamic> json) => PermissionInfo(
+    id: json['id'] as int,
+    code: json['code'] as String,
+    description: json['description'] as String?,
+  );
+}
+
+class RoleInfo {
+  final int id;
+  final String name;
+  final String? description;
+  final bool isSystem;
+  final List<String> permissions;
+
+  const RoleInfo({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.isSystem,
+    this.permissions = const [],
+  });
+
+  factory RoleInfo.fromJson(Map<String, dynamic> json) => RoleInfo(
+    id: json['id'] as int,
+    name: json['name'] as String,
+    description: json['description'] as String?,
+    isSystem: json['is_system'] as bool? ?? false,
+    permissions: (json['permissions'] as List? ?? [])
+        .map((p) => (p as Map<String, dynamic>)['code'] as String)
+        .toList(),
+  );
+}
+
 class UserProfile {
   final int id;
   final String email;
