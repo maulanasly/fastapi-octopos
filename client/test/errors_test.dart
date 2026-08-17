@@ -86,6 +86,46 @@ void main() {
       );
     });
 
+    test('maps per-field 422 detail to field lines', () {
+      final s = _strings();
+      expect(
+        friendlyError(
+          _dio(422, data: {
+            'detail': [
+              {
+                'loc': ['body', 'price'],
+                'msg': 'Input should be greater than 0',
+                'type': 'greater_than',
+              },
+              {
+                'loc': ['body', 'name'],
+                'msg': 'String should have at least 1 character',
+                'type': 'string_too_short',
+              },
+            ],
+          }),
+          s,
+        ),
+        'price: Input should be greater than 0\n'
+        'name: String should have at least 1 character',
+      );
+    });
+
+    test('maps per-field 422 without loc to bare messages', () {
+      final s = _strings();
+      expect(
+        friendlyError(
+          _dio(422, data: {
+            'detail': [
+              {'loc': [], 'msg': 'Something went wrong', 'type': 'x'},
+            ],
+          }),
+          s,
+        ),
+        'Something went wrong',
+      );
+    });
+
     test('falls back to generic', () {
       final s = _strings();
       expect(friendlyError(StateError('boom'), s), s.of('genericError'));

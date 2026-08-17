@@ -32,15 +32,17 @@ def get_current_user(
         token_data = TokenPayload(**payload)
     except (jwt.JWTError, ValidationError):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=t("auth.invalid_credentials", language),
+            headers={"WWW-Authenticate": "Bearer"},
         )
     try:
         user_id = int(token_data.sub)
     except (TypeError, ValueError):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=t("auth.invalid_credentials", language),
+            headers={"WWW-Authenticate": "Bearer"},
         )
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

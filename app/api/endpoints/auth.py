@@ -59,6 +59,7 @@ def _issue_tokens(user: User, db: Session) -> dict:
         "access_token": access_token,
         "token_type": "bearer",
         "refresh_token": raw_refresh,
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
 

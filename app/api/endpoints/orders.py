@@ -1,7 +1,8 @@
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.dependencies import (
@@ -40,6 +41,11 @@ def get_orders(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    status: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    customer_id: Optional[int] = None,
+    response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):
     # If not superuser, only return their own orders
@@ -50,27 +56,29 @@ def get_orders(
         joinedload(Order.user),
         joinedload(Order.customer),
     )
+    query = db.query(Order)
     if not current_user.is_superuser:
-        orders = (
-            db.query(Order)
-            .filter(
-                Order.user_id == current_user.id,
-                Order.tenant_id == current_user.tenant_id,
-            )
-            .options(*_eager)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
-    else:
-        orders = (
-            db.query(Order)
-            .filter(Order.tenant_id == current_user.tenant_id)
-            .options(*_eager)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
+        query = query.filter(Order.user_id == current_user.id)
+    query = query.filter(Order.tenant_id == current_user.tenant_id)
+    if status:
+        query = query.filter(Order.status == status)
+    if date_from:
+        query = query.filter(Order.created_at >= date_from)
+    if date_to:
+        query = query.filter(Order.created_at <= date_to)
+    if customer_id is not None:
+        query = query.filter(Order.customer_id == customer_id)
+    limit = min(limit, 200)
+    total = query.count()
+    orders = (
+        query.options(*_eager)
+        .order_by(Order.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    if response is not None:
+        response.headers["X-Total-Count"] = str(total)
     return orders
 
 

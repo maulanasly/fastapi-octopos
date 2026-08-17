@@ -51,6 +51,12 @@ from app.schemas.purchase import (
 from app.schemas.refund import RefundCreate, RefundItemCreate
 from app.services.auto_po import auto_generate_purchase_orders
 from app.services.drawers import build_reconciliation, compute_drawer_totals
+from app.services.images import (
+    _MAX_IMAGE_BYTES,
+    delete_media_file,
+    process_product_image,
+    product_media_dir,
+)
 from app.services.purchasing import (
     approve_purchase_invoice,
     create_purchase_invoice,
@@ -284,8 +290,13 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
     ]
 
     # Stock is ledger-managed via the stock-adjustment action below; never
-    # edit it directly through the create/edit forms.
-    form_excluded_columns = [Product.stock_quantity]
+    # edit it directly through the create/edit forms. Photos go through the
+    # upload-image page so files are processed consistently with the API.
+    form_excluded_columns = [
+        Product.stock_quantity,
+        Product.image_url,
+        Product.thumbnail_url,
+    ]
 
     @action(
         "adjust-stock",
@@ -381,6 +392,90 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
                 context={
                     "product": product,
                     "title": f"Adjust Stock: {product.name}",
+                },
+            )
+        finally:
+            db.close()
+
+    @action(
+        "upload-image",
+        label="Upload Photo",
+        confirmation_message=(
+            "Replace the product photo. The previous image will be removed."
+        ),
+    )
+    async def upload_image_action(self, request: Request):
+        pk = request.query_params.get("pks", "").split(",")[0]
+        return RedirectResponse(
+            url=f"/admin/product/upload-image?pk={pk}", status_code=303
+        )
+
+    @expose("/upload-image", methods=["GET", "POST"])
+    async def upload_image_page(self, request: Request):
+        pk = request.query_params.get("pk")
+        if not pk:
+            raise HTTPException(status_code=404)
+        db = self.session_maker()
+        try:
+            product = db.get(Product, int(pk))
+            if not product:
+                raise HTTPException(status_code=404)
+
+            if request.method == "POST":
+                form = await request.form()
+                upload = form.get("image")
+                if upload is None or not getattr(upload, "filename", ""):
+                    Flash.error(
+                        request, "Choose a jpeg/png/webp image first.", "No file"
+                    )
+                    return RedirectResponse(
+                        url=f"/admin/product/upload-image?pk={pk}", status_code=303
+                    )
+                content = upload.file.read(_MAX_IMAGE_BYTES + 1)
+                try:
+                    original_bytes, thumbnail_bytes = process_product_image(content)
+                except HTTPException as exc:
+                    self._flash_http_error(request, exc)
+                    return RedirectResponse(
+                        url=f"/admin/product/upload-image?pk={pk}", status_code=303
+                    )
+                file_stem = uuid4().hex
+                original_name = f"{file_stem}_orig.webp"
+                thumbnail_name = f"{file_stem}_thumb.webp"
+                tenant_dir = product_media_dir(ADMIN_TENANT_ID)
+                (tenant_dir / original_name).write_bytes(original_bytes)
+                (tenant_dir / thumbnail_name).write_bytes(thumbnail_bytes)
+                old_image_url, old_thumbnail_url = (
+                    product.image_url,
+                    product.thumbnail_url,
+                )
+                product.image_url = f"/media/{ADMIN_TENANT_ID}/products/{original_name}"
+                product.thumbnail_url = (
+                    f"/media/{ADMIN_TENANT_ID}/products/{thumbnail_name}"
+                )
+                db.add(product)
+                db.commit()
+                delete_media_file(old_image_url)
+                delete_media_file(old_thumbnail_url)
+                log_action(
+                    db=db,
+                    action="admin.product_image_upload",
+                    user_id=request.session.get("admin_user_id"),
+                    resource_type="product",
+                    resource_id=product.id,
+                )
+                db.commit()
+                Flash.success(request, "Product photo updated.")
+                return RedirectResponse(
+                    url=f"/admin/product/details/{product.id}", status_code=303
+                )
+
+            return await self.templates.TemplateResponse(
+                request,
+                "product_upload_image.html",
+                context={
+                    "product": product,
+                    "title": f"Upload Photo: {product.name}",
                 },
             )
         finally:

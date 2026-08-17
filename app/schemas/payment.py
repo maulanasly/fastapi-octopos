@@ -26,6 +26,7 @@ class Payment(PaymentBase):
 class SplitPaymentLineCreate(BaseModel):
     payment_method: str
     amount: float = Field(gt=0)
+    idempotency_key: Optional[str] = None
 
 
 class SplitPaymentCreate(BaseModel):

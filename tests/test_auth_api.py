@@ -212,3 +212,28 @@ def test_auth_me_returns_profile(client, auth_factory):
 def test_auth_me_requires_auth(client):
     resp = client.get("/api/v1/auth/me")
     assert resp.status_code == 401 or resp.status_code == 403
+
+
+def test_login_returns_expires_in(client, auth_factory):
+    auth_factory.register("expires@example.com")
+    resp = client.post(
+        "/api/v1/auth/token",
+        data={"username": "expires@example.com", "password": "TestPass123"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["expires_in"] == 60 * 24 * 8 * 60
+
+
+def test_expired_token_returns_401(client, auth_factory, monkeypatch):
+    import app.core.security as security
+
+    auth_factory.register("stale@example.com")
+    user = client.get("/api/v1/auth/me")
+    assert user.status_code == 401  # no token
+
+    monkeypatch.setattr(security.settings, "ACCESS_TOKEN_EXPIRE_MINUTES", -1)
+    token = security.create_access_token(1)
+    resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 401
+    assert resp.headers.get("www-authenticate") == "Bearer"

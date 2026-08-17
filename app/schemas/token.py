@@ -6,6 +6,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     refresh_token: str
+    expires_in: int  # access token lifetime in seconds (proactive refresh)
 
 
 class TokenPayload(BaseModel):

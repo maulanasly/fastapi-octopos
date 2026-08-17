@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import get_current_active_user, require_permissions
@@ -20,6 +20,7 @@ def get_refunds(
     skip: int = 0,
     limit: int = 100,
     order_id: Optional[int] = Query(None, ge=1),
+    response: Response = None,
     current_user: User = Depends(require_permissions("refunds:view")),
 ):
     query = (
@@ -34,7 +35,11 @@ def get_refunds(
     if order_id:
         query = query.filter(Refund.order_id == order_id)
 
-    return query.offset(skip).limit(limit).all()
+    limit = min(limit, 200)
+    total = query.count()
+    refunds = query.offset(skip).limit(limit).all()
+    response.headers["X-Total-Count"] = str(total)
+    return refunds
 
 
 @router.get("/{refund_id}", response_model=RefundSchema)

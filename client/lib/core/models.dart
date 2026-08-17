@@ -369,6 +369,7 @@ class Product {
   final int? categoryId;
   final Category? category;
   final String? imageUrl;
+  final String? thumbnailUrl;
 
   const Product({
     required this.id,
@@ -384,6 +385,7 @@ class Product {
     this.categoryId,
     this.category,
     this.imageUrl,
+    this.thumbnailUrl,
   });
 
   int get priceCents => (price * 100).round();
@@ -404,6 +406,7 @@ class Product {
         ? null
         : Category.fromJson(json['category'] as Map<String, dynamic>),
     imageUrl: json['image_url'] as String?,
+    thumbnailUrl: json['thumbnail_url'] as String?,
   );
 
   Map<String, dynamic> toJson() => {

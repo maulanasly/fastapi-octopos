@@ -137,6 +137,30 @@ def test_catalog_full_sync_returns_all_rows(client, manager_headers, make_produc
     assert any(c for c in body["categories"])
 
 
+def test_catalog_sync_includes_image_urls(client, manager_headers, make_product):
+    headers = manager_headers
+    product = make_product(
+        headers, name="Sync Photo", sku="SYNC-PHOTO", price=9.99, stock=5
+    )
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (32, 32), (10, 120, 200)).save(buffer, format="PNG")
+    uploaded = client.post(
+        f"/api/v1/products/{product['id']}/image",
+        headers=headers,
+        files={"file": ("p.png", buffer.getvalue(), "image/png")},
+    ).json()
+
+    resp = client.get("/api/v1/sync/catalog", headers=headers)
+    assert resp.status_code == 200, resp.text
+    synced = next(p for p in resp.json()["products"] if p["id"] == product["id"])
+    assert synced["image_url"] == uploaded["image_url"]
+    assert synced["thumbnail_url"] == uploaded["thumbnail_url"]
+
+
 def test_catalog_delta_returns_only_changed(client, manager_headers, make_product):
     headers = manager_headers
     product = make_product(
