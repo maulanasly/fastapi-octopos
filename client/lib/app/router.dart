@@ -12,6 +12,7 @@ import '../features/catalog/products_screen.dart';
 import '../features/customers/customers_screen.dart';
 import '../features/inventory/inventory_screen.dart';
 import '../features/orders/orders_screen.dart';
+import '../features/serving/serving_screen.dart';
 import '../features/drawer/reconcile_screen.dart';
 import '../features/pos/pos_screen.dart';
 import '../features/promotions/promotions_screen.dart';
@@ -79,6 +80,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/customers',
             builder: (context, state) => const CustomersScreen(),
+          ),
+          GoRoute(
+            path: '/serving',
+            builder: (context, state) => const ServingScreen(),
           ),
           GoRoute(
             path: '/orders',

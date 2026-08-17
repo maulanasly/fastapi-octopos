@@ -193,6 +193,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               label: Text(statusLabel),
               visualDensity: VisualDensity.compact,
             ),
+            if (order.servingStatus != 'none' && order.servingStatus != 'served')
+              Chip(
+                label: Text(_servingLabel(s, order.servingStatus)),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .secondaryContainer
+                    .withValues(alpha: 0.5),
+              ),
             IconButton(
               tooltip: s.of('reprint'),
               icon: const Icon(Icons.receipt_long),
@@ -211,3 +220,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 }
+
+String _servingLabel(AppStrings s, String status) => switch (status) {
+  'queued' => s.of('statusQueued'),
+  'preparing' => s.of('statusPreparing'),
+  'ready' => s.of('statusReady'),
+  _ => status,
+};

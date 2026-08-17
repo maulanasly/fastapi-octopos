@@ -504,6 +504,7 @@ class OrderItem {
   final int productId;
   final int quantity;
   final double unitPrice;
+  final Product? product;
 
   const OrderItem({
     required this.id,
@@ -511,6 +512,7 @@ class OrderItem {
     required this.productId,
     required this.quantity,
     required this.unitPrice,
+    this.product,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
@@ -519,6 +521,9 @@ class OrderItem {
     productId: json['product_id'] as int,
     quantity: json['quantity'] as int,
     unitPrice: (json['unit_price'] as num).toDouble(),
+    product: json['product'] == null
+        ? null
+        : Product.fromJson(json['product'] as Map<String, dynamic>),
   );
 }
 
@@ -538,11 +543,16 @@ class Order {
   final double remainingAmount;
   final int redeemedPoints;
   final String status;
+  final String servingStatus;
+  final String? preparingAt;
+  final String? readyAt;
+  final String? servedAt;
   final String reservationStatus;
   final String? createdAt;
   final List<OrderItem> items;
   final List<PaymentLine> payments;
   final List<TaxLine> taxLines;
+  final Customer? customer;
 
   const Order({
     required this.id,
@@ -560,11 +570,16 @@ class Order {
     required this.remainingAmount,
     required this.redeemedPoints,
     required this.status,
+    this.servingStatus = 'none',
+    this.preparingAt,
+    this.readyAt,
+    this.servedAt,
     required this.reservationStatus,
     this.createdAt,
     this.items = const [],
     this.payments = const [],
     this.taxLines = const [],
+    this.customer,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
@@ -583,6 +598,10 @@ class Order {
     remainingAmount: (json['remaining_amount'] as num?)?.toDouble() ?? 0,
     redeemedPoints: json['redeemed_points'] as int? ?? 0,
     status: json['status'] as String,
+    servingStatus: json['serving_status'] as String? ?? 'none',
+    preparingAt: json['preparing_at'] as String?,
+    readyAt: json['ready_at'] as String?,
+    servedAt: json['served_at'] as String?,
     reservationStatus: json['reservation_status'] as String? ?? '',
     items: (json['items'] as List? ?? [])
         .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
@@ -593,6 +612,9 @@ class Order {
     taxLines: (json['tax_lines'] as List? ?? [])
         .map((e) => TaxLine.fromJson(e as Map<String, dynamic>))
         .toList(),
+    customer: json['customer'] == null
+        ? null
+        : Customer.fromJson(json['customer'] as Map<String, dynamic>),
   );
 }
 
@@ -633,6 +655,7 @@ class OrderReceipt {
   final double changeAmount;
   final double remainingAmount;
   final String status;
+  final String servingStatus;
   final String reservationStatus;
   final List<ReceiptItem> items;
   final List<TaxLine> taxLines;
@@ -654,6 +677,7 @@ class OrderReceipt {
     required this.changeAmount,
     required this.remainingAmount,
     required this.status,
+    this.servingStatus = 'none',
     required this.reservationStatus,
     this.items = const [],
     this.taxLines = const [],
@@ -673,6 +697,7 @@ class OrderReceipt {
     changeAmount: (json['change_amount'] as num?)?.toDouble() ?? 0,
     remainingAmount: (json['remaining_amount'] as num?)?.toDouble() ?? 0,
     status: json['status'] as String,
+    servingStatus: json['serving_status'] as String? ?? 'none',
     reservationStatus: json['reservation_status'] as String? ?? '',
     items: (json['items'] as List? ?? [])
         .map((e) => ReceiptItem.fromJson(e as Map<String, dynamic>))

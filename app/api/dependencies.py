@@ -19,11 +19,7 @@ from app.schemas.token import TokenPayload
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/token")
 
 
-def get_current_user(
-    request: Request,
-    db: Session = Depends(get_db),
-    token: str = Depends(reusable_oauth2),
-) -> User:
+def _user_from_token(db: Session, token: str, request: Request) -> User:
     language = parse_language(request.headers.get("accept-language"))
     try:
         payload = jwt.decode(
@@ -48,6 +44,43 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=404, detail=t("auth.user_not_found", language))
     return user
+
+
+def get_current_user(
+    request: Request,
+    db: Session = Depends(get_db),
+    token: str = Depends(reusable_oauth2),
+) -> User:
+    return _user_from_token(db, token, request)
+
+
+def get_current_active_user_any_auth(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> User:
+    """Authenticate from the ``Authorization`` header or a ``?token=``
+    query parameter (for EventSource-style clients that cannot set
+    headers), then enforce the active-user check."""
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.query_params.get("token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=t(
+                "auth.invalid_credentials",
+                parse_language(request.headers.get("accept-language")),
+            ),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    current_user = _user_from_token(db, token, request)
+    language = parse_language(request.headers.get("accept-language"))
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail=t("auth.inactive_user", language))
+    return current_user
 
 
 def get_current_active_user(

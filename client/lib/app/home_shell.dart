@@ -24,9 +24,16 @@ class HomeShell extends ConsumerWidget {
     final canViewReports = auth.has('reports:view');
     final canViewInventory = auth.has('inventory:view');
     final canManagePromotions = auth.has('promotions:manage');
+    final canManageOrders = auth.has('orders:manage');
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
+      if (canManageOrders)
+        const _Dest(
+          icon: Icons.room_service,
+          label: 'Serving',
+          path: '/serving',
+        ),
       const _Dest(icon: Icons.receipt_long, label: 'Orders', path: '/orders'),
       if (canViewInventory)
         const _Dest(
@@ -124,6 +131,8 @@ String _stringKeyForPath(String path) {
   switch (path) {
     case '/products':
       return 'products';
+    case '/serving':
+      return 'serving';
     case '/customers':
       return 'customers';
     case '/reports':
