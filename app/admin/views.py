@@ -1,5 +1,6 @@
 # TODO(tenant): admin panel is platform-wide; scope when admin is tenant-aware
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from uuid import uuid4
 
 # pyrefly: ignore [missing-import]
@@ -70,8 +71,24 @@ from app.services.reports import (
 REPORTS_CACHE_SECONDS = 120
 _reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
 
+# The admin panel is superuser-only (cross-tenant by design); rows it
+# creates that require a tenant land in the seeded default tenant.
+ADMIN_TENANT_ID = 1
 
-class UserAdmin(LabeledRelationsMixin, ModelView, model=User):
+
+class TenantScopedModelView(ModelView):
+    """ModelView that stamps tenant_id on rows created through the panel."""
+
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        if is_created and hasattr(model, "tenant_id"):
+            if "tenant_id" in model.__table__.c and model.tenant_id is None:
+                model.tenant_id = ADMIN_TENANT_ID
+        await super().on_model_change(data, model, is_created, request)
+
+
+class UserAdmin(LabeledRelationsMixin, TenantScopedModelView, model=User):
     name = "Users"
     icon = "fa-solid fa-user"
     category = "Access Control"
@@ -90,7 +107,7 @@ class UserAdmin(LabeledRelationsMixin, ModelView, model=User):
 
 
 class LocalizationSettingAdmin(
-    LabeledRelationsMixin, ModelView, model=LocalizationSetting
+    LabeledRelationsMixin, TenantScopedModelView, model=LocalizationSetting
 ):
     name = "Localization"
     icon = "fa-solid fa-earth-asia"
@@ -198,7 +215,7 @@ class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission
     can_delete = False
 
 
-class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
+class CategoryAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Category):
     name = "Categories"
     icon = "fa-solid fa-folder-tree"
     category = "Inventory"
@@ -214,7 +231,7 @@ class CategoryAdmin(LabeledRelationsMixin, ModelView, model=Category):
     form_overrides = {"color": ColorField}
 
 
-class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
+class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
     name = "Products"
     icon = "fa-solid fa-cube"
     category = "Inventory"
@@ -304,6 +321,7 @@ class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
                     StockMovement(
                         product_id=product.id,
                         user_id=request.session.get("admin_user_id"),
+                        tenant_id=ADMIN_TENANT_ID,
                         movement_type="manual_adjustment",
                         quantity_before=quantity_before,
                         quantity_delta=delta,
@@ -345,7 +363,7 @@ class ProductAdmin(LabeledRelationsMixin, ModelView, model=Product):
             db.close()
 
 
-class PromotionAdmin(LabeledRelationsMixin, ModelView, model=Promotion):
+class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promotion):
     name = "Promotions"
     icon = "fa-solid fa-tags"
     category = "Marketing"
@@ -368,7 +386,7 @@ class PromotionAdmin(LabeledRelationsMixin, ModelView, model=Promotion):
     column_sortable_list = [Promotion.id, Promotion.usage_count, Promotion.starts_at]
 
 
-class CustomerAdmin(LabeledRelationsMixin, ModelView, model=Customer):
+class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer):
     name = "Customers"
     icon = "fa-solid fa-user-group"
     category = "Customers"
@@ -388,7 +406,7 @@ class CustomerAdmin(LabeledRelationsMixin, ModelView, model=Customer):
 
 
 class LoyaltyTransactionAdmin(
-    LabeledRelationsMixin, ModelView, model=LoyaltyTransaction
+    LabeledRelationsMixin, TenantScopedModelView, model=LoyaltyTransaction
 ):
     name = "Loyalty Transactions"
     icon = "fa-solid fa-star"
@@ -414,7 +432,7 @@ class LoyaltyTransactionAdmin(
     can_delete = False
 
 
-class SupplierAdmin(LabeledRelationsMixin, ModelView, model=Supplier):
+class SupplierAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Supplier):
     name = "Suppliers"
     icon = "fa-solid fa-truck-field"
     category = "Purchasing"
@@ -432,7 +450,9 @@ class SupplierAdmin(LabeledRelationsMixin, ModelView, model=Supplier):
     column_sortable_list = [Supplier.created_at, Supplier.id]
 
 
-class PurchaseOrderAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrder):
+class PurchaseOrderAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=PurchaseOrder
+):
     name = "Purchase Orders"
     icon = "fa-solid fa-file-invoice"
     category = "Purchasing"
@@ -455,7 +475,9 @@ class PurchaseOrderAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrder):
     can_delete = False
 
 
-class PurchaseOrderItemAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrderItem):
+class PurchaseOrderItemAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=PurchaseOrderItem
+):
     name = "PO Items"
     icon = "fa-solid fa-list-check"
     category = "Purchasing"
@@ -476,7 +498,9 @@ class PurchaseOrderItemAdmin(LabeledRelationsMixin, ModelView, model=PurchaseOrd
     can_delete = False
 
 
-class PurchaseInvoiceAdmin(LabeledRelationsMixin, ModelView, model=PurchaseInvoice):
+class PurchaseInvoiceAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=PurchaseInvoice
+):
     name = "Purchase Invoices"
     icon = "fa-solid fa-file-invoice-dollar"
     category = "Purchasing"
@@ -507,7 +531,7 @@ class PurchaseInvoiceAdmin(LabeledRelationsMixin, ModelView, model=PurchaseInvoi
 
 
 class PurchaseInvoiceItemAdmin(
-    LabeledRelationsMixin, ModelView, model=PurchaseInvoiceItem
+    LabeledRelationsMixin, TenantScopedModelView, model=PurchaseInvoiceItem
 ):
     name = "Invoice Items"
     icon = "fa-solid fa-receipt"
@@ -537,7 +561,7 @@ class PurchaseInvoiceItemAdmin(
     can_delete = False
 
 
-class OrderAdmin(LabeledRelationsMixin, ModelView, model=Order):
+class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
     name = "Orders"
     icon = "fa-solid fa-cart-shopping"
     category = "Sales"
@@ -581,7 +605,7 @@ class OrderAdmin(LabeledRelationsMixin, ModelView, model=Order):
     can_delete = False
 
 
-class OrderItemAdmin(LabeledRelationsMixin, ModelView, model=OrderItem):
+class OrderItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=OrderItem):
     name = "Order Items"
     icon = "fa-solid fa-basket-shopping"
     category = "Sales"
@@ -600,7 +624,9 @@ class OrderItemAdmin(LabeledRelationsMixin, ModelView, model=OrderItem):
     can_delete = False
 
 
-class DrawerSessionAdmin(LabeledRelationsMixin, ModelView, model=DrawerSession):
+class DrawerSessionAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=DrawerSession
+):
     name = "Drawer Sessions"
     icon = "fa-solid fa-cash-register"
     category = "Operations"
@@ -627,7 +653,7 @@ class DrawerSessionAdmin(LabeledRelationsMixin, ModelView, model=DrawerSession):
 
 
 class ShiftReconciliationAdmin(
-    LabeledRelationsMixin, ModelView, model=ShiftReconciliation
+    LabeledRelationsMixin, TenantScopedModelView, model=ShiftReconciliation
 ):
     name = "Shift Reconciliations"
     icon = "fa-solid fa-calculator"
@@ -653,7 +679,7 @@ class ShiftReconciliationAdmin(
     can_delete = False
 
 
-class RefundAdmin(LabeledRelationsMixin, ModelView, model=Refund):
+class RefundAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund):
     name = "Refunds"
     icon = "fa-solid fa-rotate-left"
     category = "Sales"
@@ -673,7 +699,7 @@ class RefundAdmin(LabeledRelationsMixin, ModelView, model=Refund):
     can_delete = False
 
 
-class RefundItemAdmin(LabeledRelationsMixin, ModelView, model=RefundItem):
+class RefundItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=RefundItem):
     name = "Refund Items"
     icon = "fa-solid fa-rotate"
     category = "Sales"
@@ -693,7 +719,9 @@ class RefundItemAdmin(LabeledRelationsMixin, ModelView, model=RefundItem):
     can_delete = False
 
 
-class StockMovementAdmin(LabeledRelationsMixin, ModelView, model=StockMovement):
+class StockMovementAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=StockMovement
+):
     name = "Stock Movements"
     icon = "fa-solid fa-arrows-left-right-to-line"
     category = "Inventory"
@@ -718,7 +746,9 @@ class StockMovementAdmin(LabeledRelationsMixin, ModelView, model=StockMovement):
     can_delete = False
 
 
-class SyncEventLogAdmin(LabeledRelationsMixin, ModelView, model=SyncEventLog):
+class SyncEventLogAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=SyncEventLog
+):
     name = "Sync Events"
     icon = "fa-solid fa-arrows-rotate"
     category = "System"
@@ -747,7 +777,7 @@ class SyncEventLogAdmin(LabeledRelationsMixin, ModelView, model=SyncEventLog):
     can_delete = False
 
 
-class TaxRuleAdmin(LabeledRelationsMixin, ModelView, model=TaxRule):
+class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
     name = "Tax Rules"
     icon = "fa-solid fa-percent"
     category = "Marketing"
@@ -770,7 +800,9 @@ class TaxRuleAdmin(LabeledRelationsMixin, ModelView, model=TaxRule):
     column_sortable_list = [TaxRule.id, TaxRule.rate, TaxRule.updated_at]
 
 
-class OrderTaxLineAdmin(LabeledRelationsMixin, ModelView, model=OrderTaxLine):
+class OrderTaxLineAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=OrderTaxLine
+):
     name = "Order Tax Lines"
     icon = "fa-solid fa-receipt"
     category = "Sales"
@@ -1263,6 +1295,7 @@ class WorkflowsAdmin(BaseView):
                             current_user=user,
                             purchase_order_id=po_id,
                             receive_in=PurchaseOrderReceive(items=items),
+                            tenant_id=ADMIN_TENANT_ID,
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1404,6 +1437,7 @@ class WorkflowsAdmin(BaseView):
                                 invoice_number=invoice_number,
                                 items=items,
                             ),
+                            tenant_id=ADMIN_TENANT_ID,
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1441,6 +1475,7 @@ class WorkflowsAdmin(BaseView):
                                 action_in=PurchaseInvoiceReviewAction(
                                     review_note=review_note
                                 ),
+                                tenant_id=ADMIN_TENANT_ID,
                             )
                             Flash.success(
                                 request, f"Invoice #{invoice_id} submitted for review."
@@ -1453,6 +1488,7 @@ class WorkflowsAdmin(BaseView):
                                 action_in=PurchaseInvoiceReviewAction(
                                     review_note=review_note
                                 ),
+                                tenant_id=ADMIN_TENANT_ID,
                             )
                             Flash.success(request, f"Invoice #{invoice_id} approved.")
                         elif action_name == "reject":
@@ -1463,6 +1499,7 @@ class WorkflowsAdmin(BaseView):
                                 action_in=PurchaseInvoiceReviewAction(
                                     review_note=review_note
                                 ),
+                                tenant_id=ADMIN_TENANT_ID,
                             )
                             Flash.success(request, f"Invoice #{invoice_id} rejected.")
                         else:
@@ -1776,6 +1813,7 @@ class WorkflowsAdmin(BaseView):
                                 idempotency_key=str(uuid4()),
                                 items=items,
                             ),
+                            tenant_id=ADMIN_TENANT_ID,
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)

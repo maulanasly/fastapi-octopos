@@ -11,7 +11,7 @@ from app.api.dependencies import get_current_active_user
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.rbac import assign_default_cashier_role
+from app.core.rbac import assign_default_cashier_role, assign_default_owner_role
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -98,6 +98,8 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
     )
     db.add(user)
     assign_default_cashier_role(db=db, user=user)
+    if getattr(tenant, "_is_new", False):
+        assign_default_owner_role(db=db, user=user)
     db.commit()
     db.refresh(user)
     return user
@@ -255,6 +257,8 @@ def google_auth(
             )
             db.add(user)
             assign_default_cashier_role(db=db, user=user)
+            if getattr(tenant, "_is_new", False):
+                assign_default_owner_role(db=db, user=user)
             db.commit()
             db.refresh(user)
 

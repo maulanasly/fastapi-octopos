@@ -46,6 +46,15 @@ def _order_payload(product_id):
     return {"items": [{"product_id": product_id, "quantity": 1}]}
 
 
+def test_new_tenant_register_grants_owner_role(auth_factory, db):
+    from app.models.user import User
+
+    user = auth_factory.register("owner@example.com")
+    roles = [role.name for role in db.get(User, user["id"]).roles]
+    assert "admin" in roles
+    assert "cashier" in roles
+
+
 def test_products_isolated_between_tenants(client, make_product, manager_a, manager_b):
     product = make_product(manager_a, name="A-only", sku="SKU-A")
 

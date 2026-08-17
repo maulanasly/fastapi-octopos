@@ -99,3 +99,14 @@ def assign_default_cashier_role(db, user):
     if cashier_role and all(role.id != cashier_role.id for role in user.roles):
         user.roles.append(cashier_role)
         db.add(user)
+
+
+def assign_default_owner_role(db, user):
+    """Grant the full admin role to a tenant's first (owner) user."""
+    from app.models.rbac import Role
+
+    ensure_rbac_defaults(db)
+    admin_role = db.query(Role).filter(Role.name == "admin").first()
+    if admin_role and all(role.id != admin_role.id for role in user.roles):
+        user.roles.append(admin_role)
+        db.add(user)

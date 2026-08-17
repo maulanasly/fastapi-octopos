@@ -69,7 +69,7 @@ as well.
   user row already carries the tenant).
 ## Implementation status (commit e89522d + follow-ups)
 
-Implemented and verified (248 tests on PostgreSQL, incl. 8 cross-tenant
+Implemented and verified (249 tests on PostgreSQL, incl. 9 cross-tenant
 isolation tests in `tests/test_tenant_isolation.py`):
 
 - Models: `Tenant` (id, name, slug unique, is_active, timestamps); `tenant_id`
@@ -80,19 +80,26 @@ isolation tests in `tests/test_tenant_isolation.py`):
   `users`, drops `ix_{products_sku,promotions_code,users_email}` unique
   indexes, creates composite uniques `uq_products_tenant_sku`,
   `uq_promotions_tenant_code`, `uq_users_tenant_email`. Dialect-agnostic
-  (SQLite batch mode).
+  (SQLite batch mode; named FK constraints for batch compatibility).
+- Migration `0012`: relaxes `audit_logs.tenant_id` to nullable so platform
+  (superuser) actions can be recorded without inventing a tenant.
 - Auth: register/google-auth create a tenant per signup; same email is
   rejected only within the joined tenant or for superuser emails; JWT `ten`
   claim; login 400s on ambiguous (multi-tenant) emails; refresh tokens carry
   tenant_id; `log_action` derives tenant from the acting user.
+- Roles: a newly created tenant's first user (register/google-auth with
+  `_is_new` tenant) additionally receives the tenant-owner "admin" role;
+  later signups in the same tenant get only the default cashier role.
 - Scoping: all tenant-scoped endpoints/services filter by
   `current_user.tenant_id`; services take an explicit `tenant_id` param;
   auto-PO sweep attributes POs per supplier's tenant; localization settings
   are per-tenant; audit endpoint stays superuser-only (cross-tenant read).
-- Deviations from the plan above: the tenant "owner" admin-role wiring is not
-  done (register still assigns the cashier role; ownership is implicit);
-  the login form accepts no tenant identifier (ambiguous email → 400);
-  the admin panel (`app/admin/views.py`) is still platform-wide (marked
-  TODO) and its service call sites pass `tenant_id=1` only inside tests;
-  reservation sweep runs platform-wide (only touches expired reservations
-  of inactive users); report cache is admin-only and intentionally unscoped.
+- Admin panel: superuser-only (cross-tenant read/write by design); rows it
+  creates that require a tenant are stamped `tenant_id=1` (the seeded
+  default) via `TenantScopedModelView` and explicit `ADMIN_TENANT_ID` at
+  service call sites; `get_localization_setting` without a tenant falls back
+  to tenant 1 for auto-creation.
+- Deviations from the plan above: the login form accepts no tenant
+  identifier (ambiguous email → 400); reservation sweep runs platform-wide
+  (only touches expired reservations of inactive users); report cache is
+  admin-only and intentionally unscoped.

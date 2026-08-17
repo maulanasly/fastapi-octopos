@@ -153,7 +153,7 @@ def upgrade() -> None:
             sa.Column(
                 "tenant_id",
                 sa.Integer(),
-                sa.ForeignKey("tenants.id"),
+                sa.ForeignKey("tenants.id", name=f"fk_{table}_tenant_id"),
                 nullable=True,
             ),
         )
@@ -191,7 +191,20 @@ def downgrade() -> None:
     op.create_index("ix_promotions_code", "promotions", ["code"], unique=True)
     op.create_index("ix_users_email", "users", ["email"], unique=True)
 
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
     for table in reversed(TENANT_TABLES):
+        if not inspector.has_table(table):
+            continue
+        index_name = f"ix_{table}_tenant_id"
+        if any(i["name"] == index_name for i in inspector.get_indexes(table)):
+            # SQLite batch recreate replays the table's indexes onto the
+            # rebuilt table, so the tenant_id index must go first.
+            if _is_sqlite():
+                with op.batch_alter_table(table) as batch_op:
+                    batch_op.drop_index(index_name)
+            else:
+                op.drop_index(index_name, table_name=table)
         if _is_sqlite():
             with op.batch_alter_table(table) as batch_op:
                 batch_op.drop_column("tenant_id")

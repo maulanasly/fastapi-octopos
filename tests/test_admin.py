@@ -23,49 +23,6 @@ def _make_superuser(db, user_id):
     return user
 
 
-def _patch_admin_tenant_callsites(monkeypatch):
-    """The admin panel is platform-wide (see TODO in app/admin/views.py) and
-    its call sites do not yet pass tenant_id to tenanted services/models.
-    Tests run single-tenant, so inject tenant_id=1 at those call sites."""
-    from functools import partial
-
-    from app.admin import views as admin_views
-    from app.models.stock_movement import StockMovement
-    from app.services.purchasing import (
-        approve_purchase_invoice,
-        create_purchase_invoice,
-        receive_purchase_order_items,
-        submit_purchase_invoice_for_review,
-    )
-
-    class _AdminStockMovement(StockMovement):
-        def __init__(self, *args, **kwargs):
-            kwargs.setdefault("tenant_id", 1)
-            super().__init__(*args, **kwargs)
-
-    monkeypatch.setattr(admin_views, "StockMovement", _AdminStockMovement)
-    monkeypatch.setattr(
-        admin_views,
-        "receive_purchase_order_items",
-        partial(receive_purchase_order_items, tenant_id=1),
-    )
-    monkeypatch.setattr(
-        admin_views,
-        "create_purchase_invoice",
-        partial(create_purchase_invoice, tenant_id=1),
-    )
-    monkeypatch.setattr(
-        admin_views,
-        "submit_purchase_invoice_for_review",
-        partial(submit_purchase_invoice_for_review, tenant_id=1),
-    )
-    monkeypatch.setattr(
-        admin_views,
-        "approve_purchase_invoice",
-        partial(approve_purchase_invoice, tenant_id=1),
-    )
-
-
 def test_admin_requires_login(client):
     resp = client.get("/admin/", follow_redirects=False)
     assert resp.status_code in (302, 303)
@@ -92,12 +49,6 @@ def test_admin_dashboard_renders_after_login(client):
 
 
 def test_admin_reports_page_renders(client, db):
-    from app.models.localization import LocalizationSetting
-
-    # Seed the global default row: app.core.localization.get_localization_setting
-    # auto-creates one on first hit, which would violate NOT NULL tenant_id.
-    db.add(LocalizationSetting(tenant_id=1))
-    db.commit()
     _login(client)
     resp = client.get("/admin/reports")
     assert resp.status_code == 200
@@ -171,8 +122,7 @@ def test_user_role_can_be_deleted(client, db, auth_factory):
     assert db.query(Role).filter(Role.id == new_role.id).count() == 0
 
 
-def test_adjust_stock_writes_movement(client, auth_factory, db, monkeypatch):
-    _patch_admin_tenant_callsites(monkeypatch)
+def test_adjust_stock_writes_movement(client, auth_factory, db):
     from app.models.product import Product
     from app.models.stock_movement import StockMovement
 
@@ -678,9 +628,7 @@ def test_menu_sidebar_renders_categories(client, auth_factory, db):
         assert label in resp.text
 
 
-def test_restock_workflow_generates_and_receives(client, auth_factory, db, monkeypatch):
-    """Full restock wizard: auto-generate PO, receive items, stock updates."""
-    _patch_admin_tenant_callsites(monkeypatch)
+def test_restock_workflow_generates_and_receives(client, auth_factory, db):
     from decimal import Decimal
 
     from app.models.product import Product
@@ -773,9 +721,8 @@ def test_restock_workflow_generate_empty_when_healthy(client, auth_factory, db):
     assert "No draft purchase orders to receive" in page.text
 
 
-def test_invoice_workflow_creates_and_approves(client, auth_factory, db, monkeypatch):
+def test_invoice_workflow_creates_and_approves(client, auth_factory, db):
     """Create an invoice from a received PO, then approve it."""
-    _patch_admin_tenant_callsites(monkeypatch)
     from decimal import Decimal
 
     from app.models.purchase import PurchaseInvoice, PurchaseOrder, PurchaseOrderItem
