@@ -16,7 +16,7 @@ per-database isolation — right-sized for a POS SaaS at this scale).
 | Category | Tables |
 |---|---|
 | Global (no tenant_id) | `tenants`, `roles`, `permissions`, `role_permissions`, `alembic_version` |
-| Tenant-scoped | `users` (nullable — platform superuser has none), `categories`, `products`, `customers`, `promotions`, `tax_rules`, `orders`, `order_items`, `order_tax_lines`, `payments`, `refunds`, `refund_items`, `drawer_sessions`, `shift_reconciliations`, `stock_movements`, `loyalty_transactions`, `purchase_orders`, `purchase_order_items`, `purchase_invoices`, `purchase_invoice_items`, `sync_event_logs`, `audit_logs`, `localization_settings`, `refresh_tokens` |
+| Tenant-scoped | `users` (nullable — platform superuser has none), `categories`, `products`, `customers`, `promotions`, `tax_rules`, `orders`, `order_items`, `order_tax_lines`, `payments`, `refunds`, `refund_items`, `drawer_sessions`, `shift_reconciliations`, `stock_movements`, `loyalty_transactions`, `purchase_orders`, `purchase_order_items`, `purchase_invoices`, `purchase_invoice_items`, `sync_event_logs`, `audit_logs`, `localization_settings`, `refresh_tokens`, `order_location_updates` |
 
 Child rows (order items, refund items, PO lines, tax lines, payments, stock
 movements, loyalty transactions) denormalize `tenant_id` so every lookup is a

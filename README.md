@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/maulanasly/fastapi-octopos/actions/workflows/ci.yml/badge.svg)](https://github.com/maulanasly/fastapi-octopos/actions/workflows/ci.yml)
 
-A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory management, order/payment flow, drawer sessions, reports, and SQLAdmin dashboard.
+A FastAPI-based Point of Sale (POS) backend with JWT auth, product/inventory management, order/payment flow, order tracking with live maps, pgvector semantic search, drawer sessions, reports, and SQLAdmin dashboard.
 
 > **Note:** Copy `.env.example` to `.env` and update the values before running in production.
 
@@ -74,6 +74,11 @@ cp .env.example .env
 | `REPLENISHMENT_LOOKBACK_DAYS` | Sales lookback for replenishment velocity | `30` |
 | `LOG_LEVEL` | Logging level (`DEBUG`, `INFO`, ...) | `INFO` |
 | `LOG_JSON` | Emit JSON log lines (production-friendly) | `False` |
+| `EMBEDDING_PROVIDER` | Semantic-search embeddings: `hash` (offline default), `api` (OpenAI-compatible), or `none` | `hash` |
+| `EMBEDDING_MODEL` | Model name sent to the embedding API | `text-embedding-3-small` |
+| `EMBEDDING_DIM` | Embedding dimension — must stay `384` (matches the `products.embedding` vector column) | `384` |
+| `EMBEDDING_BASE_URL` | Embedding API base URL (OpenAI-compatible `/embeddings`) | `None` |
+| `EMBEDDING_API_KEY` | Embedding API key | `None` |
 
 ## License
 

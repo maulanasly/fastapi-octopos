@@ -33,3 +33,8 @@ cp .env.example .env
 | `REPLENISHMENT_LOOKBACK_DAYS` | Sales lookback for replenishment velocity | `30` |
 | `LOG_LEVEL` | Logging level (`DEBUG`, `INFO`, ...) | `INFO` |
 | `LOG_JSON` | Emit JSON log lines (production-friendly) | `False` |
+| `EMBEDDING_PROVIDER` | Semantic-search embeddings: `hash` (offline default), `api` (OpenAI-compatible), or `none` | `hash` |
+| `EMBEDDING_MODEL` | Model name sent to the embedding API | `text-embedding-3-small` |
+| `EMBEDDING_DIM` | Embedding dimension — must stay `384` (matches the `products.embedding` vector column) | `384` |
+| `EMBEDDING_BASE_URL` | Embedding API base URL (OpenAI-compatible `/embeddings`) | `None` |
+| `EMBEDDING_API_KEY` | Embedding API key | `None` |
