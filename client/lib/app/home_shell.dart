@@ -26,6 +26,7 @@ class HomeShell extends ConsumerWidget {
     final canManagePromotions = auth.has('promotions:manage');
     final canManageOrders = auth.has('orders:manage');
     final canTrackOrders = auth.has('orders:track');
+    final canManageStaff = auth.has('users:manage');
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
@@ -59,6 +60,8 @@ class HomeShell extends ConsumerWidget {
         ),
       if (canViewReports)
         const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
+      if (canManageStaff)
+        const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
       if (auth.isSuperuser)
         const _Dest(
           icon: Icons.admin_panel_settings,
@@ -152,6 +155,8 @@ String _stringKeyForPath(String path) {
       return 'promotions';
     case '/admin':
       return 'admin';
+    case '/staff':
+      return 'staff';
     default:
       return 'pos';
   }

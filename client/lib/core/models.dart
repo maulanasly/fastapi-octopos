@@ -218,6 +218,8 @@ class UserProfile {
   final String? fullName;
   final bool isActive;
   final bool isSuperuser;
+  final int? tenantId;
+  final List<String> roles;
 
   const UserProfile({
     required this.id,
@@ -225,6 +227,8 @@ class UserProfile {
     this.fullName,
     required this.isActive,
     required this.isSuperuser,
+    this.tenantId,
+    this.roles = const [],
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
@@ -233,6 +237,10 @@ class UserProfile {
     fullName: json['full_name'] as String?,
     isActive: json['is_active'] as bool? ?? true,
     isSuperuser: json['is_superuser'] as bool? ?? false,
+    tenantId: json['tenant_id'] as int?,
+    roles: (json['roles'] as List? ?? [])
+        .map((r) => (r as Map<String, dynamic>)['name'] as String)
+        .toList(),
   );
 }
 
