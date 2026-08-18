@@ -14,6 +14,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+from app.models.types import VectorType
 
 
 def _utcnow():
@@ -61,6 +62,7 @@ class Product(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), index=True)
     image_url = Column(String, nullable=True)  # /media/... path
     thumbnail_url = Column(String, nullable=True)  # /media/... WebP thumbnail
+    embedding = Column(VectorType(384), nullable=True)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

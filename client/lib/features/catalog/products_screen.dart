@@ -1,6 +1,7 @@
 /// Manager screen: product & category CRUD with images and colors.
 library;
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -25,6 +26,18 @@ class ProductsScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductsScreenState extends ConsumerState<ProductsScreen> {
+  final _query = TextEditingController();
+  Timer? _debounce;
+  List<Product>? _results;
+  String? _searchError;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _query.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
@@ -44,43 +57,105 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         onPressed: () => _createProduct(context),
         child: const Icon(Icons.add),
       ),
-      body: catalog.loading
-          ? const Center(child: CircularProgressIndicator())
-          : catalog.error != null
-          ? Center(child: Text('Failed to load:\n${catalog.error}'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: catalog.products.length,
-              separatorBuilder: (_, _) => const Divider(height: 8),
-              itemBuilder: (context, i) {
-                final product = catalog.products[i];
-                return ListTile(
-                  leading: _ProductThumb(product: product),
-                  title: Text(product.name),
-                  subtitle: Text(
-                    '${product.sku} · ${formatCents(product.priceCents)} · '
-                    '${product.stockQuantity} in stock',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (product.category?.color != null)
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: colorFromHex(product.category!.color),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      const SizedBox(width: 6),
-                      Text(product.category?.name ?? ''),
-                    ],
-                  ),
-                  onTap: () => _editProduct(context, product),
-                );
-              },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: TextField(
+              controller: _query,
+              decoration: InputDecoration(
+                hintText: s.of('searchProducts'),
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
+                isDense: true,
+                suffixIcon: _query.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _query.clear();
+                          setState(() {
+                            _results = null;
+                            _searchError = null;
+                          });
+                        },
+                      ),
+              ),
+              onChanged: _onQueryChanged,
             ),
+          ),
+          Expanded(child: _buildList(context, catalog, s)),
+        ],
+      ),
+    );
+  }
+
+  void _onQueryChanged(String q) {
+    _debounce?.cancel();
+    final query = q.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _results = null;
+        _searchError = null;
+      });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final results =
+            await ref.read(catalogRepositoryProvider).searchProducts(query);
+        if (!mounted) return;
+        setState(() {
+          _results = results;
+          _searchError = null;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _searchError = friendlyError(e, ref.read(stringsProvider)));
+      }
+    });
+  }
+
+  Widget _buildList(BuildContext context, CatalogState catalog, AppStrings s) {
+    if (_results != null) {
+      if (_results!.isEmpty) {
+        return Center(
+          child: Text(s.of('noSearchResults', args: {'q': _query.text.trim()})),
+        );
+      }
+      return ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _results!.length,
+        separatorBuilder: (_, _) => const Divider(height: 8),
+        itemBuilder: (context, i) {
+          final product = _results![i];
+          return _ProductTile(
+            product: product,
+            onTap: () => _editProduct(context, product),
+          );
+        },
+      );
+    }
+    if (_searchError != null) {
+      return Center(child: Text(_searchError!));
+    }
+    if (catalog.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (catalog.error != null) {
+      return Center(child: Text('Failed to load:\n${catalog.error}'));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: catalog.products.length,
+      separatorBuilder: (_, _) => const Divider(height: 8),
+      itemBuilder: (context, i) {
+        final product = catalog.products[i];
+        return _ProductTile(
+          product: product,
+          onTap: () => _editProduct(context, product),
+        );
+      },
     );
   }
 
@@ -461,6 +536,37 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
           child: Text(s.of('done')),
         ),
       ],
+    );
+  }
+}
+
+class _ProductTile extends StatelessWidget {
+  const _ProductTile({required this.product, required this.onTap});
+
+  final Product product;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = product.category?.color;
+    return ListTile(
+      leading: _ProductThumb(product: product),
+      title: Text(product.name),
+      subtitle: Text(
+        '${product.sku} · ${formatCents(product.priceCents)} · '
+        '${product.stockQuantity} in stock',
+      ),
+      trailing: color == null
+          ? null
+          : Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: colorFromHex(color),
+                shape: BoxShape.circle,
+              ),
+            ),
+      onTap: onTap,
     );
   }
 }

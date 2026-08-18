@@ -34,9 +34,14 @@ make docker-down          # stop the stack
 The backend entrypoint waits for Postgres, runs `alembic upgrade head`
 automatically (idempotent), then starts uvicorn as PID 1.
 
+Postgres runs the `pgvector/pgvector:pg16` image (PostgreSQL 16 with the
+`vector` extension — required by migration 0015; plain `postgres:16` will
+fail). Enable embeddings with the `EMBEDDING_PROVIDER`/`EMBEDDING_*`
+variables; the default `hash` provider works offline.
+
 Compose interpolates from the same `.env` the app reads (`ENVIRONMENT`,
 `SECRET_KEY`, `ADMIN_PASSWORD`, `BACKEND_CORS_ORIGINS`,
-`SQLALCHEMY_DATABASE_URI`, `DEFAULT_TAX_RATE`, `LOG_LEVEL`). Inside the
+`SQLALCHEMY_DATABASE_URI`, `DEFAULT_TAX_RATE`, `LOG_LEVEL`, `EMBEDDING_*`). Inside the
 compose network the backend reaches Postgres at `postgres:5432` (the
 `.env.example` value with `localhost:5433` is for running the app on the
 host).

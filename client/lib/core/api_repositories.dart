@@ -132,6 +132,17 @@ class CatalogRepository {
         .toList();
   }
 
+  /// Semantic catalog search over product embeddings (pgvector).
+  Future<List<Product>> searchProducts(String query) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/products/search',
+      queryParameters: {'q': query},
+    );
+    return resp.data!
+        .map((e) => Product.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<Category> createCategory(
     String name,
     String? description, {
@@ -230,6 +241,9 @@ class OrderRepository {
     String? promotionCode,
     int redeemPoints = 0,
     String? idempotencyKey,
+    String? destinationAddress,
+    double? destinationLat,
+    double? destinationLng,
   }) async {
     final resp = await api.dio.post<Map<String, dynamic>>(
       '/orders/',
@@ -239,6 +253,10 @@ class OrderRepository {
         if (promotionCode != null && promotionCode.isNotEmpty)
           'promotion_code': promotionCode,
         if (redeemPoints > 0) 'redeem_points': redeemPoints,
+        if (destinationAddress != null && destinationAddress.isNotEmpty)
+          'destination_address': destinationAddress,
+        'destination_lat': ?destinationLat,
+        'destination_lng': ?destinationLng,
       }, key: idempotencyKey ?? newIdempotencyKey()),
     );
     return Order.fromJson(resp.data!);
@@ -320,9 +338,11 @@ class OrderRepository {
     return Order.fromJson(resp.data!);
   }
 
-  /// Server-Sent Events stream of serving transitions
-  /// (`{"order_id": int, "serving_status": string}`). Errors terminate
-  /// the stream; callers fall back to polling.
+  /// Server-Sent Events stream of serving transitions and tracking
+  /// pings (`{"order_id": int, "serving_status": string}` or
+  /// `{"order_id": int, "tracking_status": string, ...}`). Each emitted
+  /// map carries the SSE event name under `event` (`serving` | `tracking`).
+  /// Errors terminate the stream; callers fall back to polling.
   Stream<Map<String, dynamic>> servingEvents() async* {
     final resp = await api.dio.get<ResponseBody>(
       '/orders/serving/stream',
@@ -331,21 +351,25 @@ class OrderRepository {
     final body = resp.data!;
     final stream = body.stream;
     final buffer = StringBuffer();
+    var currentEvent = '';
     await for (final chunk in stream) {
       final text = String.fromCharCodes(chunk);
-      var event = '';
       for (final line in text.split('\n')) {
         if (line.startsWith('event: ')) {
-          event = line.substring(7).trim();
-        } else if (line.startsWith('data: ') && event == 'serving') {
-          buffer.write(line.substring(6));
+          currentEvent = line.substring(7).trim();
+        } else if (line.startsWith('data: ')) {
+          if (currentEvent == 'serving' || currentEvent == 'tracking') {
+            buffer.write(line.substring(6));
+          }
         } else if (line.trim().isEmpty) {
           if (buffer.isNotEmpty) {
             final payload = buffer.toString();
             buffer.clear();
-            event = '';
+            final emittedEvent = currentEvent;
+            currentEvent = '';
             try {
-              yield jsonDecode(payload) as Map<String, dynamic>;
+              final decoded = jsonDecode(payload) as Map<String, dynamic>;
+              yield {...decoded, 'event': emittedEvent};
             } on FormatException {
               // ignore malformed frames
             }
@@ -353,6 +377,53 @@ class OrderRepository {
         }
       }
     }
+  }
+
+  /// Active tracked orders for the tenant with latest positions.
+  Future<List<TrackedOrder>> activeTracking() async {
+    final resp = await api.dio.get<List<dynamic>>('/orders/tracking/');
+    return (resp.data!)
+        .map((e) => TrackedOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Advance tracking: assigned -> en_route -> on_site (strict).
+  Future<Order> trackingStatus({
+    required int orderId,
+    required String status,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/tracking/$orderId/status',
+      data: {'status': status},
+    );
+    return Order.fromJson(resp.data!);
+  }
+
+  /// Append a position ping for a tracked order.
+  Future<Map<String, dynamic>> reportLocation({
+    required int orderId,
+    required double lat,
+    required double lng,
+    String source = 'gps',
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/orders/tracking/$orderId/location',
+      data: {'lat': lat, 'lng': lng, 'source': source},
+    );
+    return resp.data!;
+  }
+
+  /// Orders with destinations within [radiusKm] of a point (nearest first).
+  Future<List<Map<String, dynamic>>> nearestTracking({
+    required double lat,
+    required double lng,
+    double radiusKm = 10,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/orders/tracking/nearest',
+      queryParameters: {'lat': lat, 'lng': lng, 'radius_km': radiusKm},
+    );
+    return resp.data!.map((e) => e as Map<String, dynamic>).toList();
   }
 
   Future<Refund> createRefund({

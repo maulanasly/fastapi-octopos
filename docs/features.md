@@ -52,10 +52,28 @@
 - Translation-ready message layer with English and Indonesian keys for auth-related errors
 - Shared currency/number/date formatting helpers for dashboard rendering
 
+## Order Tracking
+
+- Optional destination on order creation: free-text address + optional `lat`/`lng` pin (client uses device GPS)
+- Tracking lifecycle on **paid** orders only: `none → assigned → en_route → on_site` (strict forward transitions, row-locked, tenant-scoped)
+- Transition timestamps (`assigned_at`, `en_route_at`, `on_site_at`) and a full `order_location_updates` append log (lat/lng, source `gps`/`manual`/`offline`)
+- Live positions: every ping broadcasts an SSE `tracking` event on the shared `/orders/serving/stream` (same stream as `serving` events, branched by `tracking_status`)
+- `GET /orders/tracking/` — active trips with `latest_location`; `GET /orders/tracking/nearest` — destinations within a radius via `earthdistance`, nearest-first
+- Offline pings replayed through the sync framework (`order_location_update` event type) and validated against `orders:track` inline
+- Permission `orders:track` gates all tracking endpoints; new system role `service_agent` (tracking only)
+
+## Semantic Search (pgvector)
+
+- Product embeddings stored in `products.embedding vector(384)` (HNSW index), computed from `name` + `description`
+- Providers: `hash` (deterministic 384-dim, offline default — hash embeddings are semantic-ish but deterministic), `api` (OpenAI-compatible `/embeddings` via `EMBEDDING_*` settings), `none` (disabled)
+- `GET /products/search?q=...` — tenant-scoped cosine similarity (`<=>`), 400 when embeddings are disabled or unpopulated
+- `scripts/backfill_embeddings.py` embeds existing products (run after upgrade; product create/update hooks embed automatically)
+- Client: search box on the Products screen (debounced) with semantic results
+
 ## Role-Based Access Control (RBAC)
 
 - Role and permission entities with many-to-many assignments
-- Default system roles: `cashier`, `manager`, `admin`
+- Default system roles: `cashier`, `manager`, `admin`, plus `service_agent` (order tracking)
 - Granular permission checks on sensitive modules (reports, taxes, purchasing approvals, localization updates, reservation release)
 - User role assignment and self permission introspection APIs
 
@@ -121,7 +139,7 @@
 ## Offline Sync & Idempotency
 
 - Batch sync endpoint for offline POS clients (`/sync/events/batch`)
-- Event types: `order_create`, `order_add_payment`, `refund_create`
+- Event types: `order_create`, `order_add_payment`, `refund_create`, `order_location_update`
 - Per-event status response (`success`, `failed`, `duplicate`)
 - Sync event logging for replay safety and audit trail
 
@@ -145,6 +163,7 @@ Superuser-only APIs for:
 - Admin login authenticates against real app users: only active superusers may sign in (sessions expire after `ADMIN_SESSION_HOURS`, default 12h). In non-production environments the legacy `ADMIN_USERNAME`/`ADMIN_PASSWORD` credentials still work, to bootstrap the first admin account.
 - To promote your first user to superuser in production: `UPDATE users SET is_superuser = 1 WHERE email = '...'` (or promote via the admin UI once another superuser exists)
 - Admin views for Users, Roles, Permissions, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
+- Product embeddings are excluded from the admin form (`form_excluded_columns`) — they are computed server-side
 - Admin views include Promotions and Tax Rule management
 - Custom reports page at `/admin/reports`
 - Reports dashboard supports period presets (`today`, `7d`, `30d`, `month`, `all`) with aligned sales/refund/invoice summary scope

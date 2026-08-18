@@ -1,16 +1,21 @@
+from typing import Optional
+
 from sqlalchemy import (
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+from app.models.types import PointType
 
 
 class Order(Base):
@@ -56,6 +61,16 @@ class Order(Base):
         String, nullable=False, default="reserved", index=True
     )  # reserved, released, committed
     reservation_expires_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    destination_address = Column(Text, nullable=True)
+    destination_lat = Column(Float, nullable=True)
+    destination_lng = Column(Float, nullable=True)
+    destination = Column(PointType, nullable=True)
+    tracking_status = Column(
+        String, nullable=False, default="none", index=True
+    )  # none, assigned, en_route, on_site
+    assigned_at = Column(DateTime(timezone=True), nullable=True)
+    en_route_at = Column(DateTime(timezone=True), nullable=True)
+    on_site_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User")
@@ -65,6 +80,22 @@ class Order(Base):
     payments = relationship("Payment", back_populates="order")
     refunds = relationship("Refund", back_populates="order")
     tax_lines = relationship("OrderTaxLine", back_populates="order")
+    location_updates = relationship(
+        "OrderLocationUpdate", back_populates="order", order_by="OrderLocationUpdate.id"
+    )
+
+    @property
+    def latest_location(self) -> Optional[dict]:
+        """Last reported position for the live map (None when untracked)."""
+        if not self.location_updates:
+            return None
+        last = self.location_updates[-1]
+        return {
+            "lat": last.lat,
+            "lng": last.lng,
+            "source": last.source,
+            "created_at": last.created_at,
+        }
 
 
 class OrderItem(Base):
@@ -80,3 +111,20 @@ class OrderItem(Base):
     order = relationship("Order", back_populates="items")
     product = relationship("Product")
     refund_items = relationship("RefundItem", back_populates="order_item")
+
+
+class OrderLocationUpdate(Base):
+    __tablename__ = "order_location_updates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    location = Column(PointType, nullable=True)
+    source = Column(
+        String, nullable=False, default="gps", index=True
+    )  # gps, manual, offline
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    order = relationship("Order", back_populates="location_updates")

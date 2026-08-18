@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/errors.dart';
@@ -22,16 +23,21 @@ class CheckoutSheet extends ConsumerStatefulWidget {
 
 class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   final _promo = TextEditingController();
+  final _destination = TextEditingController();
   _PayMethod _method = _PayMethod.cash;
   final _cashReceived = TextEditingController();
   final _splitCash = TextEditingController();
   int _redeemPoints = 0;
   bool _submitting = false;
+  bool _locating = false;
+  double? _pinLat;
+  double? _pinLng;
   String? _error;
 
   @override
   void dispose() {
     _promo.dispose();
+    _destination.dispose();
     _cashReceived.dispose();
     _splitCash.dispose();
     super.dispose();
@@ -101,6 +107,44 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   onChanged: (v) => setState(() => _redeemPoints = v.round()),
                 ),
             ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _destination,
+              decoration: InputDecoration(
+                labelText: s.of('serviceAddress'),
+                hintText: s.of('destination'),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _locating ? null : _setPin,
+                    icon: _locating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.my_location),
+                    label: Text(s.of('useMyLocation')),
+                  ),
+                ),
+                if (_pinLat != null && _pinLng != null) ...[
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      '${_pinLat!.toStringAsFixed(5)}, '
+                      '${_pinLng!.toStringAsFixed(5)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 12),
             SegmentedButton<_PayMethod>(
               segments: [
@@ -200,6 +244,26 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   int get _splitCents =>
       ((double.tryParse(_splitCash.text) ?? 0) * 100).round();
 
+  /// Captures the device position as the service pin (optional).
+  Future<void> _setPin() async {
+    setState(() => _locating = true);
+    try {
+      final position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _pinLat = position.latitude;
+        _pinLng = position.longitude;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Location unavailable')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
   /// Cash-chip presets: exact amount, then common banknotes in cents.
   List<int> _quickCashAmounts(int total) {
     final notes = currentCurrency == 'IDR'
@@ -242,6 +306,11 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
         customerId: cart.customer?.id,
         promotionCode: promo.isEmpty ? null : promo,
         redeemPoints: _redeemPoints,
+        destinationAddress: _destination.text.trim().isEmpty
+            ? null
+            : _destination.text.trim(),
+        destinationLat: _pinLat,
+        destinationLng: _pinLng,
       );
 
       // 2. Settle it (single or split). The payments endpoint returns the

@@ -88,11 +88,14 @@ def mark_served(
 async def stream_serving_events(
     current_user: User = Depends(get_current_active_user_any_auth),
 ):
-    """Server-Sent Events feed of serving transitions for the tenant.
+    """Server-Sent Events feed for the tenant.
 
     Auth accepts the ``Authorization`` header (for HTTP clients) or a
     ``?token=<jwt>`` query parameter (EventSource-style clients cannot set
-    headers). Events: ``{"order_id": int, "serving_status": str}``.
+    headers). Two event kinds on one stream:
+
+    * ``serving``: ``{"order_id": int, "serving_status": str}``
+    * ``tracking``: ``{"order_id": int, "tracking_status": str, ...}``
     """
 
     tenant_id = current_user.tenant_id
@@ -106,7 +109,8 @@ async def stream_serving_events(
                 if event is None:
                     yield ": ping\n\n"
                     continue
-                yield f"event: serving\ndata: {json.dumps(event)}\n\n"
+                event_name = "tracking" if "tracking_status" in event else "serving"
+                yield f"event: {event_name}\ndata: {json.dumps(event)}\n\n"
         except asyncio.CancelledError:
             raise
         finally:

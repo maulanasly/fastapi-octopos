@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth_controller.dart';
+import '../core/models.dart';
 import '../features/admin/admin_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/catalog/products_screen.dart';
@@ -13,6 +14,8 @@ import '../features/customers/customers_screen.dart';
 import '../features/inventory/inventory_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/serving/serving_screen.dart';
+import '../features/tracking/tracking_screen.dart';
+import '../features/tracking/trip_map_screen.dart';
 import '../features/drawer/reconcile_screen.dart';
 import '../features/pos/pos_screen.dart';
 import '../features/promotions/promotions_screen.dart';
@@ -84,6 +87,27 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/serving',
             builder: (context, state) => const ServingScreen(),
+          ),
+          GoRoute(
+            path: '/tracking',
+            builder: (context, state) => const TrackingScreen(),
+            routes: [
+              GoRoute(
+                path: ':orderId',
+                builder: (context, state) {
+                  final orderId = int.parse(state.pathParameters['orderId']!);
+                  final trip = state.extra as TrackedOrder?;
+                  return TripMapScreen(
+                    trip: trip ??
+                        TrackedOrder(
+                          orderId: orderId,
+                          status: '',
+                          trackingStatus: 'none',
+                        ),
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/orders',

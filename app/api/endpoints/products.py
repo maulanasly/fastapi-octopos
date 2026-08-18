@@ -1,8 +1,8 @@
 import uuid
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
-from sqlalchemy import func, or_
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 
 from app.admin.color_field import CATEGORY_COLOR_PALETTE
@@ -19,6 +19,7 @@ from app.schemas.product import Category as CategorySchema
 from app.schemas.product import CategoryCreate, CategoryUpdate
 from app.schemas.product import Product as ProductSchema
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.services.embeddings import embed_text
 from app.services.images import (
     _ALLOWED_IMAGE_TYPES,
     _MAX_IMAGE_BYTES,
@@ -139,6 +140,55 @@ def delete_category(
 # Product Endpoints
 
 
+@router.get("/search", response_model=List[ProductSchema])
+def search_products(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Semantic catalog search over product embeddings (pgvector).
+
+    Requires embeddings to be configured and populated (products created
+    or updated after the embedding feature, or the backfill script run).
+    Returns 400 when embeddings are disabled or no product has an
+    embedding yet.
+    """
+    vector = embed_text(q)
+    if vector is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Semantic search is not configured (EMBEDDING_PROVIDER=none)",
+        )
+    products = (
+        db.execute(
+            text(
+                """
+            SELECT * FROM products
+            WHERE tenant_id = :tenant_id
+              AND embedding IS NOT NULL
+            ORDER BY embedding <=> :query
+            LIMIT :limit
+            """
+            ),
+            {
+                "tenant_id": current_user.tenant_id,
+                "query": "[" + ",".join(repr(v) for v in vector) + "]",
+                "limit": limit,
+            },
+        )
+        .mappings()
+        .all()
+    )
+    if not products:
+        return []
+    ids = [row["id"] for row in products]
+    order = {pid: idx for idx, pid in enumerate(ids)}
+    loaded = db.query(Product).filter(Product.id.in_(ids)).all()
+    loaded.sort(key=lambda p: order[p.id])
+    return loaded
+
+
 @router.get("/", response_model=List[ProductSchema])
 def get_products(
     db: Session = Depends(get_db),
@@ -191,6 +241,7 @@ def create_product(
             raise HTTPException(status_code=404, detail="Category not found")
 
     product = Product(**product_in.model_dump(), tenant_id=current_user.tenant_id)
+    product.embedding = embed_text(f"{product.name} {product.description or ''}")
     db.add(product)
     db.flush()
 
@@ -238,9 +289,12 @@ def update_product(
         setattr(product, field, value)
 
     db.add(product)
+    embedding_refresh = "name" in update_data or "description" in update_data
     stock_changed = "stock_quantity" in update_data and (
         product.stock_quantity != previous_stock_quantity
     )
+    if embedding_refresh:
+        product.embedding = embed_text(f"{product.name} {product.description or ''}")
     if stock_changed:
         db.add(
             StockMovement(

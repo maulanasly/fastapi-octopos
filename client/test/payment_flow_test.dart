@@ -204,6 +204,9 @@ class _FakeOrders extends OrderRepository {
     String? promotionCode,
     int redeemPoints = 0,
     String? idempotencyKey,
+    String? destinationAddress,
+    double? destinationLat,
+    double? destinationLng,
   }) async {
     return const Order(
       id: 100,

@@ -17,9 +17,10 @@ Base prefix: `/api/v1`
 - `GET /products/categories`
 - `POST /products/categories`
 - `GET /products/`
-- `POST /products/`
+- `POST /products/` (embeds name+description when embeddings are configured)
 - `PUT /products/{product_id}`
 - `DELETE /products/{product_id}`
+- `GET /products/search?q=` (semantic search over pgvector embeddings)
 
 ## Customers
 
@@ -96,7 +97,12 @@ settings and sends `Accept-Language` so API errors arrive translated.
 ## Orders
 
 - `GET /orders/`
-- `POST /orders/`
+- `POST /orders/` (supports optional `destination_address`, `destination_lat`, `destination_lng`)
+- `GET /orders/serving/` and `GET /orders/serving/stream` (SSE: `serving` + `tracking` events)
+- `GET /orders/tracking/` (requires `orders:track`)
+- `POST /orders/tracking/{order_id}/status` (`assigned` | `en_route` | `on_site`, paid orders only)
+- `POST /orders/tracking/{order_id}/location` (append position ping, broadcasts SSE)
+- `GET /orders/tracking/nearest` (`lat`, `lng`, `radius_km`)
 - `GET /orders/{order_id}/receipt`
 - `POST /orders/{order_id}/payments`
 - `POST /orders/{order_id}/payments/split`
