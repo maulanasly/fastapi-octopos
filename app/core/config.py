@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     # deployments so limits are shared across processes.
     RATE_LIMIT_STORAGE_URI: str = ""
 
+    # Semantic search embeddings (products)
+    # "hash" (default, offline) | "api" (OpenAI-compatible /embeddings) | "none"
+    EMBEDDING_PROVIDER: str = "hash"
+    EMBEDDING_MODEL: str = "all-minilm"
+    EMBEDDING_DIM: int = 384  # must match the products.embedding column
+    EMBEDDING_BASE_URL: str = ""
+    EMBEDDING_API_KEY: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env", case_sensitive=True, extra="ignore"
     )

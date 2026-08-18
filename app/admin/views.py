@@ -296,6 +296,7 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.stock_quantity,
         Product.image_url,
         Product.thumbnail_url,
+        Product.embedding,  # managed by the embedding service / backfill script
     ]
 
     @action(
