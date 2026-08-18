@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -24,7 +23,7 @@ from app.schemas.payment import PaymentCreate, SplitPaymentCreate
 
 def _as_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -33,7 +32,7 @@ def _is_reservation_expired(order: Order) -> bool:
         return False
     if order.reservation_expires_at is None:
         return False
-    return _as_utc(order.reservation_expires_at) <= datetime.now(timezone.utc)
+    return _as_utc(order.reservation_expires_at) <= datetime.now(UTC)
 
 
 def _normalize_payment_method(payment_method: str) -> str:
@@ -355,7 +354,7 @@ def create_order(
     db: Session,
     current_user: User,
     order_in: OrderCreate,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Order:
     if tenant_id is None:
         tenant_id = current_user.tenant_id
@@ -488,7 +487,7 @@ def create_order(
         if not promotion.is_active:
             raise HTTPException(status_code=400, detail="Promotion is inactive")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if promotion.starts_at and _as_utc(promotion.starts_at) > now:
             raise HTTPException(status_code=400, detail="Promotion is not active yet")
         if promotion.ends_at and _as_utc(promotion.ends_at) < now:
@@ -600,11 +599,11 @@ def create_order(
         movement_inputs=movement_inputs,
         taxable_base_amount=taxable_base_amount,
         tenant_id=tenant_id,
-        now=datetime.now(timezone.utc),
+        now=datetime.now(UTC),
     )
     total_amount = quantize_money(grand_total_amount)
 
-    reservation_expires_at = datetime.now(timezone.utc) + timedelta(
+    reservation_expires_at = datetime.now(UTC) + timedelta(
         minutes=settings.ORDER_RESERVATION_TIMEOUT_MINUTES
     )
     order = Order(
@@ -697,7 +696,7 @@ def add_payment_to_order(
     current_user: User,
     order_id: int,
     payment_in: PaymentCreate,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Payment:
     if tenant_id is None:
         tenant_id = current_user.tenant_id
@@ -782,7 +781,7 @@ def add_split_payments_to_order(
     current_user: User,
     order_id: int,
     split_in: SplitPaymentCreate,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Order:
     if tenant_id is None:
         tenant_id = current_user.tenant_id
@@ -898,7 +897,7 @@ def add_split_payments_to_order(
 def release_expired_reservations(
     db: Session,
     current_user: User,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> ReservationReleaseSummary:
     if tenant_id is None:
         tenant_id = current_user.tenant_id
@@ -910,9 +909,9 @@ def release_expired_reservations(
 def release_expired_reservations_for_user(
     db: Session,
     user_id: int,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> ReservationReleaseSummary:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     candidate_orders = db.query(Order).filter(
         Order.status == "pending",
         Order.reservation_status == "reserved",
@@ -957,7 +956,7 @@ def cancel_order(
     db: Session,
     current_user: User,
     order_id: int,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Order:
     if tenant_id is None:
         tenant_id = current_user.tenant_id

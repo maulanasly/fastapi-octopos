@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -75,7 +74,7 @@ def _validate_tax_dates(tax_data: dict) -> None:
         raise HTTPException(status_code=400, detail="starts_at cannot be after ends_at")
 
 
-@router.get("/", response_model=List[TaxRuleSchema])
+@router.get("/", response_model=list[TaxRuleSchema])
 def get_tax_rules(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -187,7 +186,7 @@ def deactivate_tax_rule(
         raise HTTPException(status_code=404, detail="Tax rule not found")
 
     tax_rule.is_active = False
-    tax_rule.ends_at = tax_rule.ends_at or datetime.now(timezone.utc)
+    tax_rule.ends_at = tax_rule.ends_at or datetime.now(UTC)
     db.add(tax_rule)
     db.commit()
     return {"ok": True}

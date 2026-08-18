@@ -1,4 +1,5 @@
 """Shared validation helpers for endpoints."""
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 

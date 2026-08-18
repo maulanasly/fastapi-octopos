@@ -1,5 +1,3 @@
-from typing import Optional
-
 TRANSLATIONS = {
     "en": {
         "auth.invalid_credentials": "Could not validate credentials",
@@ -16,7 +14,7 @@ TRANSLATIONS = {
 }
 
 
-def parse_language(accept_language: Optional[str], fallback: str = "en") -> str:
+def parse_language(accept_language: str | None, fallback: str = "en") -> str:
     if not accept_language:
         return fallback
     first = accept_language.split(",")[0].strip().lower().replace("-", "_")

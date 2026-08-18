@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.sql import func
@@ -8,7 +8,7 @@ from app.core.database import Base
 
 def _utcnow():
     """Aware-UTC now with microsecond precision (PostgreSQL TIMESTAMPTZ)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Tenant(Base):

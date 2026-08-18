@@ -4,6 +4,7 @@ Each ``multi_tenant_mode`` test registers real tenants (one per signup)
 instead of the shared "default" tenant, then asserts data created by one
 tenant is invisible to another and that cross-tenant access is denied.
 """
+
 import _tenant_mode
 import pytest
 

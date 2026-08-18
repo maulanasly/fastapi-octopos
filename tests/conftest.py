@@ -9,6 +9,7 @@ The slowapi rate limiter is disabled so auth tests are not throttled.
 Start the local Postgres with ``docker compose up -d`` (docker-compose.yml
 creates the ``octopos_test`` database via scripts/init-test-db.sql).
 """
+
 import os
 import tempfile
 from pathlib import Path

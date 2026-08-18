@@ -5,9 +5,9 @@ to a sane maximum dimension and re-encoded as WebP. A small thumbnail is
 generated alongside the original so mobile clients can render catalog grids
 without downloading full-resolution files.
 """
+
 import io
 from pathlib import Path
-from typing import Optional
 
 from fastapi import HTTPException
 from PIL import Image, UnidentifiedImageError
@@ -33,7 +33,7 @@ def product_media_dir(tenant_id: int) -> Path:
     return path
 
 
-def delete_media_file(relative_url: Optional[str]) -> None:
+def delete_media_file(relative_url: str | None) -> None:
     """Delete a stored media file, guarding against path traversal."""
     if not relative_url or not relative_url.startswith("/media/"):
         return
@@ -67,7 +67,7 @@ def process_product_image(content: bytes) -> tuple[bytes, bytes]:
     except (UnidentifiedImageError, OSError, ValueError):
         raise HTTPException(
             status_code=415, detail="Uploaded file is not a valid image"
-        )
+        ) from None
 
     # Flatten palette/greyscale/CMYK and keep alpha; drops EXIF along the way.
     if img.mode not in ("RGB", "RGBA"):

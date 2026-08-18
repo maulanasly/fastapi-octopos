@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -35,7 +35,7 @@ class GoogleToken(BaseModel):
 
 def _issue_tokens(user: User, db: Session) -> dict:
     """Create and persist an access + refresh token pair for a user."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     db.query(RefreshToken).filter(RefreshToken.expires_at < now).delete(
         synchronize_session=False
     )
@@ -133,11 +133,11 @@ def login_access_token(
     if not user or not user.hashed_password:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if user.locked_until:
         locked_until = user.locked_until
         if locked_until.tzinfo is None:
-            locked_until = locked_until.replace(tzinfo=timezone.utc)
+            locked_until = locked_until.replace(tzinfo=UTC)
         if locked_until > now:
             raise HTTPException(
                 status_code=423,
@@ -191,8 +191,8 @@ def refresh_access_token(
 
     expires_at = db_token.expires_at
     if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
+        expires_at = expires_at.replace(tzinfo=UTC)
+    if expires_at < datetime.now(UTC):
         raise HTTPException(status_code=401, detail="Refresh token expired")
 
     user = db.query(User).filter(User.id == db_token.user_id).first()
@@ -201,7 +201,7 @@ def refresh_access_token(
 
     # Revoke the used token (rotation)
     db_token.revoked = True
-    db_token.revoked_at = datetime.now(timezone.utc)
+    db_token.revoked_at = datetime.now(UTC)
     db.add(db_token)
 
     return _issue_tokens(user, db)
@@ -219,7 +219,7 @@ def logout(payload: RefreshTokenRequest, db: Session = Depends(get_db)):
     )
     if db_token:
         db_token.revoked = True
-        db_token.revoked_at = datetime.now(timezone.utc)
+        db_token.revoked_at = datetime.now(UTC)
         db.add(db_token)
         db.commit()
 
@@ -272,4 +272,4 @@ def google_auth(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid authentication credentials: {str(e)}",
-        )
+        ) from None

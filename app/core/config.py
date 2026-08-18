@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,7 +10,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # development | production
 
     # CORS — set explicit origins in production (e.g. ["https://yourapp.com"])
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://localhost:8080"]
+    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3001", "http://localhost:8080"]
     # Optional regex of additional origins. Set to a localhost pattern for
     # dev clients on ephemeral ports (e.g. `flutter run -d chrome`).
     BACKEND_CORS_ORIGIN_REGEX: str = ""
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 
     # Google Auth
-    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_ID: str | None = None
 
     # Admin
     ADMIN_USERNAME: str = "admin"

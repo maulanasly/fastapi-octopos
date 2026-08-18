@@ -5,6 +5,7 @@ clients can correlate) exposed as a contextvar for log formatters and
 echoed back on the response. Logging is configured once via
 ``setup_logging`` with a request-id-aware formatter.
 """
+
 import contextvars
 import json
 import logging

@@ -1,9 +1,8 @@
 """Tests for tax calculation logic."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock
-
-import pytest
 
 from app.services.orders import _get_scope_subtotal, _is_tax_rule_active
 
@@ -17,23 +16,23 @@ class TestIsTaxRuleActive:
         rule.is_active = False
         rule.starts_at = None
         rule.ends_at = None
-        assert _is_tax_rule_active(rule, datetime.now(timezone.utc)) is False
+        assert _is_tax_rule_active(rule, datetime.now(UTC)) is False
 
     def test_future_start_date(self):
         """Rules starting in the future are not active."""
         rule = MagicMock()
         rule.is_active = True
-        rule.starts_at = datetime.now(timezone.utc) + timedelta(days=1)
+        rule.starts_at = datetime.now(UTC) + timedelta(days=1)
         rule.ends_at = None
-        assert _is_tax_rule_active(rule, datetime.now(timezone.utc)) is False
+        assert _is_tax_rule_active(rule, datetime.now(UTC)) is False
 
     def test_past_end_date(self):
         """Rules ended in the past are not active."""
         rule = MagicMock()
         rule.is_active = True
         rule.starts_at = None
-        rule.ends_at = datetime.now(timezone.utc) - timedelta(days=1)
-        assert _is_tax_rule_active(rule, datetime.now(timezone.utc)) is False
+        rule.ends_at = datetime.now(UTC) - timedelta(days=1)
+        assert _is_tax_rule_active(rule, datetime.now(UTC)) is False
 
     def test_active_rule(self):
         """Active rules within date range are active."""
@@ -41,7 +40,7 @@ class TestIsTaxRuleActive:
         rule.is_active = True
         rule.starts_at = None
         rule.ends_at = None
-        assert _is_tax_rule_active(rule, datetime.now(timezone.utc)) is True
+        assert _is_tax_rule_active(rule, datetime.now(UTC)) is True
 
 
 class TestGetScopeSubtotal:

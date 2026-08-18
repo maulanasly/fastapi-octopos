@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -9,7 +7,7 @@ class ReplenishmentSuggestion(BaseModel):
     sku: str
     current_stock: int
     min_stock: int
-    max_stock: Optional[int] = None
+    max_stock: int | None = None
     reorder_point: int
     lead_time_days: int
     lookback_days: int
@@ -24,6 +22,6 @@ class ReplenishmentSuggestion(BaseModel):
 class PurchaseOrderFromSuggestionsCreate(BaseModel):
     supplier_id: int
     lookback_days: int = Field(30, ge=1, le=365)
-    product_ids: Optional[List[int]] = None
+    product_ids: list[int] | None = None
     include_only_reorder: bool = True
-    notes: Optional[str] = None
+    notes: str | None = None

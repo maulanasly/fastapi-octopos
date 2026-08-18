@@ -1,7 +1,7 @@
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Union
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import bcrypt
 from jose import jwt
@@ -12,14 +12,14 @@ REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 
 def create_access_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
-    tenant_id: Optional[int] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
+    tenant_id: int | None = None,
 ) -> str:
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
     to_encode = {"exp": expire, "sub": str(subject)}
@@ -34,7 +34,7 @@ def create_access_token(
 def create_refresh_token() -> tuple[str, datetime]:
     """Returns (raw_token_string, expiry_datetime)."""
     token = secrets.token_urlsafe(48)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     return token, expires_at
 
 

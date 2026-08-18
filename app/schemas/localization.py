@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel
 
@@ -14,17 +13,17 @@ class LocalizationSettingBase(BaseModel):
 
 
 class LocalizationSettingUpdate(BaseModel):
-    language: Optional[str] = None
-    timezone: Optional[str] = None
-    currency: Optional[str] = None
-    date_format: Optional[str] = None
-    number_format: Optional[str] = None
-    country_code: Optional[str] = None
+    language: str | None = None
+    timezone: str | None = None
+    currency: str | None = None
+    date_format: str | None = None
+    number_format: str | None = None
+    country_code: str | None = None
 
 
 class LocalizationSetting(LocalizationSettingBase):
     id: int
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}

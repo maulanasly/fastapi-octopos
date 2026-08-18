@@ -1,10 +1,7 @@
 """Order tracking API: destination-aware service trips, location pings,
 geo queries, permissions, SSE events, and offline sync replay."""
 
-import json
-
 import _tenant_mode
-import pytest
 from conftest import order_payload
 from sqlalchemy import text
 

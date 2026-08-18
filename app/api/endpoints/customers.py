@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -17,12 +15,12 @@ from app.schemas.order import Order as OrderSchema
 router = APIRouter()
 
 
-@router.get("/", response_model=List[CustomerSchema])
+@router.get("/", response_model=list[CustomerSchema])
 def get_customers(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    q: Optional[str] = None,
+    q: str | None = None,
     response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):
@@ -127,7 +125,7 @@ def deactivate_customer(
     return {"ok": True}
 
 
-@router.get("/{customer_id}/orders", response_model=List[OrderSchema])
+@router.get("/{customer_id}/orders", response_model=list[OrderSchema])
 def get_customer_orders(
     customer_id: int,
     db: Session = Depends(get_db),
@@ -159,7 +157,7 @@ def get_customer_orders(
 
 @router.get(
     "/{customer_id}/loyalty-transactions",
-    response_model=List[LoyaltyTransactionSchema],
+    response_model=list[LoyaltyTransactionSchema],
 )
 def get_customer_loyalty_transactions(
     customer_id: int,

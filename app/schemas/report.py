@@ -1,5 +1,4 @@
-from datetime import date, datetime
-from typing import List, Optional
+from datetime import datetime
 
 from pydantic import BaseModel
 
@@ -23,10 +22,10 @@ class PaymentBreakdownItem(BaseModel):
 class ShiftReport(BaseModel):
     reconciliation_id: int
     drawer_session_id: int
-    opened_at: Optional[datetime]
-    closed_at: Optional[datetime]
-    operator_name: Optional[str]
-    closed_by_name: Optional[str]
+    opened_at: datetime | None
+    closed_at: datetime | None
+    operator_name: str | None
+    closed_by_name: str | None
     starting_cash: float
     expected_cash: float
     counted_cash: float
@@ -40,15 +39,15 @@ class ShiftReport(BaseModel):
     gross_sales_total: float
     net_sales_total: float
     completed_order_count: int
-    payment_breakdown: List[PaymentBreakdownItem] = []
+    payment_breakdown: list[PaymentBreakdownItem] = []
 
 
 class DailyShiftItem(BaseModel):
     reconciliation_id: int
     drawer_session_id: int
-    opened_at: Optional[datetime]
-    closed_at: Optional[datetime]
-    operator_name: Optional[str]
+    opened_at: datetime | None
+    closed_at: datetime | None
+    operator_name: str | None
     cash_sales_total: float
     non_cash_sales_total: float
     refunds_total: float
@@ -73,7 +72,7 @@ class DailyCloseTotals(BaseModel):
 class DailyClose(BaseModel):
     date: str
     totals: DailyCloseTotals
-    shifts: List[DailyShiftItem]
+    shifts: list[DailyShiftItem]
 
 
 class TopProductItem(BaseModel):
@@ -87,14 +86,14 @@ class TopProductItem(BaseModel):
 class TopCustomerItem(BaseModel):
     customer_id: int
     customer_name: str
-    customer_email: Optional[str]
+    customer_email: str | None
     order_count: int
     total_spent: float
     points_balance: int
 
 
 class CategorySalesItem(BaseModel):
-    category_id: Optional[int]
+    category_id: int | None
     category_name: str
     total_revenue: float
     total_quantity_sold: int

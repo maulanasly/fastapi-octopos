@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,9 +11,12 @@ from app.models.drawer import DrawerSession
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.user import User  # pyrefly: ignore [missing-import]
 from app.schemas.drawer import DrawerSession as DrawerSessionSchema
-from app.schemas.drawer import DrawerSessionClose, DrawerSessionCreate
+from app.schemas.drawer import (
+    DrawerSessionClose,
+    DrawerSessionCreate,
+    ShiftReconciliationCreate,
+)
 from app.schemas.drawer import ShiftReconciliation as ShiftReconciliationSchema
-from app.schemas.drawer import ShiftReconciliationCreate
 from app.services.drawers import build_reconciliation
 
 router = APIRouter()
@@ -45,7 +48,7 @@ def open_drawer(
         starting_cash=drawer_in.starting_cash,
         expected_cash=drawer_in.expected_cash or 0.0,
         status="open",
-        opened_at=datetime.now(timezone.utc),
+        opened_at=datetime.now(UTC),
     )
     db.add(drawer)
     db.commit()
@@ -97,7 +100,7 @@ def close_drawer(
         if close_in.expected_cash is not None
         else drawer.expected_cash
     )
-    drawer.closed_at = datetime.now(timezone.utc)
+    drawer.closed_at = datetime.now(UTC)
     drawer.status = "closed"
     db.add(drawer)
     db.commit()
@@ -159,7 +162,7 @@ def reconcile_and_close_drawer(
 
     drawer.ending_cash = reconcile_in.counted_cash
     drawer.expected_cash = reconciliation.expected_cash
-    drawer.closed_at = datetime.now(timezone.utc)
+    drawer.closed_at = datetime.now(UTC)
     drawer.status = "closed"
     db.add(drawer)
 

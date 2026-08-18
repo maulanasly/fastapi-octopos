@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
@@ -17,7 +16,7 @@ from app.models.shift_reconciliation import ShiftReconciliation
 def get_shift_report_data(
     db: Session,
     reconciliation_id: int,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> dict:
     """Full shift report for one drawer reconciliation."""
     reconciliation_query = db.query(ShiftReconciliation).filter(
@@ -77,8 +76,8 @@ def get_shift_report_data(
 
 def get_daily_close_data(
     db: Session,
-    report_date: Optional[datetime],
-    tenant_id: Optional[int] = None,
+    report_date: datetime | None,
+    tenant_id: int | None = None,
 ) -> dict:
     """All shift reconciliations closed on a given day + day totals.
 
@@ -89,10 +88,8 @@ def get_daily_close_data(
     if report_date is None:
         report_date = datetime.now().astimezone()
     local_start = report_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    start = local_start.astimezone(timezone.utc).replace(tzinfo=None)
-    end = (
-        (local_start + timedelta(days=1)).astimezone(timezone.utc).replace(tzinfo=None)
-    )
+    start = local_start.astimezone(UTC).replace(tzinfo=None)
+    end = (local_start + timedelta(days=1)).astimezone(UTC).replace(tzinfo=None)
 
     shifts_query = (
         db.query(ShiftReconciliation)
@@ -133,10 +130,10 @@ def get_daily_close_data(
 
 def get_sales_summary_data(
     db: Session,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    cashier_id: Optional[int] = None,
-    tenant_id: Optional[int] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    cashier_id: int | None = None,
+    tenant_id: int | None = None,
 ) -> dict:
     sales_query = db.query(
         func.coalesce(
@@ -183,10 +180,10 @@ def get_sales_summary_data(
 
 def get_top_products_data(
     db: Session,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
     limit: int = 10,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ):
     query = (
         db.query(
@@ -223,9 +220,9 @@ def get_top_products_data(
 
 def get_category_sales_data(
     db: Session,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    tenant_id: Optional[int] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    tenant_id: int | None = None,
 ):
     query = (
         db.query(
@@ -262,8 +259,8 @@ def get_category_sales_data(
 
 def get_low_stock_products_data(
     db: Session,
-    threshold: Optional[int] = None,
-    tenant_id: Optional[int] = None,
+    threshold: int | None = None,
+    tenant_id: int | None = None,
 ):
     """Products at or below stock threshold.
 
@@ -295,10 +292,10 @@ def get_low_stock_products_data(
 
 def get_top_customers_data(
     db: Session,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
     limit: int = 10,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ):
     query = (
         db.query(
@@ -335,10 +332,10 @@ def get_top_customers_data(
 
 def get_invoice_summary_data(
     db: Session,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    supplier_id: Optional[int] = None,
-    tenant_id: Optional[int] = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    supplier_id: int | None = None,
+    tenant_id: int | None = None,
 ) -> dict:
     query = db.query(PurchaseInvoice)
     if tenant_id is not None:
@@ -409,8 +406,8 @@ def get_invoice_summary_data(
 
 def get_executive_summary_data(
     db: Session,
-    invoice_summary: Optional[dict] = None,
-    tenant_id: Optional[int] = None,
+    invoice_summary: dict | None = None,
+    tenant_id: int | None = None,
 ) -> dict:
     customers_query = db.query(func.count(Customer.id)).filter(
         Customer.is_active == True  # noqa: E712
@@ -508,12 +505,12 @@ def get_executive_summary_data(
 
 def get_shift_list_data(
     db: Session,
-    date_from: Optional[datetime] = None,
-    date_to: Optional[datetime] = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
     skip: int = 0,
     limit: int = 100,
-    tenant_id: Optional[int] = None,
-) -> List[dict]:
+    tenant_id: int | None = None,
+) -> list[dict]:
     """Recent reconciled shifts (newest first) with operator details."""
     query = (
         db.query(ShiftReconciliation)

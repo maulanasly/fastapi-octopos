@@ -1,10 +1,9 @@
 from datetime import datetime
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user, require_permissions
+from app.api.dependencies import require_permissions
 from app.core.database import get_db
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
@@ -16,17 +15,17 @@ from app.schemas.stock_movement import StockMovement as StockMovementSchema
 router = APIRouter()
 
 
-@router.get("/movements", response_model=List[StockMovementSchema])
+@router.get("/movements", response_model=list[StockMovementSchema])
 def get_inventory_movements(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    product_id: Optional[int] = Query(None, ge=1),
-    movement_type: Optional[str] = Query(None),
-    user_id: Optional[int] = Query(None, ge=1),
-    purchase_order_id: Optional[int] = Query(None, ge=1),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+    product_id: int | None = Query(None, ge=1),
+    movement_type: str | None = Query(None),
+    user_id: int | None = Query(None, ge=1),
+    purchase_order_id: int | None = Query(None, ge=1),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     current_user: User = Depends(require_permissions("inventory:view")),
 ):
     query = (
@@ -51,11 +50,11 @@ def get_inventory_movements(
     return query.offset(skip).limit(limit).all()
 
 
-@router.get("/replenishment-suggestions", response_model=List[ReplenishmentSuggestion])
+@router.get("/replenishment-suggestions", response_model=list[ReplenishmentSuggestion])
 def get_replenishment_suggestions(
     db: Session = Depends(get_db),
     lookback_days: int = Query(30, ge=1, le=365),
-    product_id: Optional[int] = Query(None, ge=1),
+    product_id: int | None = Query(None, ge=1),
     only_reorder_needed: bool = Query(True),
     current_user: User = Depends(require_permissions("inventory:view")),
 ):

@@ -18,7 +18,8 @@ tenant-scoped table):
 Portable across PostgreSQL and SQLite (batch mode for the SQLite rebuilds
 required by column/constraint changes).
 """
-from typing import List, Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 
@@ -26,11 +27,11 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0011"
-down_revision: Union[str, Sequence[str], None] = "0010"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "0010"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
-TENANT_TABLES: List[str] = [
+TENANT_TABLES: list[str] = [
     "users",
     "categories",
     "products",
@@ -79,7 +80,7 @@ def _set_not_null(table: str, column: str) -> None:
         op.alter_column(table, column, nullable=False)
 
 
-def _create_unique(table: str, name: str, columns: List[str]) -> None:
+def _create_unique(table: str, name: str, columns: list[str]) -> None:
     if _is_sqlite():
         with op.batch_alter_table(table) as batch_op:
             batch_op.create_unique_constraint(name, columns)

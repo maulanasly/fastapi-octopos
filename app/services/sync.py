@@ -1,7 +1,6 @@
 """Pull-side sync: catalog delta and event status for offline terminals."""
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -13,7 +12,7 @@ from app.models.tax import TaxRule
 
 def get_catalog_delta(
     db: Session,
-    since: Optional[datetime],
+    since: datetime | None,
     tenant_id: int,
 ) -> dict:
     """Return catalog rows whose updated_at is newer than ``since``.
@@ -24,7 +23,7 @@ def get_catalog_delta(
     # Normalize the watermark to aware-UTC. Legacy SQLite stores naive
     # datetimes, so strip the tzinfo there to keep string comparisons valid.
     if since is not None:
-        since = since.astimezone(timezone.utc)
+        since = since.astimezone(UTC)
         if db.bind.dialect.name == "sqlite":
             since = since.replace(tzinfo=None)
 
@@ -64,7 +63,7 @@ def get_catalog_delta(
         )
 
     return {
-        "server_time": datetime.now(timezone.utc),
+        "server_time": datetime.now(UTC),
         "since": since,
         "categories": categories,
         "products": products,
@@ -75,8 +74,8 @@ def get_catalog_delta(
 
 def get_event_logs(
     db: Session,
-    user_id: Optional[int],
-    status: Optional[str],
+    user_id: int | None,
+    status: str | None,
     skip: int,
     limit: int,
     tenant_id: int,

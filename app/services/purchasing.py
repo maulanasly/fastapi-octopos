@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import List
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -125,7 +124,7 @@ def create_purchase_invoice(
     )
     existing_billed_map = {row[0]: int(row[1] or 0) for row in existing_billed_rows}
 
-    invoice_items: List[PurchaseInvoiceItem] = []
+    invoice_items: list[PurchaseInvoiceItem] = []
     subtotal_amount = Decimal("0")
     variance_amount = Decimal("0")
     has_quantity_variance = False
@@ -270,7 +269,7 @@ def approve_purchase_invoice(
 
     invoice.status = "approved"
     invoice.review_note = action_in.review_note
-    invoice.approved_at = datetime.now(timezone.utc)
+    invoice.approved_at = datetime.now(UTC)
     invoice.rejected_at = None
     db.add(invoice)
 
@@ -312,7 +311,7 @@ def reject_purchase_invoice(
 
     invoice.status = "rejected"
     invoice.review_note = action_in.review_note
-    invoice.rejected_at = datetime.now(timezone.utc)
+    invoice.rejected_at = datetime.now(UTC)
     invoice.approved_at = None
     db.add(invoice)
     db.commit()
@@ -538,7 +537,7 @@ def mark_purchase_order_ordered(
         )
 
     purchase_order.status = "ordered"
-    purchase_order.ordered_at = datetime.now(timezone.utc)
+    purchase_order.ordered_at = datetime.now(UTC)
     db.add(purchase_order)
     db.commit()
     db.refresh(purchase_order)
@@ -686,7 +685,7 @@ def receive_purchase_order_items(
 
     if all_received:
         purchase_order.status = "received"
-        purchase_order.received_at = datetime.now(timezone.utc)
+        purchase_order.received_at = datetime.now(UTC)
     elif any_received:
         purchase_order.status = "partially_received"
     elif purchase_order.status == "draft":

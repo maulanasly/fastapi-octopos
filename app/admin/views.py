@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -989,7 +989,7 @@ class ReportsAdmin(BaseView):
                 year=now.year,
                 month=now.month,
                 day=now.day,
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
         elif period == "7d":
             start_date = now - timedelta(days=7)
@@ -1000,14 +1000,14 @@ class ReportsAdmin(BaseView):
                 year=now.year,
                 month=now.month,
                 day=1,
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
         else:
             start_date = None
         return start_date, None
 
     def _build_report_data(self, db, period: str, localization) -> dict:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if period not in ("today", "7d", "30d", "month"):
             period = "all"
         start_date, end_date = self._period_range(now, period)
@@ -1160,7 +1160,7 @@ class ReportsAdmin(BaseView):
 
             cache_key = (period, localization.currency, localization.number_format)
             cached = _reports_cache.get(cache_key)
-            now = datetime.now(timezone.utc).timestamp()
+            now = datetime.now(UTC).timestamp()
             if cached and now - cached[0] < REPORTS_CACHE_SECONDS:
                 data = cached[1]
             else:
@@ -1236,7 +1236,7 @@ class ReportsAdmin(BaseView):
                 "report_shift.html",
                 context={
                     "report": report,
-                    "now": _dt.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                    "now": _dt.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
                     "title": f"Shift Report #{rec.id}",
                 },
             )
@@ -1422,7 +1422,9 @@ class WorkflowsAdmin(BaseView):
                     try:
                         po_id = int(form.get("po_id") or "")
                     except (TypeError, ValueError):
-                        raise HTTPException(status_code=400, detail="Select a PO")
+                        raise HTTPException(
+                            status_code=400, detail="Select a PO"
+                        ) from None
                     return RedirectResponse(
                         url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
                         status_code=303,
@@ -1498,7 +1500,9 @@ class WorkflowsAdmin(BaseView):
                     try:
                         po_id = int(form.get("po_id") or "")
                     except (TypeError, ValueError):
-                        raise HTTPException(status_code=400, detail="Select a PO")
+                        raise HTTPException(
+                            status_code=400, detail="Select a PO"
+                        ) from None
                     try:
                         user = self._admin_user(db, request)
                         if user is None:
@@ -1527,7 +1531,9 @@ class WorkflowsAdmin(BaseView):
                     try:
                         po_id = int(form.get("po_id") or "")
                     except (TypeError, ValueError):
-                        raise HTTPException(status_code=400, detail="Select a PO")
+                        raise HTTPException(
+                            status_code=400, detail="Select a PO"
+                        ) from None
                     items = []
                     for key, value in form.multi_items():
                         if not key.startswith("qty_"):
@@ -1676,7 +1682,9 @@ class WorkflowsAdmin(BaseView):
                     try:
                         po_id = int(form.get("po_id") or "")
                     except (TypeError, ValueError):
-                        raise HTTPException(status_code=400, detail="Select a PO")
+                        raise HTTPException(
+                            status_code=400, detail="Select a PO"
+                        ) from None
                     return RedirectResponse(
                         url=f"/admin/workflows/invoice?step=create&po_id={po_id}",
                         status_code=303,
@@ -1899,7 +1907,7 @@ class WorkflowsAdmin(BaseView):
                     except (TypeError, ValueError):
                         raise HTTPException(
                             status_code=400, detail="Select a drawer session"
-                        )
+                        ) from None
                     return RedirectResponse(
                         url=(
                             f"/admin/workflows/close-drawer?step=count"
@@ -1935,7 +1943,7 @@ class WorkflowsAdmin(BaseView):
                     except (TypeError, ValueError):
                         raise HTTPException(
                             status_code=400, detail="Counted cash must be a number"
-                        )
+                        ) from None
                     user = self._admin_user(db, request)
                     if user is None:
                         raise HTTPException(
@@ -1954,7 +1962,7 @@ class WorkflowsAdmin(BaseView):
                     db.add(reconciliation)
                     drawer.ending_cash = counted_cash
                     drawer.expected_cash = reconciliation.expected_cash
-                    drawer.closed_at = datetime.now(timezone.utc)
+                    drawer.closed_at = datetime.now(UTC)
                     drawer.status = "closed"
                     db.add(drawer)
                     log_action(
@@ -2056,7 +2064,9 @@ class WorkflowsAdmin(BaseView):
                     try:
                         order_id = int(form.get("order_id") or "")
                     except (TypeError, ValueError):
-                        raise HTTPException(status_code=400, detail="Select an order")
+                        raise HTTPException(
+                            status_code=400, detail="Select an order"
+                        ) from None
                     return RedirectResponse(
                         url=f"/admin/workflows/refund?step=items&order_id={order_id}",
                         status_code=303,

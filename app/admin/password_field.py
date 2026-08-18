@@ -5,6 +5,7 @@ hash is never shown). ``on_model_change`` in UserAdmin hashes any
 non-empty submission before sqladmin applies the form data, so a raw
 password is never persisted.
 """
+
 from wtforms.fields import StringField
 from wtforms.widgets import PasswordInput
 

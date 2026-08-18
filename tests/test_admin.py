@@ -301,7 +301,7 @@ def test_admin_product_edit_form_renders_category_label(
     client, db, auth_factory, assign_role
 ):
     """Edit form pre-selects the relation with a label, not an object repr."""
-    from app.models.product import Category, Product
+    from app.models.product import Product
 
     user = auth_factory.register("edit-form-label@example.com")
     assign_role(user["id"], "manager")
@@ -724,8 +724,7 @@ def test_restock_workflow_generate_empty_when_healthy(client, auth_factory, db):
 def test_restock_workflow_manual_create_po(client, auth_factory, db):
     from decimal import Decimal
 
-    from app.models.product import Product
-    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
+    from app.models.purchase import PurchaseOrder
 
     user_id = _workflow_admin(client, auth_factory, db, "manual-po-boss@example.com")
     supplier, product = _seed_low_stock(db)

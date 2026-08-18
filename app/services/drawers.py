@@ -1,5 +1,3 @@
-from typing import Dict
-
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -12,7 +10,7 @@ from app.models.shift_reconciliation import ShiftReconciliation
 from app.schemas.drawer import ShiftReconciliationCreate
 
 
-def compute_drawer_totals(db: Session, drawer: DrawerSession) -> Dict[str, float]:
+def compute_drawer_totals(db: Session, drawer: DrawerSession) -> dict[str, float]:
     """Aggregate sales, refund, and order totals for a drawer session."""
     payment_base_query = (
         db.query(func.coalesce(func.sum(Payment.amount), 0.0))

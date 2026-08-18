@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -37,7 +35,7 @@ def seed_default_rbac(
     return {"ok": True}
 
 
-@router.get("/permissions", response_model=List[PermissionSchema])
+@router.get("/permissions", response_model=list[PermissionSchema])
 def list_permissions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
@@ -47,7 +45,7 @@ def list_permissions(
     return db.query(Permission).order_by(Permission.id.asc()).all()
 
 
-@router.get("/roles", response_model=List[RoleSchema])
+@router.get("/roles", response_model=list[RoleSchema])
 def list_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("users:manage_roles")),

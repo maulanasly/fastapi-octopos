@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field, field_validator
@@ -9,12 +8,12 @@ _HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 class CategoryBase(BaseModel):
     name: str
-    description: Optional[str] = None
-    color: Optional[str] = None
+    description: str | None = None
+    color: str | None = None
 
     @field_validator("color")
     @classmethod
-    def _validate_color(cls, value: Optional[str]) -> Optional[str]:
+    def _validate_color(cls, value: str | None) -> str | None:
         if value is None:
             return None
         if not _HEX_COLOR.match(value):
@@ -27,13 +26,13 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    color: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
+    color: str | None = None
 
     @field_validator("color")
     @classmethod
-    def _validate_color(cls, value: Optional[str]) -> Optional[str]:
+    def _validate_color(cls, value: str | None) -> str | None:
         if value is None:
             return None
         if not _HEX_COLOR.match(value):
@@ -50,15 +49,15 @@ class Category(CategoryBase):
 class ProductBase(BaseModel):
     name: str
     sku: str
-    description: Optional[str] = None
+    description: str | None = None
     price: float
-    unit_cost: Optional[float] = None
+    unit_cost: float | None = None
     stock_quantity: int = Field(0, ge=0)
     min_stock: int = Field(0, ge=0)
-    max_stock: Optional[int] = Field(None, ge=0)
+    max_stock: int | None = Field(None, ge=0)
     reorder_point: int = Field(0, ge=0)
     lead_time_days: int = Field(0, ge=0)
-    category_id: Optional[int] = None
+    category_id: int | None = None
 
 
 class ProductCreate(ProductBase):
@@ -66,15 +65,15 @@ class ProductCreate(ProductBase):
 
 
 class ProductUpdate(ProductBase):
-    name: Optional[str] = None
-    sku: Optional[str] = None
-    price: Optional[float] = None
+    name: str | None = None
+    sku: str | None = None
+    price: float | None = None
 
 
 class Product(ProductBase):
     id: int
-    category: Optional[Category] = None
-    image_url: Optional[str] = None
-    thumbnail_url: Optional[str] = None
+    category: Category | None = None
+    image_url: str | None = None
+    thumbnail_url: str | None = None
 
     model_config = {"from_attributes": True}

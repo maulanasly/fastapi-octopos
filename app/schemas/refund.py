@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -11,10 +10,10 @@ class RefundItemCreate(BaseModel):
 
 class RefundCreate(BaseModel):
     order_id: int
-    reason: Optional[str] = None
-    idempotency_key: Optional[str] = None
-    payment_method: Optional[str] = None
-    items: List[RefundItemCreate]
+    reason: str | None = None
+    idempotency_key: str | None = None
+    payment_method: str | None = None
+    items: list[RefundItemCreate]
 
 
 class RefundItem(BaseModel):
@@ -32,11 +31,11 @@ class Refund(BaseModel):
     id: int
     order_id: int
     user_id: int
-    reason: Optional[str] = None
-    idempotency_key: Optional[str] = None
-    payment_method: Optional[str] = None
+    reason: str | None = None
+    idempotency_key: str | None = None
+    payment_method: str | None = None
     total_amount: float
     created_at: datetime
-    items: List[RefundItem] = []
+    items: list[RefundItem] = []
 
     model_config = {"from_attributes": True}

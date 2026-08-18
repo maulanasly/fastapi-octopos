@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel, Field
@@ -24,7 +23,7 @@ class OrderItem(OrderItemBase):
     id: int
     order_id: int
     unit_price: float
-    product: Optional[Product] = None
+    product: Product | None = None
 
     model_config = {"from_attributes": True}
 
@@ -34,14 +33,14 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    items: List[OrderItemCreate]
-    customer_id: Optional[int] = None
-    promotion_code: Optional[str] = None
-    idempotency_key: Optional[str] = None
+    items: list[OrderItemCreate]
+    customer_id: int | None = None
+    promotion_code: str | None = None
+    idempotency_key: str | None = None
     redeem_points: int = Field(0, ge=0)
-    destination_address: Optional[str] = None
-    destination_lat: Optional[float] = None
-    destination_lng: Optional[float] = None
+    destination_address: str | None = None
+    destination_lat: float | None = None
+    destination_lng: float | None = None
 
 
 class LocationUpdate(BaseModel):
@@ -54,11 +53,11 @@ class LocationUpdate(BaseModel):
 class Order(OrderBase):
     id: int
     user_id: int
-    customer_id: Optional[int] = None
-    promotion_id: Optional[int] = None
-    drawer_session_id: Optional[int] = None
-    idempotency_key: Optional[str] = None
-    subtotal_amount: Optional[float] = None
+    customer_id: int | None = None
+    promotion_id: int | None = None
+    drawer_session_id: int | None = None
+    idempotency_key: str | None = None
+    subtotal_amount: float | None = None
     discount_amount: float
     taxable_base_amount: float
     tax_total_amount: float
@@ -70,25 +69,25 @@ class Order(OrderBase):
     redeemed_points: int
     status: str
     serving_status: str
-    preparing_at: Optional[datetime] = None
-    ready_at: Optional[datetime] = None
-    served_at: Optional[datetime] = None
+    preparing_at: datetime | None = None
+    ready_at: datetime | None = None
+    served_at: datetime | None = None
     reservation_status: str
-    reservation_expires_at: Optional[datetime] = None
-    destination_address: Optional[str] = None
-    destination_lat: Optional[float] = None
-    destination_lng: Optional[float] = None
+    reservation_expires_at: datetime | None = None
+    destination_address: str | None = None
+    destination_lat: float | None = None
+    destination_lng: float | None = None
     tracking_status: str = "none"
-    assigned_at: Optional[datetime] = None
-    en_route_at: Optional[datetime] = None
-    on_site_at: Optional[datetime] = None
-    latest_location: Optional[LocationUpdate] = None
+    assigned_at: datetime | None = None
+    en_route_at: datetime | None = None
+    on_site_at: datetime | None = None
+    latest_location: LocationUpdate | None = None
     created_at: datetime
-    items: List[OrderItem] = []
-    payments: List[Payment] = []
-    tax_lines: List[OrderTaxLine] = []
-    user: Optional[User] = None
-    customer: Optional[Customer] = None
+    items: list[OrderItem] = []
+    payments: list[Payment] = []
+    tax_lines: list[OrderTaxLine] = []
+    user: User | None = None
+    customer: Customer | None = None
 
     model_config = {"from_attributes": True}
 
@@ -96,8 +95,8 @@ class Order(OrderBase):
 class ReservationReleaseSummary(BaseModel):
     released_count: int
     skipped_paid_count: int
-    released_order_ids: List[int]
-    skipped_paid_order_ids: List[int]
+    released_order_ids: list[int]
+    skipped_paid_order_ids: list[int]
 
 
 class ReceiptOrderItem(BaseModel):
@@ -110,8 +109,8 @@ class ReceiptOrderItem(BaseModel):
 class OrderReceipt(BaseModel):
     order_id: int
     created_at: datetime
-    customer_name: Optional[str] = None
-    cashier_name: Optional[str] = None
+    customer_name: str | None = None
+    cashier_name: str | None = None
     subtotal_amount: float
     discount_amount: float
     redeemed_points: int
@@ -125,6 +124,6 @@ class OrderReceipt(BaseModel):
     status: str
     serving_status: str
     reservation_status: str
-    items: List[ReceiptOrderItem]
-    tax_lines: List[OrderTaxLine]
-    payments: List[Payment]
+    items: list[ReceiptOrderItem]
+    tax_lines: list[OrderTaxLine]
+    payments: list[Payment]

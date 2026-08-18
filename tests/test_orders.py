@@ -1,5 +1,6 @@
 """Tests for orders API endpoints."""
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock
 
@@ -17,11 +18,11 @@ class TestAsUtc:
         """Naive datetime gets UTC timezone added."""
         naive = datetime(2024, 1, 1, 12, 0, 0)
         result = _as_utc(naive)
-        assert result.tzinfo == timezone.utc
+        assert result.tzinfo == UTC
 
     def test_aware_datetime_unchanged(self):
         """Aware datetime is returned unchanged."""
-        aware = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        aware = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         result = _as_utc(aware)
         assert result == aware
 
@@ -33,7 +34,7 @@ class TestIsReservationExpired:
         """Non-reserved orders return False."""
         order = MagicMock()
         order.reservation_status = "released"
-        order.reservation_expires_at = datetime.now(timezone.utc)
+        order.reservation_expires_at = datetime.now(UTC)
         assert _is_reservation_expired(order) is False
 
     def test_returns_false_for_no_expiry(self):
@@ -47,14 +48,14 @@ class TestIsReservationExpired:
         """Orders past expiry time return True."""
         order = MagicMock()
         order.reservation_status = "reserved"
-        order.reservation_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        order.reservation_expires_at = datetime.now(UTC) - timedelta(hours=1)
         assert _is_reservation_expired(order) is True
 
     def test_returns_false_when_not_expired(self):
         """Orders before expiry time return False."""
         order = MagicMock()
         order.reservation_status = "reserved"
-        order.reservation_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        order.reservation_expires_at = datetime.now(UTC) + timedelta(hours=1)
         assert _is_reservation_expired(order) is False
 
 

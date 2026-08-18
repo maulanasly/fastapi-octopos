@@ -7,6 +7,7 @@ row. Run after enabling embeddings on an existing catalog:
 
 Uses the app's configured EMBEDDING_PROVIDER (hash or api).
 """
+
 import sys
 
 sys.path.insert(0, ".")

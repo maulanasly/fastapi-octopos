@@ -2,7 +2,7 @@
 import asyncio
 import secrets
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # pyrefly: ignore [missing-import]
@@ -183,7 +183,7 @@ app.mount("/media", CachedStaticFiles(directory=str(_MEDIA_PATH)), name="media")
 
 
 def _admin_session_expiry() -> str:
-    expires = datetime.now(timezone.utc) + timedelta(hours=settings.ADMIN_SESSION_HOURS)
+    expires = datetime.now(UTC) + timedelta(hours=settings.ADMIN_SESSION_HOURS)
     return expires.isoformat()
 
 
@@ -256,7 +256,7 @@ class AdminAuth(AuthenticationBackend):
             expires_dt = datetime.fromisoformat(expires_at)
         except ValueError:
             return False
-        if expires_dt <= datetime.now(timezone.utc):
+        if expires_dt <= datetime.now(UTC):
             request.session.clear()
             return False
 

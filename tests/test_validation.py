@@ -1,5 +1,5 @@
 """Tests for shared validation helpers."""
-from datetime import timezone
+
 from unittest.mock import MagicMock
 
 import pytest

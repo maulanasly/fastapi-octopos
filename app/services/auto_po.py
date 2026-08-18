@@ -6,8 +6,8 @@ its reorder point, picks the supplier most recently used for that product
 PO, and creates one draft purchase order per supplier. The PO is attributed
 to the first active superuser (same pattern as the reservation sweep).
 """
+
 from collections import defaultdict
-from typing import Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -26,7 +26,7 @@ from app.services.purchasing import create_purchase_order_from_replenishment
 _PENDING_STATUSES = ("draft", "ordered", "partially_received")
 
 
-def _supplier_for_products(db: Session, product_ids: List[int]) -> Dict[int, int]:
+def _supplier_for_products(db: Session, product_ids: list[int]) -> dict[int, int]:
     """Most recently used supplier per product (by purchase order id)."""
     rows = (
         db.query(PurchaseOrderItem.product_id, PurchaseOrder.supplier_id)
@@ -35,7 +35,7 @@ def _supplier_for_products(db: Session, product_ids: List[int]) -> Dict[int, int
         .order_by(PurchaseOrder.id.desc())
         .all()
     )
-    supplier_map: Dict[int, int] = {}
+    supplier_map: dict[int, int] = {}
     for product_id, supplier_id in rows:
         supplier_map.setdefault(product_id, supplier_id)
     if len(supplier_map) < len(product_ids):
@@ -67,7 +67,7 @@ def _supplier_for_products(db: Session, product_ids: List[int]) -> Dict[int, int
             .filter(Product.id.in_(missing_ids))
             .all()
         )
-        by_tenant: Dict[int, List[int]] = defaultdict(list)
+        by_tenant: dict[int, list[int]] = defaultdict(list)
         for product_id, tenant_id in tenant_rows:
             by_tenant[tenant_id].append(product_id)
         for tenant_id, tenant_product_ids in by_tenant.items():
@@ -142,8 +142,8 @@ def auto_generate_purchase_orders(
     product_ids = [item.product_id for item in reorder_items]
     supplier_map = _supplier_for_products(db, product_ids)
 
-    by_supplier: Dict[int, List[int]] = defaultdict(list)
-    skipped: List[dict] = []
+    by_supplier: dict[int, list[int]] = defaultdict(list)
+    skipped: list[dict] = []
     for item in reorder_items:
         supplier_id = supplier_map.get(item.product_id)
         if supplier_id is None:
@@ -153,8 +153,8 @@ def auto_generate_purchase_orders(
             continue
         by_supplier[supplier_id].append(item.product_id)
 
-    po_ids: List[int] = []
-    generated_suppliers: List[str] = []
+    po_ids: list[int] = []
+    generated_suppliers: list[str] = []
     for supplier_id, supplier_product_ids in by_supplier.items():
         supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
         if not supplier or not supplier.is_active:

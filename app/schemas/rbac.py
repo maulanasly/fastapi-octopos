@@ -1,11 +1,9 @@
-from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
 class PermissionBase(BaseModel):
     code: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class Permission(PermissionBase):
@@ -16,36 +14,36 @@ class Permission(PermissionBase):
 
 class RoleBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class RoleCreate(RoleBase):
-    permission_codes: List[str] = Field(default_factory=list)
+    permission_codes: list[str] = Field(default_factory=list)
 
 
 class RoleUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    permission_codes: Optional[List[str]] = None
+    name: str | None = None
+    description: str | None = None
+    permission_codes: list[str] | None = None
 
 
 class Role(RoleBase):
     id: int
     is_system: bool
-    permissions: List[Permission] = []
+    permissions: list[Permission] = []
 
     model_config = {"from_attributes": True}
 
 
 class UserRoleAssign(BaseModel):
-    role_ids: List[int] = Field(default_factory=list)
+    role_ids: list[int] = Field(default_factory=list)
 
 
 class UserRolesResponse(BaseModel):
     user_id: int
-    roles: List[Role]
+    roles: list[Role]
 
 
 class UserPermissionsResponse(BaseModel):
     user_id: int
-    permissions: List[str]
+    permissions: list[str]

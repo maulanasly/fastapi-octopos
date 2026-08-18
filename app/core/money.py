@@ -1,7 +1,6 @@
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Optional, Union
 
-MoneyInput = Union[Decimal, float, int, str, None]
+MoneyInput = Decimal | float | int | str | None
 
 _MONEY_QUANT = Decimal("0.01")
 
