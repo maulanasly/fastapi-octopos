@@ -87,6 +87,10 @@ final staffRepositoryProvider = Provider<StaffRepository>(
   (ref) => StaffRepository(ref.watch(apiClientProvider)),
 );
 
+final purchasingRepositoryProvider = Provider<PurchasingRepository>(
+  (ref) => PurchasingRepository(ref.watch(apiClientProvider)),
+);
+
 const _uuid = Uuid();
 
 /// Supported regional presets (fetched once).
@@ -762,6 +766,145 @@ class LocalizationRepository {
       data: {'region': region},
     );
     return LocalizationSetting.fromJson(resp.data!);
+  }
+}
+
+class PurchasingRepository {
+  final ApiClient api;
+  PurchasingRepository(this.api);
+
+  // ---- Suppliers ----
+
+  Future<List<Supplier>> suppliers() async {
+    final resp = await api.dio.get<List<dynamic>>('/purchasing/suppliers');
+    return resp.data!
+        .map((e) => Supplier.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Supplier> createSupplier(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/suppliers',
+      data: body,
+    );
+    return Supplier.fromJson(resp.data!);
+  }
+
+  Future<Supplier> updateSupplier(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/purchasing/suppliers/$id',
+      data: body,
+    );
+    return Supplier.fromJson(resp.data!);
+  }
+
+  // ---- Purchase orders ----
+
+  Future<List<PurchaseOrder>> orders({String? status, int limit = 100}) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/purchasing/orders',
+      queryParameters: {'status': ?status, 'limit': limit},
+    );
+    return resp.data!
+        .map((e) => PurchaseOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PurchaseOrder> createOrder({
+    required int supplierId,
+    required List<Map<String, dynamic>> items,
+    String? notes,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders',
+      data: {
+        'supplier_id': supplierId,
+        'items': items,
+        'notes': ?notes,
+      },
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrder> markOrdered(int purchaseOrderId) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/mark-ordered',
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrder> cancelOrder(int purchaseOrderId) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/cancel',
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrder> receiveItems(
+    int purchaseOrderId,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/receive',
+      data: {'items': items},
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  // ---- Purchase invoices ----
+
+  Future<List<PurchaseInvoice>> invoices({
+    String? status,
+    int limit = 100,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/purchasing/invoices',
+      queryParameters: {'status': ?status, 'limit': limit},
+    );
+    return resp.data!
+        .map((e) => PurchaseInvoice.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PurchaseInvoice> createInvoice(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices',
+      data: body,
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+
+  Future<PurchaseInvoice> submitInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices/$invoiceId/submit-review',
+      data: {'review_note': ?reviewNote},
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+
+  Future<PurchaseInvoice> approveInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices/$invoiceId/approve',
+      data: {'review_note': ?reviewNote},
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+
+  Future<PurchaseInvoice> rejectInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices/$invoiceId/reject',
+      data: {'review_note': ?reviewNote},
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
   }
 }
 

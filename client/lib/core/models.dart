@@ -4,6 +4,218 @@
 /// parse them with [centsFromApi] on receipt.
 library;
 
+class Supplier {
+  final int id;
+  final String name;
+  final String? contactEmail;
+  final String? phone;
+  final String? address;
+  final bool isActive;
+
+  const Supplier({
+    required this.id,
+    required this.name,
+    this.contactEmail,
+    this.phone,
+    this.address,
+    required this.isActive,
+  });
+
+  factory Supplier.fromJson(Map<String, dynamic> json) => Supplier(
+    id: json['id'] as int,
+    name: json['name'] as String,
+    contactEmail: json['contact_email'] as String?,
+    phone: json['phone'] as String?,
+    address: json['address'] as String?,
+    isActive: json['is_active'] as bool? ?? true,
+  );
+}
+
+class PurchaseOrderItem {
+  final int id;
+  final int purchaseOrderId;
+  final int productId;
+  final int quantityOrdered;
+  final int quantityReceived;
+  final double unitCost;
+
+  const PurchaseOrderItem({
+    required this.id,
+    required this.purchaseOrderId,
+    required this.productId,
+    required this.quantityOrdered,
+    required this.quantityReceived,
+    required this.unitCost,
+  });
+
+  int get remaining => quantityOrdered - quantityReceived;
+
+  factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderItem(
+        id: json['id'] as int,
+        purchaseOrderId: json['purchase_order_id'] as int,
+        productId: json['product_id'] as int,
+        quantityOrdered: json['quantity_ordered'] as int,
+        quantityReceived: json['quantity_received'] as int? ?? 0,
+        unitCost: (json['unit_cost'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class PurchaseOrder {
+  final int id;
+  final int supplierId;
+  final int userId;
+  final String status;
+  final double totalEstimatedAmount;
+  final String? notes;
+  final String? createdAt;
+  final String? orderedAt;
+  final String? receivedAt;
+  final List<PurchaseOrderItem> items;
+
+  const PurchaseOrder({
+    required this.id,
+    required this.supplierId,
+    required this.userId,
+    required this.status,
+    required this.totalEstimatedAmount,
+    this.notes,
+    this.createdAt,
+    this.orderedAt,
+    this.receivedAt,
+    this.items = const [],
+  });
+
+  factory PurchaseOrder.fromJson(Map<String, dynamic> json) => PurchaseOrder(
+    id: json['id'] as int,
+    supplierId: json['supplier_id'] as int,
+    userId: json['user_id'] as int,
+    status: json['status'] as String,
+    totalEstimatedAmount:
+        (json['total_estimated_amount'] as num?)?.toDouble() ?? 0,
+    notes: json['notes'] as String?,
+    createdAt: json['created_at'] as String?,
+    orderedAt: json['ordered_at'] as String?,
+    receivedAt: json['received_at'] as String?,
+    items: (json['items'] as List? ?? [])
+        .map((e) => PurchaseOrderItem.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
+}
+
+class PurchaseInvoiceItem {
+  final int id;
+  final int invoiceId;
+  final int purchaseOrderItemId;
+  final int productId;
+  final int billedQuantity;
+  final double billedUnitCost;
+  final int expectedQuantity;
+  final double expectedUnitCost;
+  final int quantityVariance;
+  final double priceVariance;
+  final double lineTotal;
+
+  const PurchaseInvoiceItem({
+    required this.id,
+    required this.invoiceId,
+    required this.purchaseOrderItemId,
+    required this.productId,
+    required this.billedQuantity,
+    required this.billedUnitCost,
+    required this.expectedQuantity,
+    required this.expectedUnitCost,
+    required this.quantityVariance,
+    required this.priceVariance,
+    required this.lineTotal,
+  });
+
+  factory PurchaseInvoiceItem.fromJson(Map<String, dynamic> json) =>
+      PurchaseInvoiceItem(
+        id: json['id'] as int,
+        invoiceId: json['invoice_id'] as int,
+        purchaseOrderItemId: json['purchase_order_item_id'] as int,
+        productId: json['product_id'] as int,
+        billedQuantity: json['billed_quantity'] as int,
+        billedUnitCost: (json['billed_unit_cost'] as num?)?.toDouble() ?? 0,
+        expectedQuantity: json['expected_quantity'] as int? ?? 0,
+        expectedUnitCost:
+            (json['expected_unit_cost'] as num?)?.toDouble() ?? 0,
+        quantityVariance: json['quantity_variance'] as int? ?? 0,
+        priceVariance: (json['price_variance'] as num?)?.toDouble() ?? 0,
+        lineTotal: (json['line_total'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class PurchaseInvoice {
+  final int id;
+  final int supplierId;
+  final int purchaseOrderId;
+  final int userId;
+  final String invoiceNumber;
+  final String status;
+  final String? invoiceDate;
+  final String? dueDate;
+  final double subtotalAmount;
+  final double totalAmount;
+  final double varianceAmount;
+  final bool hasQuantityVariance;
+  final bool hasPriceVariance;
+  final String? notes;
+  final String? reviewNote;
+  final String? approvedAt;
+  final String? rejectedAt;
+  final String? createdAt;
+  final List<PurchaseInvoiceItem> items;
+
+  const PurchaseInvoice({
+    required this.id,
+    required this.supplierId,
+    required this.purchaseOrderId,
+    required this.userId,
+    required this.invoiceNumber,
+    required this.status,
+    this.invoiceDate,
+    this.dueDate,
+    required this.subtotalAmount,
+    required this.totalAmount,
+    required this.varianceAmount,
+    required this.hasQuantityVariance,
+    required this.hasPriceVariance,
+    this.notes,
+    this.reviewNote,
+    this.approvedAt,
+    this.rejectedAt,
+    this.createdAt,
+    this.items = const [],
+  });
+
+  factory PurchaseInvoice.fromJson(Map<String, dynamic> json) =>
+      PurchaseInvoice(
+        id: json['id'] as int,
+        supplierId: json['supplier_id'] as int,
+        purchaseOrderId: json['purchase_order_id'] as int,
+        userId: json['user_id'] as int,
+        invoiceNumber: json['invoice_number'] as String,
+        status: json['status'] as String,
+        invoiceDate: json['invoice_date'] as String?,
+        dueDate: json['due_date'] as String?,
+        subtotalAmount: (json['subtotal_amount'] as num?)?.toDouble() ?? 0,
+        totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0,
+        varianceAmount: (json['variance_amount'] as num?)?.toDouble() ?? 0,
+        hasQuantityVariance: json['has_quantity_variance'] as bool? ?? false,
+        hasPriceVariance: json['has_price_variance'] as bool? ?? false,
+        notes: json['notes'] as String?,
+        reviewNote: json['review_note'] as String?,
+        approvedAt: json['approved_at'] as String?,
+        rejectedAt: json['rejected_at'] as String?,
+        createdAt: json['created_at'] as String?,
+        items: (json['items'] as List? ?? [])
+            .map((e) => PurchaseInvoiceItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class StockMovement {
   final int id;
   final int productId;
