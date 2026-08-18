@@ -527,6 +527,64 @@ class OrderItem {
   );
 }
 
+/// A single location ping for a tracked order.
+class LocationUpdate {
+  final double lat;
+  final double lng;
+  final String source;
+  final String? createdAt;
+
+  const LocationUpdate({
+    required this.lat,
+    required this.lng,
+    this.source = 'gps',
+    this.createdAt,
+  });
+
+  factory LocationUpdate.fromJson(Map<String, dynamic> json) => LocationUpdate(
+    lat: (json['lat'] as num).toDouble(),
+    lng: (json['lng'] as num).toDouble(),
+    source: json['source'] as String? ?? 'gps',
+    createdAt: json['created_at'] as String?,
+  );
+}
+
+/// Lightweight order-tracking view returned by `/orders/tracking/`.
+class TrackedOrder {
+  final int orderId;
+  final String status;
+  final String trackingStatus;
+  final String? destinationAddress;
+  final double? destinationLat;
+  final double? destinationLng;
+  final LocationUpdate? latestLocation;
+  final String? createdAt;
+
+  const TrackedOrder({
+    required this.orderId,
+    required this.status,
+    required this.trackingStatus,
+    this.destinationAddress,
+    this.destinationLat,
+    this.destinationLng,
+    this.latestLocation,
+    this.createdAt,
+  });
+
+  factory TrackedOrder.fromJson(Map<String, dynamic> json) => TrackedOrder(
+    orderId: json['order_id'] as int,
+    status: json['status'] as String,
+    trackingStatus: json['tracking_status'] as String? ?? 'none',
+    destinationAddress: json['destination_address'] as String?,
+    destinationLat: (json['destination_lat'] as num?)?.toDouble(),
+    destinationLng: (json['destination_lng'] as num?)?.toDouble(),
+    latestLocation: json['latest_location'] == null
+        ? null
+        : LocationUpdate.fromJson(json['latest_location'] as Map<String, dynamic>),
+    createdAt: json['created_at'] as String?,
+  );
+}
+
 class Order {
   final int id;
   final int userId;
@@ -548,6 +606,14 @@ class Order {
   final String? readyAt;
   final String? servedAt;
   final String reservationStatus;
+  final String? destinationAddress;
+  final double? destinationLat;
+  final double? destinationLng;
+  final String trackingStatus;
+  final String? assignedAt;
+  final String? enRouteAt;
+  final String? onSiteAt;
+  final LocationUpdate? latestLocation;
   final String? createdAt;
   final List<OrderItem> items;
   final List<PaymentLine> payments;
@@ -575,6 +641,14 @@ class Order {
     this.readyAt,
     this.servedAt,
     required this.reservationStatus,
+    this.destinationAddress,
+    this.destinationLat,
+    this.destinationLng,
+    this.trackingStatus = 'none',
+    this.assignedAt,
+    this.enRouteAt,
+    this.onSiteAt,
+    this.latestLocation,
     this.createdAt,
     this.items = const [],
     this.payments = const [],
@@ -603,6 +677,16 @@ class Order {
     readyAt: json['ready_at'] as String?,
     servedAt: json['served_at'] as String?,
     reservationStatus: json['reservation_status'] as String? ?? '',
+    destinationAddress: json['destination_address'] as String?,
+    destinationLat: (json['destination_lat'] as num?)?.toDouble(),
+    destinationLng: (json['destination_lng'] as num?)?.toDouble(),
+    trackingStatus: json['tracking_status'] as String? ?? 'none',
+    assignedAt: json['assigned_at'] as String?,
+    enRouteAt: json['en_route_at'] as String?,
+    onSiteAt: json['on_site_at'] as String?,
+    latestLocation: json['latest_location'] == null
+        ? null
+        : LocationUpdate.fromJson(json['latest_location'] as Map<String, dynamic>),
     items: (json['items'] as List? ?? [])
         .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
         .toList(),

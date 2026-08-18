@@ -14,6 +14,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>octopos_client</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used to report your position for order tracking.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
