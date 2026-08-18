@@ -16,6 +16,7 @@ DEFAULT_PERMISSION_DEFINITIONS: dict[str, str] = {
     "settings:manage": "Manage system settings and localization",
     "users:manage_roles": "Assign roles and manage RBAC",
     "orders:release_reservations": "Release expired reservations",
+    "orders:track": "Track order trips and report service positions",
 }
 
 DEFAULT_ROLE_DEFINITIONS: dict[str, dict] = {
@@ -52,6 +53,14 @@ DEFAULT_ROLE_DEFINITIONS: dict[str, dict] = {
             "taxes:manage",
             "settings:manage",
             "orders:release_reservations",
+            "orders:track",
+        ],
+    },
+    "service_agent": {
+        "description": "Field service role (drive order trips, report position)",
+        "is_system": True,
+        "permissions": [
+            "orders:track",
         ],
     },
     "admin": {

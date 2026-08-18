@@ -53,6 +53,7 @@ def get_orders(
         selectinload(Order.items).selectinload(OrderItem.product),
         selectinload(Order.payments),
         selectinload(Order.tax_lines),
+        selectinload(Order.location_updates),
         joinedload(Order.user),
         joinedload(Order.customer),
     )

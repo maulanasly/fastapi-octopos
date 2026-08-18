@@ -26,6 +26,15 @@ from app.schemas.sync import (
 from app.services.orders import add_payment_to_order, create_order
 from app.services.refunds import create_refund
 from app.services.sync import get_catalog_delta, get_event_logs
+from app.services.tracking import report_location
+
+
+def _user_has_permission(db: Session, user: User, code: str) -> bool:
+    """Inline RBAC check for sync replay (no FastAPI Depends available)."""
+    if user.is_superuser:
+        return True
+    return any(code in (p.code for p in role.permissions) for role in user.roles)
+
 
 router = APIRouter()
 
@@ -63,11 +72,31 @@ def _process_event(
         refund = create_refund(refund_in=refund_in, db=db, current_user=current_user)
         return "refund", refund.id
 
+    if event.event_type == "order_location_update":
+        if not _user_has_permission(db, current_user, "orders:track"):
+            raise HTTPException(
+                status_code=403, detail="Not authorized to report locations"
+            )
+        if not all(k in payload for k in ("order_id", "lat", "lng")):
+            raise HTTPException(
+                status_code=400,
+                detail="order_id, lat and lng are required in payload",
+            )
+        update = report_location(
+            db=db,
+            current_user=current_user,
+            order_id=int(payload["order_id"]),
+            lat=float(payload["lat"]),
+            lng=float(payload["lng"]),
+            source=str(payload.get("source", "offline")),
+        )
+        return "order_location_update", update.id
+
     raise HTTPException(
         status_code=400,
         detail=(
             "Unsupported event_type. Supported values: "
-            "order_create, order_add_payment, refund_create"
+            "order_create, order_add_payment, refund_create, order_location_update"
         ),
     )
 

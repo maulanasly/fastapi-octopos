@@ -39,6 +39,16 @@ class OrderCreate(OrderBase):
     promotion_code: Optional[str] = None
     idempotency_key: Optional[str] = None
     redeem_points: int = Field(0, ge=0)
+    destination_address: Optional[str] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
+
+
+class LocationUpdate(BaseModel):
+    lat: float
+    lng: float
+    source: str = "gps"
+    created_at: datetime
 
 
 class Order(OrderBase):
@@ -65,6 +75,14 @@ class Order(OrderBase):
     served_at: Optional[datetime] = None
     reservation_status: str
     reservation_expires_at: Optional[datetime] = None
+    destination_address: Optional[str] = None
+    destination_lat: Optional[float] = None
+    destination_lng: Optional[float] = None
+    tracking_status: str = "none"
+    assigned_at: Optional[datetime] = None
+    en_route_at: Optional[datetime] = None
+    on_site_at: Optional[datetime] = None
+    latest_location: Optional[LocationUpdate] = None
     created_at: datetime
     items: List[OrderItem] = []
     payments: List[Payment] = []

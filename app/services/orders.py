@@ -627,7 +627,12 @@ def create_order(
         status="pending",
         reservation_status="reserved",
         reservation_expires_at=reservation_expires_at,
+        destination_address=order_in.destination_address,
+        destination_lat=order_in.destination_lat,
+        destination_lng=order_in.destination_lng,
     )
+    if order_in.destination_lat is not None and order_in.destination_lng is not None:
+        order.destination = (order_in.destination_lat, order_in.destination_lng)
     db.add(order)
     db.flush()  # To get the order.id
     for db_item in db_items:

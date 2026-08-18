@@ -19,6 +19,7 @@ from app.api.endpoints import (
     serving,
     sync,
     taxes,
+    tracking,
     users,
 )
 
@@ -37,6 +38,9 @@ api_router.include_router(purchasing.router, prefix="/purchasing", tags=["purcha
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(
     serving.router, prefix="/orders/serving", tags=["orders", "serving"]
+)
+api_router.include_router(
+    tracking.router, prefix="/orders/tracking", tags=["orders", "tracking"]
 )
 api_router.include_router(refunds.router, prefix="/refunds", tags=["refunds"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
