@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Column,
@@ -19,7 +19,7 @@ from app.models.types import VectorType
 
 def _utcnow():
     """Aware-UTC now with microsecond precision (PostgreSQL TIMESTAMPTZ)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Category(Base):

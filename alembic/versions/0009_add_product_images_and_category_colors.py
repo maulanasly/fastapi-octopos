@@ -8,7 +8,8 @@ Adds products.image_url (served from the /media static mount) and
 categories.color (hex) so the POS client can show product pictures and
 category-tinted chips.
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 
@@ -16,9 +17,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0009"
-down_revision: Union[str, Sequence[str], None] = "0008"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "0008"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _has_column(inspector: sa.Inspector, table_name: str, column_name: str) -> bool:

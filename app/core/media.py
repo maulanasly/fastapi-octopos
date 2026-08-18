@@ -8,6 +8,7 @@ Starlette's default ETag/Last-Modified behaviour.
 Media files are already-compressed raster formats; gzip would burn CPU
 for nothing, so the middleware below skips ``/media``.
 """
+
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import Response
 from starlette.staticfiles import StaticFiles

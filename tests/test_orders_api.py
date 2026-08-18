@@ -1,6 +1,8 @@
 """Integration tests for the orders API: stock, settlement, split payments,
 cancel/rollback, and idempotency."""
 
+from datetime import UTC
+
 from conftest import order_payload
 
 
@@ -291,7 +293,7 @@ def test_insufficient_stock_rejected(
 def test_release_expired_reservations_for_user_releases_stock(
     client, cashier_headers, manager_headers, make_product, open_drawer, db
 ):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.models.order import Order
     from app.models.user import User
@@ -306,7 +308,7 @@ def test_release_expired_reservations_for_user_releases_stock(
     )
 
     db_order = db.get(Order, order["id"])
-    db_order.reservation_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    db_order.reservation_expires_at = datetime.now(UTC) - timedelta(hours=1)
     db.add(db_order)
     db.commit()
 

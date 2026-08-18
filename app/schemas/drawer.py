@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 # pyrefly: ignore [missing-import]
 from pydantic import BaseModel
@@ -7,7 +6,7 @@ from pydantic import BaseModel
 
 class DrawerSessionBase(BaseModel):
     starting_cash: float
-    expected_cash: Optional[float] = 0.0
+    expected_cash: float | None = 0.0
 
 
 class DrawerSessionCreate(DrawerSessionBase):
@@ -16,13 +15,13 @@ class DrawerSessionCreate(DrawerSessionBase):
 
 class DrawerSessionClose(BaseModel):
     ending_cash: float
-    expected_cash: Optional[float] = None
+    expected_cash: float | None = None
 
 
 class ShiftReconciliationCreate(BaseModel):
     counted_cash: float
-    counted_non_cash: Optional[float] = None
-    notes: Optional[str] = None
+    counted_non_cash: float | None = None
+    notes: str | None = None
 
 
 class ShiftReconciliation(BaseModel):
@@ -43,7 +42,7 @@ class ShiftReconciliation(BaseModel):
     completed_order_count: int
     gross_sales_total: float
     net_sales_total: float
-    notes: Optional[str] = None
+    notes: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -53,8 +52,8 @@ class DrawerSession(DrawerSessionBase):
     id: int
     user_id: int
     opened_at: datetime
-    closed_at: Optional[datetime] = None
-    ending_cash: Optional[float] = None
+    closed_at: datetime | None = None
+    ending_cash: float | None = None
     status: str
 
     model_config = {"from_attributes": True}

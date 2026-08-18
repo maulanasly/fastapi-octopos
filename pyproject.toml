@@ -6,3 +6,35 @@ addopts = "-q --tb=short"
 [tool.coverage.run]
 source = ["app"]
 omit = ["tests/*", "alembic/*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+exclude = [
+    "__init__.py",
+    "*/migrations/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/env/*",
+    "*/ENV/*",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection idiom: Depends(...)/Query(...) in defaults.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Security",
+    "app.api.dependencies.require_permissions",
+]
+
+[tool.ruff.format]
+quote-style = "double"

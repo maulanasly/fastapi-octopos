@@ -14,8 +14,8 @@ hub the serving queue uses (``event: tracking``). For multi-worker
 deployments swap the hub for Redis pub/sub (Redis is already available
 in docker-compose).
 """
-from datetime import datetime, timezone
-from typing import Dict, Optional, Set
+
+from datetime import UTC, datetime
 
 # pyrefly: ignore [missing-import]
 from fastapi import HTTPException
@@ -33,7 +33,7 @@ TRACKING_ON_SITE = "on_site"
 
 TRACKING_TARGETS = (TRACKING_ASSIGNED, TRACKING_EN_ROUTE, TRACKING_ON_SITE)
 
-_ALLOWED_TRANSITIONS: Dict[str, Set[str]] = {
+_ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     TRACKING_ASSIGNED: {TRACKING_EN_ROUTE},
     TRACKING_EN_ROUTE: {TRACKING_ON_SITE},
 }
@@ -63,8 +63,8 @@ def _load_order(db: Session, order_id: int, tenant_id: int) -> Order:
 def _publish(
     tenant_id: int,
     order: Order,
-    lat: Optional[float] = None,
-    lng: Optional[float] = None,
+    lat: float | None = None,
+    lng: float | None = None,
 ) -> None:
     event = {
         "order_id": order.id,
@@ -80,7 +80,7 @@ def transition_tracking_status(
     current_user: User,
     order_id: int,
     new_status: str,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Order:
     """Advance an order through the tracking state machine.
 
@@ -127,7 +127,7 @@ def transition_tracking_status(
             detail=(f"Cannot move order from {order.tracking_status} to {new_status}"),
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     timestamp_column = _TIMESTAMP_COLUMNS[new_status]
     if getattr(order, timestamp_column) is None:
         setattr(order, timestamp_column, now)
@@ -147,7 +147,7 @@ def report_location(
     lat: float,
     lng: float,
     source: str = "gps",
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> OrderLocationUpdate:
     """Append a position ping for a tracked order and broadcast it."""
     if tenant_id is None:

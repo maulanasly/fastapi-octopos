@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -36,15 +35,15 @@ from app.services.orders import (
 router = APIRouter()
 
 
-@router.get("/", response_model=List[OrderSchema])
+@router.get("/", response_model=list[OrderSchema])
 def get_orders(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = None,
-    date_from: Optional[datetime] = None,
-    date_to: Optional[datetime] = None,
-    customer_id: Optional[int] = None,
+    status: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    customer_id: int | None = None,
     response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):

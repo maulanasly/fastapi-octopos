@@ -15,10 +15,10 @@ The hub is in-process: one uvicorn worker only. For multi-worker
 deployments swap ``ServingHub.publish`` for Redis pub/sub (Redis is
 already available in docker-compose).
 """
+
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Dict, Optional, Set
+from datetime import UTC, datetime
 
 # pyrefly: ignore [missing-import]
 from fastapi import HTTPException
@@ -36,7 +36,7 @@ SERVING_SERVED = "served"
 
 QUEUE_STATUSES = (SERVING_QUEUED, SERVING_PREPARING, SERVING_READY)
 
-_ALLOWED_TRANSITIONS: Dict[str, Set[str]] = {
+_ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     SERVING_QUEUED: {SERVING_PREPARING},
     SERVING_PREPARING: {SERVING_READY, SERVING_SERVED},
     SERVING_READY: {SERVING_SERVED},
@@ -57,7 +57,7 @@ class _QueueWrapper:
 
     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
-        self._queue: "asyncio.Queue[dict]" = asyncio.Queue(maxsize=100)
+        self._queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=100)
 
     def put_nowait(self, event: dict) -> None:
         if self._queue.full():
@@ -67,10 +67,10 @@ class _QueueWrapper:
                 pass
         self._loop.call_soon_threadsafe(self._queue.put_nowait, event)
 
-    async def get(self, timeout: float) -> Optional[dict]:
+    async def get(self, timeout: float) -> dict | None:
         try:
             return await asyncio.wait_for(self._queue.get(), timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
 
 
@@ -78,7 +78,7 @@ class ServingHub:
     """Fan-out of serving events, keyed by tenant id."""
 
     def __init__(self) -> None:
-        self._subscribers: Dict[int, Set[_QueueWrapper]] = {}
+        self._subscribers: dict[int, set[_QueueWrapper]] = {}
 
     def subscribe(self, tenant_id: int) -> _QueueWrapper:
         wrapper = _QueueWrapper(asyncio.get_running_loop())
@@ -121,7 +121,7 @@ def transition_serving_status(
     current_user: User,
     order_id: int,
     new_status: str,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Order:
     """Advance an order through the serving state machine.
 
@@ -155,7 +155,7 @@ def transition_serving_status(
             detail=(f"Cannot move order from {order.serving_status} to {new_status}"),
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     timestamp_column = _TIMESTAMP_COLUMNS[new_status]
     if getattr(order, timestamp_column) is None:
         setattr(order, timestamp_column, now)

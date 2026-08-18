@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import Dict, Optional
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
@@ -10,7 +9,7 @@ from app.models.user import User
 # Regional presets keyed by country_code. A user with users.region set
 # resolves their full localization from here, overriding the global
 # singleton LocalizationSetting.
-REGION_PRESETS: Dict[str, Dict[str, str]] = {
+REGION_PRESETS: dict[str, dict[str, str]] = {
     "US": {
         "language": "en",
         "timezone": "UTC",
@@ -29,7 +28,7 @@ REGION_PRESETS: Dict[str, Dict[str, str]] = {
 
 
 def get_localization_setting(
-    db: Session, tenant_id: Optional[int] = None
+    db: Session, tenant_id: int | None = None
 ) -> LocalizationSetting:
     query = db.query(LocalizationSetting).order_by(LocalizationSetting.id.asc())
     if tenant_id is not None:
@@ -102,16 +101,16 @@ def format_currency(value: float, currency: str, number_format: str) -> str:
 
 
 def format_datetime(
-    dt: Optional[datetime],
+    dt: datetime | None,
     tz_name: str,
     date_format: str,
-) -> Optional[str]:
+) -> str | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     try:
         zoned = dt.astimezone(ZoneInfo(tz_name))
     except Exception:
-        zoned = dt.astimezone(timezone.utc)
+        zoned = dt.astimezone(UTC)
     return zoned.strftime(date_format)

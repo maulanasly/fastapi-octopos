@@ -49,9 +49,9 @@ migration-current: ## Show current migration version
 lint: ## Run lint checks
 	pre-commit run --all-files
 
-format: ## Auto-format code
-	black .
-	isort . --profile black
+format: ## Auto-fix and format code with ruff
+	ruff check --fix .
+	ruff format .
 
 test: ## Run test suite
 	pytest -q

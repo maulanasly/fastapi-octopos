@@ -5,8 +5,9 @@ drawer reconciliation, RBAC changes) into the ``audit_logs`` table.
 Sensitive modules are RBAC-gated; the audit log is the permanent record
 of who did what, complementing the product-level StockMovement ledger.
 """
+
 import json
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -19,11 +20,11 @@ def log_action(
     db: Session,
     *,
     action: str,
-    user_id: Optional[int] = None,
-    resource_type: Optional[str] = None,
-    resource_id: Optional[int] = None,
-    details: Optional[dict[str, Any]] = None,
-    ip_address: Optional[str] = None,
+    user_id: int | None = None,
+    resource_type: str | None = None,
+    resource_id: int | None = None,
+    details: dict[str, Any] | None = None,
+    ip_address: str | None = None,
 ) -> AuditLog:
     """Append an audit entry (does not commit; caller controls the commit)."""
     tenant_id = None

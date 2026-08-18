@@ -1,14 +1,13 @@
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
 class SupplierBase(BaseModel):
     name: str
-    contact_email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
+    contact_email: str | None = None
+    phone: str | None = None
+    address: str | None = None
     is_active: bool = True
 
 
@@ -17,11 +16,11 @@ class SupplierCreate(SupplierBase):
 
 
 class SupplierUpdate(BaseModel):
-    name: Optional[str] = None
-    contact_email: Optional[str] = None
-    phone: Optional[str] = None
-    address: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    contact_email: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    is_active: bool | None = None
 
 
 class Supplier(SupplierBase):
@@ -39,8 +38,8 @@ class PurchaseOrderItemCreate(BaseModel):
 
 class PurchaseOrderCreate(BaseModel):
     supplier_id: int
-    notes: Optional[str] = None
-    items: List[PurchaseOrderItemCreate]
+    notes: str | None = None
+    items: list[PurchaseOrderItemCreate]
 
 
 class PurchaseOrderReceiveItem(BaseModel):
@@ -49,7 +48,7 @@ class PurchaseOrderReceiveItem(BaseModel):
 
 
 class PurchaseOrderReceive(BaseModel):
-    items: List[PurchaseOrderReceiveItem]
+    items: list[PurchaseOrderReceiveItem]
 
 
 class PurchaseOrderItem(BaseModel):
@@ -69,11 +68,11 @@ class PurchaseOrder(BaseModel):
     user_id: int
     status: str
     total_estimated_amount: float
-    notes: Optional[str] = None
+    notes: str | None = None
     created_at: datetime
-    ordered_at: Optional[datetime] = None
-    received_at: Optional[datetime] = None
-    items: List[PurchaseOrderItem] = []
+    ordered_at: datetime | None = None
+    received_at: datetime | None = None
+    items: list[PurchaseOrderItem] = []
 
     model_config = {"from_attributes": True}
 
@@ -87,14 +86,14 @@ class PurchaseInvoiceItemCreate(BaseModel):
 class PurchaseInvoiceCreate(BaseModel):
     purchase_order_id: int
     invoice_number: str
-    invoice_date: Optional[datetime] = None
-    due_date: Optional[datetime] = None
-    notes: Optional[str] = None
-    items: List[PurchaseInvoiceItemCreate]
+    invoice_date: datetime | None = None
+    due_date: datetime | None = None
+    notes: str | None = None
+    items: list[PurchaseInvoiceItemCreate]
 
 
 class PurchaseInvoiceReviewAction(BaseModel):
-    review_note: Optional[str] = None
+    review_note: str | None = None
 
 
 class PurchaseInvoiceItem(BaseModel):
@@ -120,19 +119,19 @@ class PurchaseInvoice(BaseModel):
     user_id: int
     invoice_number: str
     status: str
-    invoice_date: Optional[datetime] = None
-    due_date: Optional[datetime] = None
+    invoice_date: datetime | None = None
+    due_date: datetime | None = None
     subtotal_amount: float
     total_amount: float
     variance_amount: float
     has_quantity_variance: bool
     has_price_variance: bool
-    notes: Optional[str] = None
-    review_note: Optional[str] = None
-    approved_at: Optional[datetime] = None
-    rejected_at: Optional[datetime] = None
+    notes: str | None = None
+    review_note: str | None = None
+    approved_at: datetime | None = None
+    rejected_at: datetime | None = None
     created_at: datetime
-    items: List[PurchaseInvoiceItem] = []
+    items: list[PurchaseInvoiceItem] = []
 
     model_config = {"from_attributes": True}
 

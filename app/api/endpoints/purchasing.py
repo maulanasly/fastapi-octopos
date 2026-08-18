@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -9,15 +7,19 @@ from app.api.dependencies import (
     require_permissions,
 )
 from app.core.database import get_db
-from app.models.product import Product
 from app.models.purchase import PurchaseInvoice, PurchaseOrder, Supplier
 from app.models.user import User
 from app.schemas.purchase import PurchaseInvoice as PurchaseInvoiceSchema
-from app.schemas.purchase import PurchaseInvoiceCreate, PurchaseInvoiceReviewAction
+from app.schemas.purchase import (
+    PurchaseInvoiceCreate,
+    PurchaseInvoiceReviewAction,
+    PurchaseOrderCreate,
+    PurchaseOrderReceive,
+    SupplierCreate,
+    SupplierUpdate,
+)
 from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
-from app.schemas.purchase import PurchaseOrderCreate, PurchaseOrderReceive
 from app.schemas.purchase import Supplier as SupplierSchema
-from app.schemas.purchase import SupplierCreate, SupplierUpdate
 from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
 from app.services.purchasing import _get_purchase_invoice_for_user
 from app.services.purchasing import (
@@ -51,7 +53,7 @@ from app.services.purchasing import (
 router = APIRouter(dependencies=[Depends(require_permissions("purchasing:manage"))])
 
 
-@router.get("/suppliers", response_model=List[SupplierSchema])
+@router.get("/suppliers", response_model=list[SupplierSchema])
 def get_suppliers(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -110,14 +112,14 @@ def update_supplier(
     return supplier
 
 
-@router.get("/invoices", response_model=List[PurchaseInvoiceSchema])
+@router.get("/invoices", response_model=list[PurchaseInvoiceSchema])
 def get_purchase_invoices(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = Query(None),
-    supplier_id: Optional[int] = Query(None, ge=1),
-    purchase_order_id: Optional[int] = Query(None, ge=1),
+    status: str | None = Query(None),
+    supplier_id: int | None = Query(None, ge=1),
+    purchase_order_id: int | None = Query(None, ge=1),
     current_user: User = Depends(get_current_active_user),
 ):
     query = (
@@ -231,13 +233,13 @@ def reject_purchase_invoice(
     )
 
 
-@router.get("/orders", response_model=List[PurchaseOrderSchema])
+@router.get("/orders", response_model=list[PurchaseOrderSchema])
 def get_purchase_orders(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = Query(None),
-    supplier_id: Optional[int] = Query(None, ge=1),
+    status: str | None = Query(None),
+    supplier_id: int | None = Query(None, ge=1),
     current_user: User = Depends(get_current_active_user),
 ):
     query = (

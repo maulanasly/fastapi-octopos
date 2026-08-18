@@ -13,7 +13,8 @@ Index names follow the SQLAlchemy ``ix_<table>_<column>`` convention so
 model metadata and the real schema stay in sync. Portable across
 PostgreSQL (direct DDL) and SQLite (batch mode).
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 
@@ -21,9 +22,9 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0013"
-down_revision: Union[str, Sequence[str], None] = "0012"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "0012"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 # (table, column) pairs — every new index mirrors index=True on the model.
 _SYNC_INDEXES = [

@@ -5,21 +5,19 @@ active list requires ``orders:manage`` — the back-office sees trips, the
 field worker drives them). Location pings are append-only history and are
 broadcast over the shared SSE hub as ``event: tracking``.
 """
+
 from datetime import datetime
-from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_active_user, get_db, require_permissions
-from app.models.order import Order
+from app.api.dependencies import get_db, require_permissions
 from app.models.user import User
 from app.schemas.order import LocationUpdate
 from app.schemas.order import Order as OrderSchema
 from app.services.tracking import (
-    TRACKING_ON_SITE,
     active_tracked_orders,
     nearest_orders,
     report_location,
@@ -43,16 +41,16 @@ class TrackedOrder(BaseModel):
     order_id: int
     status: str
     tracking_status: str
-    destination_address: Optional[str] = None
-    destination_lat: Optional[float] = None
-    destination_lng: Optional[float] = None
-    latest_location: Optional[LocationUpdate] = None
-    created_at: Optional[datetime] = None
+    destination_address: str | None = None
+    destination_lat: float | None = None
+    destination_lng: float | None = None
+    latest_location: LocationUpdate | None = None
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
 
-@router.get("/", response_model=List[TrackedOrder])
+@router.get("/", response_model=list[TrackedOrder])
 def get_active_tracking(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("orders:track")),

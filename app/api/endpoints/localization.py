@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -28,12 +26,12 @@ class RegionInfo(BaseModel):
 
 
 class MyRegionUpdate(BaseModel):
-    region: Optional[str] = Field(
+    region: str | None = Field(
         None, description='Regional preset country code ("US", "ID") or null to reset'
     )
 
 
-@router.get("/regions", response_model=List[RegionInfo])
+@router.get("/regions", response_model=list[RegionInfo])
 def list_region_presets(
     current_user: User = Depends(get_current_active_user),
 ):

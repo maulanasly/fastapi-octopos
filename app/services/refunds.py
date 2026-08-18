@@ -1,6 +1,5 @@
 from collections import defaultdict
 from decimal import Decimal
-from typing import List, Optional
 
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -22,7 +21,7 @@ def create_refund(
     db: Session,
     current_user: User,
     refund_in: RefundCreate,
-    tenant_id: Optional[int] = None,
+    tenant_id: int | None = None,
 ) -> Refund:
     if tenant_id is None:
         tenant_id = current_user.tenant_id
@@ -108,7 +107,7 @@ def create_refund(
         .all()
     )
 
-    refund_items: List[RefundItem] = []
+    refund_items: list[RefundItem] = []
     movement_inputs = []
     total_amount = Decimal("0")
 

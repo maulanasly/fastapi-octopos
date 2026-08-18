@@ -8,7 +8,8 @@ on a dedicated connection makes the task a single-writer operation; workers
 that fail to acquire the lock simply skip this run. On SQLite (single
 process dev mode) the task always runs.
 """
-from typing import Callable
+
+from collections.abc import Callable
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine

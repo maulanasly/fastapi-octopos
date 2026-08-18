@@ -1,13 +1,11 @@
-from typing import Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_active_superuser
 from app.core.database import get_db
 from app.models.audit_log import AuditLog
 from app.models.user import User
-from app.schemas.audit import AuditLogEntry, AuditLogList
+from app.schemas.audit import AuditLogList
 
 router = APIRouter()
 
@@ -16,8 +14,8 @@ router = APIRouter()
 def get_audit_logs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_superuser),
-    action: Optional[str] = Query(None, description="Filter by action name"),
-    user_id: Optional[int] = Query(None),
+    action: str | None = Query(None, description="Filter by action name"),
+    user_id: int | None = Query(None),
     skip: int = 0,
     limit: int = 100,
 ):

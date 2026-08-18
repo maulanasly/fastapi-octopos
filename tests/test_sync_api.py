@@ -1,7 +1,5 @@
 """Integration tests for the offline sync batch endpoint."""
 
-from conftest import order_payload
-
 
 def _batch(client, headers, events):
     resp = client.post(

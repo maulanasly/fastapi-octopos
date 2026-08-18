@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import ValidationError
@@ -20,7 +20,6 @@ from app.schemas.sync import (
     SyncBatchResponse,
     SyncEventIn,
     SyncEventResult,
-    SyncEventStatus,
     SyncEventStatusList,
 )
 from app.services.orders import add_payment_to_order, create_order
@@ -44,7 +43,7 @@ def _process_event(
     db: Session,
     current_user: User,
 ) -> tuple[str, int]:
-    payload: Dict[str, Any] = dict(event.payload)
+    payload: dict[str, Any] = dict(event.payload)
 
     if event.event_type == "order_create":
         payload["idempotency_key"] = event.idempotency_key
@@ -105,7 +104,7 @@ def _process_event(
 def get_sync_catalog(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-    since: Optional[datetime] = Query(
+    since: datetime | None = Query(
         None, description="Only rows updated after this ISO timestamp"
     ),
 ):
@@ -120,8 +119,8 @@ def get_sync_catalog(
 def get_sync_event_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-    user_id: Optional[int] = Query(None, description="Filter by terminal user id"),
-    status: Optional[str] = Query(None, description="Filter by event status"),
+    user_id: int | None = Query(None, description="Filter by terminal user id"),
+    status: str | None = Query(None, description="Filter by event status"),
     skip: int = 0,
     limit: int = 100,
 ):
@@ -148,7 +147,7 @@ def sync_events_batch(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    results: List[SyncEventResult] = []
+    results: list[SyncEventResult] = []
 
     for event in batch_in.events:
         existing = (

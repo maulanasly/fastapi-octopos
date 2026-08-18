@@ -1,5 +1,7 @@
 """Integration tests for the auth API: register, login, refresh rotation, logout."""
 
+from datetime import UTC
+
 
 def test_register_creates_active_user(client, auth_factory):
     user = auth_factory.register("alice@example.com")
@@ -92,7 +94,7 @@ def test_protected_endpoint_requires_auth(client):
 
 
 def test_login_cleans_up_expired_refresh_tokens(client, auth_factory, db):
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from app.models.refresh_token import RefreshToken
 
@@ -101,13 +103,13 @@ def test_login_cleans_up_expired_refresh_tokens(client, auth_factory, db):
     expired = RefreshToken(
         token="expired-hash-1",
         user_id=user["id"],
-        expires_at=datetime.now(timezone.utc) - timedelta(days=1),
+        expires_at=datetime.now(UTC) - timedelta(days=1),
         tenant_id=1,
     )
     active_old = RefreshToken(
         token="active-hash-1",
         user_id=user["id"],
-        expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        expires_at=datetime.now(UTC) + timedelta(days=1),
         tenant_id=1,
     )
     db.add_all([expired, active_old])

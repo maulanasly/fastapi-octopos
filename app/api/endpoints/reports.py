@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, Query
@@ -42,9 +41,9 @@ router = APIRouter()
 @router.get("/sales", response_model=SalesSummary)
 def get_sales_summary(
     db: Session = Depends(get_db),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    cashier_id: Optional[int] = Query(None, ge=1),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    cashier_id: int | None = Query(None, ge=1),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
     return SalesSummary(
@@ -58,11 +57,11 @@ def get_sales_summary(
     )
 
 
-@router.get("/top-products", response_model=List[TopProductItem])
+@router.get("/top-products", response_model=list[TopProductItem])
 def get_top_products(
     db: Session = Depends(get_db),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     limit: int = Query(10, ge=1),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
@@ -85,11 +84,11 @@ def get_top_products(
     ]
 
 
-@router.get("/categories", response_model=List[CategorySalesItem])
+@router.get("/categories", response_model=list[CategorySalesItem])
 def get_category_sales(
     db: Session = Depends(get_db),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
     rows = get_category_sales_data(
@@ -109,7 +108,7 @@ def get_category_sales(
     ]
 
 
-@router.get("/low-stock", response_model=List[ProductSchema])
+@router.get("/low-stock", response_model=list[ProductSchema])
 def get_low_stock_products(
     db: Session = Depends(get_db),
     threshold: int = Query(10, ge=0),
@@ -120,11 +119,11 @@ def get_low_stock_products(
     )
 
 
-@router.get("/top-customers", response_model=List[TopCustomerItem])
+@router.get("/top-customers", response_model=list[TopCustomerItem])
 def get_top_customers(
     db: Session = Depends(get_db),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     limit: int = Query(10, ge=1),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
@@ -151,9 +150,9 @@ def get_top_customers(
 @router.get("/purchase-invoices", response_model=PurchaseInvoiceSummary)
 def get_purchase_invoice_summary(
     db: Session = Depends(get_db),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    supplier_id: Optional[int] = Query(None, ge=1),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    supplier_id: int | None = Query(None, ge=1),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
     return PurchaseInvoiceSummary(
@@ -170,8 +169,8 @@ def get_purchase_invoice_summary(
 @router.get("/tax-liability", response_model=TaxLiabilitySummary)
 def get_tax_liability_summary(
     db: Session = Depends(get_db),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
     current_user: User = Depends(require_permissions("reports:view")),
 ):
     query = (
@@ -259,11 +258,11 @@ def get_shift_report(
     )
 
 
-@router.get("/shifts", response_model=List[DailyShiftItem])
+@router.get("/shifts", response_model=list[DailyShiftItem])
 def get_shift_list(
     db: Session = Depends(get_db),
-    date_from: Optional[datetime] = Query(None),
-    date_to: Optional[datetime] = Query(None),
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
     skip: int = 0,
     limit: int = 100,
     current_user: User = Depends(require_permissions("reports:view")),
@@ -282,7 +281,7 @@ def get_shift_list(
 @router.get("/daily-close", response_model=DailyClose)
 def get_daily_close(
     db: Session = Depends(get_db),
-    report_date: Optional[datetime] = Query(
+    report_date: datetime | None = Query(
         None, description="ISO date (defaults to today)"
     ),
     current_user: User = Depends(require_permissions("reports:view")),

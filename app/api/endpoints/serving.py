@@ -1,9 +1,8 @@
 import asyncio
 import json
-from typing import List, Optional
 
 # pyrefly: ignore [missing-import]
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -26,12 +25,12 @@ router = APIRouter()
 _KEEPALIVE_SECONDS = 15.0
 
 
-@router.get("/", response_model=List[OrderSchema])
+@router.get("/", response_model=list[OrderSchema])
 def get_serving_queue(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    status: Optional[str] = Query(
+    status: str | None = Query(
         None, description="Filter by serving status: queued, preparing, ready"
     ),
     response: Response = None,

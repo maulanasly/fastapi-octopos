@@ -1,5 +1,4 @@
 import uuid
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy import func, or_, text
@@ -16,9 +15,13 @@ from app.models.refund import RefundItem
 from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.product import Category as CategorySchema
-from app.schemas.product import CategoryCreate, CategoryUpdate
+from app.schemas.product import (
+    CategoryCreate,
+    CategoryUpdate,
+    ProductCreate,
+    ProductUpdate,
+)
 from app.schemas.product import Product as ProductSchema
-from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.embeddings import embed_text
 from app.services.images import (
     _ALLOWED_IMAGE_TYPES,
@@ -33,7 +36,7 @@ router = APIRouter()
 # Category Endpoints
 
 
-@router.get("/categories/colors", response_model=List[str])
+@router.get("/categories/colors", response_model=list[str])
 def get_category_color_palette(
     current_user: User = Depends(get_current_active_user),
 ):
@@ -41,7 +44,7 @@ def get_category_color_palette(
     return CATEGORY_COLOR_PALETTE
 
 
-@router.get("/categories", response_model=List[CategorySchema])
+@router.get("/categories", response_model=list[CategorySchema])
 def get_categories(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -140,7 +143,7 @@ def delete_category(
 # Product Endpoints
 
 
-@router.get("/search", response_model=List[ProductSchema])
+@router.get("/search", response_model=list[ProductSchema])
 def search_products(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=100),
@@ -189,14 +192,14 @@ def search_products(
     return loaded
 
 
-@router.get("/", response_model=List[ProductSchema])
+@router.get("/", response_model=list[ProductSchema])
 def get_products(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    q: Optional[str] = None,
-    sku: Optional[str] = None,
-    category_id: Optional[int] = None,
+    q: str | None = None,
+    sku: str | None = None,
+    category_id: int | None = None,
     response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):

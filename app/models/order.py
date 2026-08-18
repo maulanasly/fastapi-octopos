@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlalchemy import (
     Column,
     DateTime,
@@ -85,7 +83,7 @@ class Order(Base):
     )
 
     @property
-    def latest_location(self) -> Optional[dict]:
+    def latest_location(self) -> dict | None:
         """Last reported position for the live map (None when untracked)."""
         if not self.location_updates:
             return None

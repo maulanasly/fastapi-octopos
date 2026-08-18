@@ -1,13 +1,12 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, EmailStr
 
 
 class CustomerBase(BaseModel):
     name: str
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
+    email: EmailStr | None = None
+    phone: str | None = None
     is_active: bool = True
 
 
@@ -16,10 +15,10 @@ class CustomerCreate(CustomerBase):
 
 
 class CustomerUpdate(BaseModel):
-    name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+    is_active: bool | None = None
 
 
 class Customer(CustomerBase):
@@ -33,11 +32,11 @@ class Customer(CustomerBase):
 class LoyaltyTransaction(BaseModel):
     id: int
     customer_id: int
-    order_id: Optional[int] = None
+    order_id: int | None = None
     transaction_type: str
     points_delta: int
     balance_after: int
-    note: Optional[str] = None
+    note: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -1,9 +1,7 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session, joinedload
 
-from app.api.dependencies import get_current_active_user, require_permissions
+from app.api.dependencies import require_permissions
 from app.core.database import get_db
 from app.models.refund import Refund
 from app.models.user import User
@@ -14,12 +12,12 @@ from app.services.refunds import create_refund as create_refund_service
 router = APIRouter()
 
 
-@router.get("/", response_model=List[RefundSchema])
+@router.get("/", response_model=list[RefundSchema])
 def get_refunds(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    order_id: Optional[int] = Query(None, ge=1),
+    order_id: int | None = Query(None, ge=1),
     response: Response = None,
     current_user: User = Depends(require_permissions("refunds:view")),
 ):

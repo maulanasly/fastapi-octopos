@@ -31,7 +31,7 @@ def _user_from_token(db: Session, token: str, request: Request) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=t("auth.invalid_credentials", language),
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
     try:
         user_id = int(token_data.sub)
     except (TypeError, ValueError):
@@ -39,7 +39,7 @@ def _user_from_token(db: Session, token: str, request: Request) -> User:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=t("auth.invalid_credentials", language),
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=t("auth.user_not_found", language))

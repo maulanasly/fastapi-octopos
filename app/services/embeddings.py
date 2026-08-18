@@ -13,9 +13,9 @@ Providers (env-driven, see ``EMBEDDING_PROVIDER``):
 The vector dimension must match the ``products.embedding`` column
 (``EMBEDDING_DIM``, default 384).
 """
+
 import hashlib
 import logging
-from typing import Optional
 
 # pyrefly: ignore [missing-import]
 from app.core.config import settings
@@ -63,7 +63,7 @@ def _embed_api(text: str, dim: int) -> list[float]:
     raise RuntimeError(f"Unrecognized embeddings response shape: {data}")
 
 
-def embed_text(text: str) -> Optional[list[float]]:
+def embed_text(text: str) -> list[float] | None:
     """Embed a single text; ``None`` when embeddings are disabled."""
     if settings.EMBEDDING_PROVIDER == "none":
         return None

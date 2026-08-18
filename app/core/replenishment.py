@@ -1,6 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from math import ceil
-from typing import List
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -12,14 +11,14 @@ from app.schemas.replenishment import ReplenishmentSuggestion
 
 def build_replenishment_suggestions(
     db: Session,
-    products: List[Product],
+    products: list[Product],
     lookback_days: int,
-) -> List[ReplenishmentSuggestion]:
+) -> list[ReplenishmentSuggestion]:
     if not products:
         return []
 
     product_ids = [product.id for product in products]
-    cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
+    cutoff = datetime.now(UTC) - timedelta(days=lookback_days)
 
     sales_rows = (
         db.query(
@@ -36,7 +35,7 @@ def build_replenishment_suggestions(
     )
     sales_map = {row.product_id: int(row.net_delta or 0) for row in sales_rows}
 
-    suggestions: List[ReplenishmentSuggestion] = []
+    suggestions: list[ReplenishmentSuggestion] = []
     for product in products:
         sold_quantity = max(-(sales_map.get(product.id, 0)), 0)
         daily_sales_velocity = sold_quantity / lookback_days

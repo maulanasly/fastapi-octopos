@@ -1,10 +1,6 @@
 """Serving queue API: auto-queue on payment, strict state machine, tenant
 isolation, permissions, and the SSE event feed."""
 
-import json
-
-import _tenant_mode
-import pytest
 from conftest import order_payload
 
 

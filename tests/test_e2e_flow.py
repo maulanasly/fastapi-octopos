@@ -6,7 +6,6 @@ ledger -> offline sync -> reports -> shift reconciliation. Guards the
 complete loop against regressions across modules.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.models.user import User

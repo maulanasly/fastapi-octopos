@@ -8,7 +8,9 @@ Each :class:`sqladmin.ModelView` that mixes in
 :class:`LabeledFormConverter`, so relationship dropdowns in the create/edit
 forms show the same labels instead of object reprs.
 """
-from typing import Any, Callable, Dict, List, Tuple, Union
+
+from collections.abc import Callable
+from typing import Any
 
 import anyio
 
@@ -39,9 +41,9 @@ from app.models.stock_movement import StockMovement
 from app.models.tax import OrderTaxLine, TaxRule
 from app.models.user import User
 
-RelationLabelSpec = Union[Tuple[str, ...], Callable[[Any], str]]
+RelationLabelSpec = tuple[str, ...] | Callable[[Any], str]
 
-RELATION_LABELS: Dict[type, RelationLabelSpec] = {
+RELATION_LABELS: dict[type, RelationLabelSpec] = {
     Product: ("name",),
     Category: ("name",),
     User: ("email",),
@@ -98,7 +100,7 @@ def _render_relation(value: Any) -> Any:
     """
     if value is None:
         return "-"
-    if isinstance(value, (list, set, tuple)):
+    if isinstance(value, list | set | tuple):
         labels = [_label(item) for item in value]
         return [label for label in labels if label != "-"] or ["-"]
     return _label(value)
@@ -115,8 +117,8 @@ def _make_relation_formatter(name: str) -> Callable[[Any, str], str]:
 
 def _build_relation_formatters(
     model: type,
-    columns: List[InstrumentedAttribute],
-) -> Dict[InstrumentedAttribute, Callable[[Any, str], str]]:
+    columns: list[InstrumentedAttribute],
+) -> dict[InstrumentedAttribute, Callable[[Any, str], str]]:
     formatters = {}
     relation_names = set(sa_inspect(model).relationships.keys())
     for attr in columns:
@@ -126,7 +128,7 @@ def _build_relation_formatters(
     return formatters
 
 
-def _all_relation_attributes(model: type) -> List[InstrumentedAttribute]:
+def _all_relation_attributes(model: type) -> list[InstrumentedAttribute]:
     """Return every relationship attribute of *model*.
 
     sqladmin's detail page renders *all* model attributes by default (see

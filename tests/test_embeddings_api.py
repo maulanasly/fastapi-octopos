@@ -1,7 +1,6 @@
 """Semantic product search (pgvector embeddings): round-trip, ordering,
 tenant isolation, HNSW index usage, and disabled-provider behavior."""
 
-import pytest
 from sqlalchemy import text
 
 

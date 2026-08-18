@@ -5,7 +5,8 @@
 (lat, lng) everywhere. ``VectorType`` maps a ``list[float]`` onto a
 pgvector ``vector`` column.
 """
-from typing import Any, Optional
+
+from typing import Any
 
 # pyrefly: ignore [missing-import]
 from sqlalchemy.types import UserDefinedType
@@ -20,7 +21,7 @@ class PointType(UserDefinedType):
         return "POINT"
 
     def bind_processor(self, dialect):
-        def process(value: Optional[tuple]) -> Optional[str]:
+        def process(value: tuple | None) -> str | None:
             if value is None:
                 return None
             lat, lng = value
@@ -29,10 +30,10 @@ class PointType(UserDefinedType):
         return process
 
     def result_processor(self, dialect, coltype):
-        def process(value: Any) -> Optional[tuple]:
+        def process(value: Any) -> tuple | None:
             if value is None:
                 return None
-            if isinstance(value, (tuple, list)):
+            if isinstance(value, tuple | list):
                 x, y = value
                 return (float(y), float(x))
             if isinstance(value, str):
@@ -56,7 +57,7 @@ class VectorType(UserDefinedType):
         return f"VECTOR({self.dim})"
 
     def bind_processor(self, dialect):
-        def process(value: Optional[list]) -> Optional[str]:
+        def process(value: list | None) -> str | None:
             if value is None:
                 return None
             return "[" + ",".join(repr(float(v)) for v in value) + "]"
@@ -64,10 +65,10 @@ class VectorType(UserDefinedType):
         return process
 
     def result_processor(self, dialect, coltype):
-        def process(value: Any) -> Optional[list]:
+        def process(value: Any) -> list | None:
             if value is None:
                 return None
-            if isinstance(value, (list, tuple)):
+            if isinstance(value, list | tuple):
                 return [float(v) for v in value]
             if isinstance(value, str):
                 inner = value.strip("[]")

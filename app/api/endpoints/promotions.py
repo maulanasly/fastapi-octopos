@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import List
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -83,7 +82,7 @@ def _validate_promotion_discount(promotion_data: dict) -> None:
         )
 
 
-@router.get("/", response_model=List[PromotionSchema])
+@router.get("/", response_model=list[PromotionSchema])
 def get_promotions(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -224,7 +223,7 @@ def deactivate_promotion(
         raise HTTPException(status_code=404, detail="Promotion not found")
 
     promotion.is_active = False
-    promotion.ends_at = promotion.ends_at or datetime.now(timezone.utc)
+    promotion.ends_at = promotion.ends_at or datetime.now(UTC)
     db.add(promotion)
     db.commit()
     return {"ok": True}
