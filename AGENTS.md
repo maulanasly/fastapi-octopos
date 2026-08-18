@@ -10,8 +10,10 @@ and pgvector semantic search.
   host port `5433`, db `octopos`), redis (`6380`), and the backend container
   (`octopos-backend`, uvicorn `--reload`, source mounted). `make docker-dev-down`
   to stop. For production-like stack: `make docker-up` / `make docker-down`.
-- **Local Python**: pyenv env `project-1` (Python 3.11). ruff binary:
-  `~/.pyenv/versions/3.11.11/envs/project-1/bin/ruff`.
+- **Local Python**: pyenv env `octopos` (Python 3.12.8) has the project deps,
+  `pytest`, and `alembic`; env `project-1` (Python 3.11) has `ruff` and
+  `pre-commit`. pyenv has no global version set, so prefix PATH, e.g.
+  `PATH="$HOME/.pyenv/versions/3.12.8/envs/octopos/bin:$PATH" pytest -q`.
 - **Flutter**: `~/.yusufm/development/flutter/bin/flutter` (see `client/`).
 
 ## Verification (run before any PR — mirrors CI)
