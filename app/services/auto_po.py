@@ -57,6 +57,31 @@ def _supplier_for_products(db: Session, product_ids: List[int]) -> Dict[int, int
         )
         for product_id, supplier_id in invoice_rows:
             supplier_map.setdefault(product_id, supplier_id)
+
+    # Fallback: products with no purchase/invoice history default to the
+    # tenant's only active supplier, so a fresh catalog can still be ordered.
+    missing_ids = [pid for pid in product_ids if pid not in supplier_map]
+    if missing_ids:
+        tenant_rows = (
+            db.query(Product.id, Product.tenant_id)
+            .filter(Product.id.in_(missing_ids))
+            .all()
+        )
+        by_tenant: Dict[int, List[int]] = defaultdict(list)
+        for product_id, tenant_id in tenant_rows:
+            by_tenant[tenant_id].append(product_id)
+        for tenant_id, tenant_product_ids in by_tenant.items():
+            active_suppliers = (
+                db.query(Supplier.id)
+                .filter(
+                    Supplier.tenant_id == tenant_id,
+                    Supplier.is_active.is_(True),
+                )
+                .all()
+            )
+            if len(active_suppliers) == 1:
+                for product_id in tenant_product_ids:
+                    supplier_map[product_id] = active_suppliers[0][0]
     return supplier_map
 
 
