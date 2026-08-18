@@ -30,6 +30,8 @@ class HomeShell extends ConsumerWidget {
     final canManagePurchasing = auth.has('purchasing:manage');
     final canManageTaxes = auth.has('taxes:manage');
     final canManageSettings = auth.has('settings:manage');
+    final canViewCustomers =
+        auth.has('customers:create') || auth.has('customers:manage');
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
@@ -45,7 +47,12 @@ class HomeShell extends ConsumerWidget {
           label: 'Tracking',
           path: '/tracking',
         ),
-      const _Dest(icon: Icons.receipt_long, label: 'Orders', path: '/orders'),
+      if (canManageOrders)
+        const _Dest(
+          icon: Icons.receipt_long,
+          label: 'Orders',
+          path: '/orders',
+        ),
       if (canViewInventory)
         const _Dest(
           icon: Icons.inventory_2,
@@ -60,7 +67,8 @@ class HomeShell extends ConsumerWidget {
         ),
       if (canManageProducts)
         const _Dest(icon: Icons.edit, label: 'Products', path: '/products'),
-      const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
+      if (canViewCustomers)
+        const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
       if (canManagePromotions)
         const _Dest(
           icon: Icons.percent,
