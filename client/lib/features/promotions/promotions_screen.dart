@@ -142,7 +142,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     ),
                   ),
                   DropdownButtonFormField<String>(
-                    value: appliesTo,
+                    initialValue: appliesTo,
                     decoration: InputDecoration(
                       labelText: s.of('appliesTo'),
                       isDense: true,
@@ -165,7 +165,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                   ),
                   if (appliesTo == 'category')
                     DropdownButtonFormField<int>(
-                      value: categoryId,
+                      initialValue: categoryId,
                       decoration: InputDecoration(
                         labelText: s.of('category'),
                         isDense: true,

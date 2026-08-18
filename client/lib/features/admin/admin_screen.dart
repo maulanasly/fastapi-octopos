@@ -68,7 +68,7 @@ class _AuditTabState extends ConsumerState<_AuditTab> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: DropdownButtonFormField<String?>(
-            value: _action,
+            initialValue: _action,
             decoration: InputDecoration(
               labelText: s.of('action'),
               isDense: true,

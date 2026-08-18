@@ -193,7 +193,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   decoration: InputDecoration(labelText: s.of('stock')),
                 ),
                 DropdownButtonFormField<int>(
-                  value: categoryId,
+                  initialValue: categoryId,
                   decoration: InputDecoration(labelText: s.of('category')),
                   items: [
                     for (final c in categories)
@@ -224,7 +224,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       'sku': sku.text.trim(),
       'price': double.tryParse(price.text) ?? 0,
       'stock_quantity': int.tryParse(stock.text) ?? 0,
-      if (categoryId != null) 'category_id': categoryId,
+      'category_id': ?categoryId,
     };
     try {
       if (product == null) {
