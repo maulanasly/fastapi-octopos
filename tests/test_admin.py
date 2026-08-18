@@ -1090,3 +1090,52 @@ def test_refund_workflow_rejects_over_refund(client, auth_factory, db):
     assert "step=items" in resp.headers["location"]
     db.expire_all()
     assert db.query(Refund).filter(Refund.order_id == order.id).count() == 0
+
+
+def test_tenant_switch_page_lists_tenants(client, db):
+    from app.models.tenant import Tenant
+
+    db.add(Tenant(name="Second Biz", slug="second-biz", is_active=True))
+    db.commit()
+
+    _login(client)
+    resp = client.get("/admin/tenant")
+    assert resp.status_code == 200
+    assert "Default Business" in resp.text or "Second Biz" in resp.text
+    assert "Second Biz" in resp.text
+
+
+def test_tenant_switch_selects_tenant(client, db):
+    from app.models.tenant import Tenant
+
+    tenant = db.query(Tenant).filter(Tenant.slug == "default").first()
+    _login(client)
+    resp = client.post(
+        "/admin/tenant",
+        data={"tenant_id": str(tenant.id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+    resp = client.get("/admin/tenant")
+    assert f'value="{tenant.id}" selected' in resp.text
+
+
+def test_tenant_admin_creates_tenant_with_unique_slug(client, db):
+    from app.models.tenant import Tenant
+
+    _login(client)
+    resp = client.post(
+        "/admin/tenant/create",
+        data={"name": "Cafe Lima", "is_active": "y"},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+
+    tenant = (
+        db.query(Tenant)
+        .filter(Tenant.name == "Cafe Lima")
+        .order_by(Tenant.id.desc())
+        .first()
+    )
+    assert tenant is not None
+    assert tenant.slug == "cafe-lima"
