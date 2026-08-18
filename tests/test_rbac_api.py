@@ -191,18 +191,15 @@ def test_permissions_catalog_lists_definitions(client, manager_headers):
     assert "users:manage_roles" in codes
 
 
-def test_users_list_requires_superuser(client, auth_factory, cashier_headers):
+def test_users_list_requires_users_manage(client, auth_factory, cashier_headers):
     auth_factory.register("user-list@example.com")
     resp = client.get("/api/v1/users/", headers=cashier_headers)
-    assert resp.status_code == 400  # existing superuser-gate behavior
+    assert resp.status_code == 403  # permission-gated staff listing
 
     owner = auth_factory.register("owner2@example.com")
-    from app.models.user import User
-
-    u = client.get("/api/v1/users/", headers=cashier_headers)
-    _ = u
-    # promote owner via db fixture style
     from conftest import SessionLocal
+
+    from app.models.user import User
 
     db = SessionLocal()
     user = db.get(User, owner["id"])
@@ -222,3 +219,118 @@ def test_users_list_requires_superuser(client, auth_factory, cashier_headers):
     assert resp.status_code == 200, resp.text
     emails = {u_["email"] for u_ in resp.json()}
     assert "user-list@example.com" in emails
+
+
+def test_staff_create_update_deactivate_flow(client, auth_factory, assign_role):
+    admin_user = auth_factory.register("staff-admin@example.com")
+    assign_role(admin_user["id"], "admin")
+    admin_headers = auth_factory.login("staff-admin@example.com")
+
+    created = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={
+            "email": "staff-1@example.com",
+            "full_name": "Staff One",
+            "password": "TestPass123",
+            "is_active": True,
+        },
+    )
+    assert created.status_code == 201, created.text
+    staff = created.json()
+    assert staff["is_superuser"] is False
+    assert staff["tenant_id"] == admin_user["tenant_id"]
+    assert {"cashier"} == {r["name"] for r in staff["roles"]}
+
+    updated = client.put(
+        f"/api/v1/users/{staff['id']}",
+        headers=admin_headers,
+        json={"full_name": "Staff Renamed", "is_active": False},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["full_name"] == "Staff Renamed"
+    assert updated.json()["is_active"] is False
+
+    list_resp = client.get("/api/v1/users", headers=admin_headers)
+    assert list_resp.status_code == 200, list_resp.text
+    emails = {u_["email"] for u_ in list_resp.json()}
+    assert "staff-1@example.com" in emails
+    assert "staff-admin@example.com" in emails
+
+
+def test_staff_create_duplicate_email_400(client, auth_factory, assign_role):
+    admin_user = auth_factory.register("staff-dup-admin@example.com")
+    assign_role(admin_user["id"], "admin")
+    admin_headers = auth_factory.login("staff-dup-admin@example.com")
+
+    payload = {
+        "email": "staff-dup@example.com",
+        "full_name": "Dup",
+        "password": "TestPass123",
+    }
+    first = client.post("/api/v1/users", headers=admin_headers, json=payload)
+    assert first.status_code == 201, first.text
+    second = client.post("/api/v1/users", headers=admin_headers, json=payload)
+    assert second.status_code == 400
+
+
+def test_staff_password_reset(client, auth_factory, assign_role):
+    admin_user = auth_factory.register("staff-pw-admin@example.com")
+    assign_role(admin_user["id"], "admin")
+    admin_headers = auth_factory.login("staff-pw-admin@example.com")
+
+    staff = client.post(
+        "/api/v1/users",
+        headers=admin_headers,
+        json={
+            "email": "staff-pw@example.com",
+            "full_name": "PW",
+            "password": "OldPass123",
+        },
+    ).json()
+
+    resp = client.put(
+        f"/api/v1/users/{staff['id']}",
+        headers=admin_headers,
+        json={"password": "NewPass456"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    from app.core.limiter import limiter
+
+    limiter.enabled = False
+    login = client.post(
+        "/api/v1/auth/token",
+        data={"username": "staff-pw@example.com", "password": "NewPass456"},
+    )
+    assert login.status_code == 200, login.text
+    assert client.post(
+        "/api/v1/auth/token",
+        data={"username": "staff-pw@example.com", "password": "OldPass123"},
+    ).status_code in (400, 401)
+
+
+def test_admin_cannot_deactivate_self(client, auth_factory, assign_role):
+    admin_user = auth_factory.register("staff-self@example.com")
+    assign_role(admin_user["id"], "admin")
+    admin_headers = auth_factory.login("staff-self@example.com")
+
+    resp = client.put(
+        f"/api/v1/users/{admin_user['id']}",
+        headers=admin_headers,
+        json={"is_active": False},
+    )
+    assert resp.status_code == 400
+
+
+def test_cashier_cannot_manage_staff(client, auth_factory, cashier_headers):
+    resp = client.post(
+        "/api/v1/users",
+        headers=cashier_headers,
+        json={
+            "email": "nope-staff@example.com",
+            "full_name": "Nope",
+            "password": "TestPass123",
+        },
+    )
+    assert resp.status_code == 403

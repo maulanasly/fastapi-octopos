@@ -184,3 +184,99 @@ def test_audit_logs_are_tenant_scoped(client, db, tenant_a, tenant_b):
     assert rows[0].tenant_id != (
         db.query(User.tenant_id).filter(User.email == "tenant-b@example.com").scalar()
     )
+
+
+def test_staff_isolated_between_tenants(client, auth_factory):
+    # Every registration creates a tenant whose owner holds the admin role.
+    auth_factory.register("staff-owner-a@example.com")
+    headers_a = auth_factory.login("staff-owner-a@example.com")
+    auth_factory.register("staff-owner-b@example.com")
+    headers_b = auth_factory.login("staff-owner-b@example.com")
+
+    created = client.post(
+        "/api/v1/users",
+        headers=headers_a,
+        json={
+            "email": "staff-a@example.com",
+            "full_name": "Staff A",
+            "password": "TestPass123",
+        },
+    )
+    assert created.status_code == 201, created.text
+    staff_a = created.json()
+
+    list_a = client.get("/api/v1/users", headers=headers_a)
+    assert list_a.status_code == 200, list_a.text
+    assert {u["email"] for u in list_a.json()} == {
+        "staff-owner-a@example.com",
+        "staff-a@example.com",
+    }
+
+    list_b = client.get("/api/v1/users", headers=headers_b)
+    assert list_b.status_code == 200, list_b.text
+    assert [u["email"] for u in list_b.json()] == ["staff-owner-b@example.com"]
+
+    blocked = client.put(
+        f"/api/v1/users/{staff_a['id']}",
+        headers=headers_b,
+        json={"is_active": False},
+    )
+    assert blocked.status_code == 403, "tenant B edited tenant A's staff"
+
+
+def test_role_assignment_cross_tenant_forbidden(client, auth_factory):
+    owner_a = auth_factory.register("role-owner-a@example.com")
+    auth_factory.register("role-owner-b@example.com")
+    headers_b = auth_factory.login("role-owner-b@example.com")
+
+    roles = client.get("/api/v1/rbac/roles", headers=headers_b).json()
+    manager_role = next(role for role in roles if role["name"] == "manager")
+
+    assigned = client.post(
+        f"/api/v1/rbac/users/{owner_a['id']}/roles",
+        headers=headers_b,
+        json={"role_ids": [manager_role["id"]]},
+    )
+    assert assigned.status_code == 403
+
+    viewed = client.get(f"/api/v1/rbac/users/{owner_a['id']}/roles", headers=headers_b)
+    assert viewed.status_code == 403
+
+
+def test_superuser_manages_any_tenant_staff(client, auth_factory, db):
+    owner_a = auth_factory.register("su-owner-a@example.com")
+    owner_b = auth_factory.register("su-owner-b@example.com")
+
+    from app.models.user import User
+
+    with db.begin():
+        db_user = db.get(User, owner_a["id"])
+        db_user.is_superuser = True
+    headers = auth_factory.login("su-owner-a@example.com")
+
+    listed = client.get("/api/v1/users", headers=headers)
+    assert listed.status_code == 200, listed.text
+    emails = {u["email"] for u in listed.json()}
+    assert "su-owner-a@example.com" in emails
+    assert "su-owner-b@example.com" in emails
+
+    created = client.post(
+        "/api/v1/users",
+        headers=headers,
+        json={
+            "email": "su-staff-b@example.com",
+            "full_name": "Cross",
+            "password": "TestPass123",
+            "tenant_id": owner_b["tenant_id"],
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["tenant_id"] == owner_b["tenant_id"]
+
+    edited = client.put(
+        f"/api/v1/users/{created.json()['id']}",
+        headers=headers,
+        json={"is_active": False},
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["is_active"] is False
