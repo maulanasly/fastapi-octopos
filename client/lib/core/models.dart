@@ -31,6 +31,48 @@ class Supplier {
   );
 }
 
+class TaxRule {
+  final int id;
+  final String name;
+  final String? description;
+  final String taxScope;
+  final String taxMode;
+  final double rate;
+  final int? categoryId;
+  final int? productId;
+  final String? startsAt;
+  final String? endsAt;
+  final bool isActive;
+
+  const TaxRule({
+    required this.id,
+    required this.name,
+    this.description,
+    required this.taxScope,
+    required this.taxMode,
+    required this.rate,
+    this.categoryId,
+    this.productId,
+    this.startsAt,
+    this.endsAt,
+    required this.isActive,
+  });
+
+  factory TaxRule.fromJson(Map<String, dynamic> json) => TaxRule(
+    id: json['id'] as int,
+    name: json['name'] as String,
+    description: json['description'] as String?,
+    taxScope: json['tax_scope'] as String? ?? 'order',
+    taxMode: json['tax_mode'] as String? ?? 'exclusive',
+    rate: (json['rate'] as num?)?.toDouble() ?? 0,
+    categoryId: json['category_id'] as int?,
+    productId: json['product_id'] as int?,
+    startsAt: json['starts_at'] as String?,
+    endsAt: json['ends_at'] as String?,
+    isActive: json['is_active'] as bool? ?? true,
+  );
+}
+
 class PurchaseOrderItem {
   final int id;
   final int purchaseOrderId;
@@ -1327,6 +1369,52 @@ class DailyCloseTotals {
         nonCashVariance: (json['non_cash_variance'] as num?)?.toDouble() ?? 0,
         completedOrderCount: json['completed_order_count'] as int? ?? 0,
         shiftCount: json['shift_count'] as int? ?? 0,
+      );
+}
+
+class TopProductItem {
+  final int productId;
+  final String productName;
+  final String productSku;
+  final int totalQuantitySold;
+  final double totalRevenue;
+
+  const TopProductItem({
+    required this.productId,
+    required this.productName,
+    required this.productSku,
+    required this.totalQuantitySold,
+    required this.totalRevenue,
+  });
+
+  factory TopProductItem.fromJson(Map<String, dynamic> json) => TopProductItem(
+    productId: json['product_id'] as int,
+    productName: json['product_name'] as String,
+    productSku: json['product_sku'] as String,
+    totalQuantitySold: json['total_quantity_sold'] as int? ?? 0,
+    totalRevenue: (json['total_revenue'] as num?)?.toDouble() ?? 0,
+  );
+}
+
+class CategorySalesItem {
+  final int categoryId;
+  final String categoryName;
+  final double totalRevenue;
+  final int totalQuantitySold;
+
+  const CategorySalesItem({
+    required this.categoryId,
+    required this.categoryName,
+    required this.totalRevenue,
+    required this.totalQuantitySold,
+  });
+
+  factory CategorySalesItem.fromJson(Map<String, dynamic> json) =>
+      CategorySalesItem(
+        categoryId: json['category_id'] as int,
+        categoryName: json['category_name'] as String,
+        totalRevenue: (json['total_revenue'] as num?)?.toDouble() ?? 0,
+        totalQuantitySold: json['total_quantity_sold'] as int? ?? 0,
       );
 }
 

@@ -18,10 +18,13 @@ class ReportsScreen extends ConsumerStatefulWidget {
 }
 
 class _ReportsScreenState extends ConsumerState<ReportsScreen> {
+  String _period = 'today';
   late Future<SalesSummary> _salesFuture;
   late Future<List<Product>> _lowStockFuture;
   late Future<DailyCloseTotals> _dailyCloseFuture;
   late Future<List<DailyShiftItem>> _shiftsFuture;
+  late Future<List<TopProductItem>> _topProductsFuture;
+  late Future<List<CategorySalesItem>> _categorySalesFuture;
 
   @override
   void initState() {
@@ -29,12 +32,45 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     _load();
   }
 
+  (String?, String?) _datesFor(String period) {
+    final now = DateTime.now();
+    switch (period) {
+      case 'today':
+        final start = DateTime(now.year, now.month, now.day);
+        return (
+          start.toUtc().toIso8601String(),
+          now.toUtc().toIso8601String(),
+        );
+      case '7d':
+        return (
+          now.subtract(const Duration(days: 7)).toUtc().toIso8601String(),
+          now.toUtc().toIso8601String(),
+        );
+      case '30d':
+        return (
+          now.subtract(const Duration(days: 30)).toUtc().toIso8601String(),
+          now.toUtc().toIso8601String(),
+        );
+      default:
+        return (null, null);
+    }
+  }
+
   void _load() {
     final repo = ref.read(reportRepositoryProvider);
-    _salesFuture = repo.sales();
+    final (startDate, endDate) = _datesFor(_period);
+    _salesFuture = repo.sales(startDate: startDate, endDate: endDate);
     _lowStockFuture = repo.lowStock();
     _dailyCloseFuture = repo.dailyClose();
     _shiftsFuture = repo.shifts();
+    _topProductsFuture = repo.topProducts(
+      startDate: startDate,
+      endDate: endDate,
+    );
+    _categorySalesFuture = repo.categorySales(
+      startDate: startDate,
+      endDate: endDate,
+    );
   }
 
   Future<void> _showShiftReport(DailyShiftItem shift) async {
@@ -132,6 +168,23 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'today',
+                label: Text(strings.of('periodToday')),
+              ),
+              ButtonSegment(value: '7d', label: Text(strings.of('period7d'))),
+              ButtonSegment(value: '30d', label: Text(strings.of('period30d'))),
+              ButtonSegment(value: 'all', label: Text(strings.of('periodAll'))),
+            ],
+            selected: {_period},
+            onSelectionChanged: (v) => setState(() {
+              _period = v.first;
+              _load();
+            }),
+          ),
+          const SizedBox(height: 16),
           FutureBuilder<SalesSummary>(
             future: _salesFuture,
             builder: (context, snapshot) {
@@ -187,6 +240,77 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         'Avg order',
                         formatCents(centsFromApi(s.averageOrderValue)),
                       ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<TopProductItem>>(
+            future: _topProductsFuture,
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? [];
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        strings.of('topProducts'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      if (items.isEmpty)
+                        Text(strings.of('noOrders'))
+                      else
+                        for (final item in items)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item.productName),
+                            subtitle: Text(
+                              '${item.totalQuantitySold} × ${item.productSku}',
+                            ),
+                            trailing: Text(
+                              formatCents(centsFromApi(item.totalRevenue)),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<List<CategorySalesItem>>(
+            future: _categorySalesFuture,
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? [];
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        strings.of('salesByCategory'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      if (items.isEmpty)
+                        Text(strings.of('noOrders'))
+                      else
+                        for (final item in items)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item.categoryName),
+                            trailing: Text(
+                              formatCents(centsFromApi(item.totalRevenue)),
+                            ),
+                          ),
                     ],
                   ),
                 ),

@@ -28,6 +28,8 @@ class HomeShell extends ConsumerWidget {
     final canTrackOrders = auth.has('orders:track');
     final canManageStaff = auth.has('users:manage');
     final canManagePurchasing = auth.has('purchasing:manage');
+    final canManageTaxes = auth.has('taxes:manage');
+    final canManageSettings = auth.has('settings:manage');
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
@@ -64,6 +66,18 @@ class HomeShell extends ConsumerWidget {
           icon: Icons.percent,
           label: 'Promotions',
           path: '/promotions',
+        ),
+      if (canManageTaxes)
+        const _Dest(
+          icon: Icons.receipt_long_outlined,
+          label: 'Tax rules',
+          path: '/taxes',
+        ),
+      if (canManageSettings)
+        const _Dest(
+          icon: Icons.settings_outlined,
+          label: 'Settings',
+          path: '/settings',
         ),
       if (canViewReports)
         const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
@@ -162,6 +176,10 @@ String _stringKeyForPath(String path) {
       return 'purchasing';
     case '/promotions':
       return 'promotions';
+    case '/taxes':
+      return 'taxRules';
+    case '/settings':
+      return 'localizationSettings';
     case '/admin':
       return 'admin';
     case '/staff':

@@ -91,6 +91,10 @@ final purchasingRepositoryProvider = Provider<PurchasingRepository>(
   (ref) => PurchasingRepository(ref.watch(apiClientProvider)),
 );
 
+final taxRepositoryProvider = Provider<TaxRepository>(
+  (ref) => TaxRepository(ref.watch(apiClientProvider)),
+);
+
 const _uuid = Uuid();
 
 /// Supported regional presets (fetched once).
@@ -522,6 +526,44 @@ class CustomerRepository {
     );
     return Customer.fromJson(resp.data!);
   }
+
+  Future<Customer> update(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/customers/$id',
+      data: body,
+    );
+    return Customer.fromJson(resp.data!);
+  }
+
+  Future<void> deactivate(int id) async {
+    await api.dio.delete('/customers/$id');
+  }
+}
+
+class TaxRepository {
+  final ApiClient api;
+  TaxRepository(this.api);
+
+  Future<List<TaxRule>> list() async {
+    final resp = await api.dio.get<List<dynamic>>('/taxes/');
+    return resp.data!
+        .map((e) => TaxRule.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<TaxRule> create(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>('/taxes/', data: body);
+    return TaxRule.fromJson(resp.data!);
+  }
+
+  Future<TaxRule> update(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>('/taxes/$id', data: body);
+    return TaxRule.fromJson(resp.data!);
+  }
+
+  Future<void> deactivate(int id) async {
+    await api.dio.delete('/taxes/$id');
+  }
 }
 
 class RbacRepository {
@@ -540,9 +582,43 @@ class ReportRepository {
   final ApiClient api;
   ReportRepository(this.api);
 
-  Future<SalesSummary> sales() async {
-    final resp = await api.dio.get<Map<String, dynamic>>('/reports/sales');
+  Future<SalesSummary> sales({String? startDate, String? endDate}) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/reports/sales',
+      queryParameters: {'start_date': ?startDate, 'end_date': ?endDate},
+    );
     return SalesSummary.fromJson(resp.data!);
+  }
+
+  Future<List<TopProductItem>> topProducts({
+    String? startDate,
+    String? endDate,
+    int limit = 10,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/reports/top-products',
+      queryParameters: {
+        'start_date': ?startDate,
+        'end_date': ?endDate,
+        'limit': limit,
+      },
+    );
+    return resp.data!
+        .map((e) => TopProductItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<CategorySalesItem>> categorySales({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/reports/categories',
+      queryParameters: {'start_date': ?startDate, 'end_date': ?endDate},
+    );
+    return resp.data!
+        .map((e) => CategorySalesItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Product>> lowStock() async {
@@ -742,6 +818,15 @@ class LocalizationRepository {
   /// Global (admin-managed) localization settings.
   Future<LocalizationSetting> settings() async {
     final resp = await api.dio.get<Map<String, dynamic>>('/localization/');
+    return LocalizationSetting.fromJson(resp.data!);
+  }
+
+  /// Update the tenant-level localization settings (settings:manage).
+  Future<LocalizationSetting> updateSettings(Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/localization/',
+      data: body,
+    );
     return LocalizationSetting.fromJson(resp.data!);
   }
 

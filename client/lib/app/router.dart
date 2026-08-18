@@ -15,7 +15,9 @@ import '../features/inventory/inventory_screen.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/purchasing/purchasing_screen.dart';
 import '../features/serving/serving_screen.dart';
+import '../features/settings/localization_settings_screen.dart';
 import '../features/staff/staff_screen.dart';
+import '../features/taxes/taxes_screen.dart';
 import '../features/tracking/tracking_screen.dart';
 import '../features/tracking/trip_map_screen.dart';
 import '../features/drawer/reconcile_screen.dart';
@@ -134,6 +136,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/purchasing',
             builder: (context, state) => const PurchasingScreen(),
+          ),
+          GoRoute(
+            path: '/taxes',
+            builder: (context, state) => const TaxesScreen(),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) => const LocalizationSettingsScreen(),
           ),
           GoRoute(
             path: '/reports',

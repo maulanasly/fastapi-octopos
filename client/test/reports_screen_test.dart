@@ -27,15 +27,44 @@ class _FakeReports extends ReportRepository {
     : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
 
   @override
-  Future<SalesSummary> sales() async => const SalesSummary(
-    grossRevenue: 100,
-    totalDiscounts: 5,
-    totalRevenue: 95,
-    totalRefunds: 2,
-    netRevenue: 93,
-    orderCount: 4,
-    averageOrderValue: 23.75,
-  );
+  Future<SalesSummary> sales({String? startDate, String? endDate}) async =>
+      const SalesSummary(
+        grossRevenue: 100,
+        totalDiscounts: 5,
+        totalRevenue: 95,
+        totalRefunds: 2,
+        netRevenue: 93,
+        orderCount: 4,
+        averageOrderValue: 23.75,
+      );
+
+  @override
+  Future<List<TopProductItem>> topProducts({
+    String? startDate,
+    String? endDate,
+    int limit = 10,
+  }) async => const [
+    TopProductItem(
+      productId: 1,
+      productName: 'Cafe Latte',
+      productSku: 'LATTE',
+      totalQuantitySold: 12,
+      totalRevenue: 60,
+    ),
+  ];
+
+  @override
+  Future<List<CategorySalesItem>> categorySales({
+    String? startDate,
+    String? endDate,
+  }) async => const [
+    CategorySalesItem(
+      categoryId: 1,
+      categoryName: 'Beverages',
+      totalRevenue: 60,
+      totalQuantitySold: 12,
+    ),
+  ];
 
   @override
   Future<List<Product>> lowStock() async => const [];
@@ -113,6 +142,11 @@ void main() {
     addTearDown(container.dispose);
     await _pump(tester, container);
 
+    await tester.scrollUntilVisible(
+      find.text('Today close'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Today close'), findsOneWidget);
     expect(find.textContaining(r'$120.00'), findsWidgets);
 
