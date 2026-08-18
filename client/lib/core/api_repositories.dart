@@ -97,7 +97,7 @@ String newIdempotencyKey() => _uuid.v4();
 /// create duplicates on the backend.
 Map<String, dynamic> _withKey(Map<String, dynamic> body, {String? key}) => {
   ...body,
-  if (key != null) 'idempotency_key': key,
+  'idempotency_key': ?key,
 };
 
 class AuthRepository {
@@ -142,7 +142,7 @@ class CatalogRepository {
       data: {
         'name': name,
         'description': description,
-        if (color != null) 'color': color,
+        'color': ?color,
       },
     );
     return Category.fromJson(resp.data!);
@@ -161,7 +161,7 @@ class CatalogRepository {
     final resp = await api.dio.put<Map<String, dynamic>>(
       '/products/categories/$categoryId',
       data: {
-        if (color != null) 'color': color,
+        'color': ?color,
         if (color == null) 'color': null,
       },
     );
@@ -235,7 +235,7 @@ class OrderRepository {
       '/orders/',
       data: _withKey({
         'items': items,
-        if (customerId != null) 'customer_id': customerId,
+        'customer_id': ?customerId,
         if (promotionCode != null && promotionCode.isNotEmpty)
           'promotion_code': promotionCode,
         if (redeemPoints > 0) 'redeem_points': redeemPoints,
@@ -300,7 +300,7 @@ class OrderRepository {
   Future<List<Order>> servingQueue({String? status}) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/orders/serving/',
-      queryParameters: {if (status != null) 'status': status},
+      queryParameters: {'status': ?status},
     );
     return resp.data!
         .map((e) => Order.fromJson(e as Map<String, dynamic>))
@@ -368,7 +368,7 @@ class OrderRepository {
         'order_id': orderId,
         'items': items,
         if (reason != null && reason.isNotEmpty) 'reason': reason,
-        if (paymentMethod != null) 'payment_method': paymentMethod,
+        'payment_method': ?paymentMethod,
       }, key: idempotencyKey ?? newIdempotencyKey()),
     );
     return Refund.fromJson(resp.data!);
@@ -410,7 +410,7 @@ class DrawerRepository {
         'counted_cash': countedCashCents / 100,
         if (countedNonCashCents != null)
           'counted_non_cash': countedNonCashCents / 100,
-        if (notes != null) 'notes': notes,
+        'notes': ?notes,
       },
     );
     return ShiftReconciliation.fromJson(resp.data!);
@@ -437,8 +437,8 @@ class CustomerRepository {
       '/customers/',
       data: {
         'name': name,
-        if (email != null) 'email': email,
-        if (phone != null) 'phone': phone,
+        'email': ?email,
+        'phone': ?phone,
       },
     );
     return Customer.fromJson(resp.data!);
@@ -505,8 +505,8 @@ class AuditRepository {
     final resp = await api.dio.get<List<dynamic>>(
       '/audit/logs',
       queryParameters: {
-        if (action != null) 'action': action,
-        if (userId != null) 'user_id': userId,
+        'action': ?action,
+        'user_id': ?userId,
       },
     );
     return resp.data!
@@ -616,8 +616,8 @@ class InventoryRepository {
     final resp = await api.dio.get<List<dynamic>>(
       '/inventory/movements',
       queryParameters: {
-        if (productId != null) 'product_id': productId,
-        if (movementType != null) 'movement_type': movementType,
+        'product_id': ?productId,
+        'movement_type': ?movementType,
         'limit': limit,
       },
     );
@@ -650,7 +650,7 @@ class SyncRepository {
   Future<CatalogDelta> catalog({String? since}) async {
     final resp = await api.dio.get<Map<String, dynamic>>(
       '/sync/catalog',
-      queryParameters: {if (since != null) 'since': since},
+      queryParameters: {'since': ?since},
     );
     return CatalogDelta.fromJson(resp.data!);
   }

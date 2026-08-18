@@ -142,7 +142,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      container.listen(catalogControllerProvider, (_, __) {});
+      container.listen(catalogControllerProvider, (_, _) {});
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
       final state = container.read(catalogControllerProvider);
@@ -162,7 +162,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      container.listen(catalogControllerProvider, (_, __) {});
+      container.listen(catalogControllerProvider, (_, _) {});
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(container.read(catalogControllerProvider).products.length, 2);
 
