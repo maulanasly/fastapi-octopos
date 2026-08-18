@@ -14,8 +14,16 @@ DOCKER_COMPOSE ?= docker compose
 IMG_NAME ?= octopos-backend
 
 .PHONY: help install run dev migrate migrate-down makemigration \
-	migration-history migration-current lint format check test pre-commit clean \
+	migration-history migration-current lint lint-changes format check check-changes test pre-commit clean \
 	client client-run client-test client-analyze 	docker-build docker-up docker-down docker-logs docker-ps 	docker-migrate docker-shell
+
+# Files changed on this branch (committed vs origin/main) plus any staged or
+# unstaged working-tree changes.
+DIFF_FILES := $(shell { git diff --name-only origin/main...HEAD; git diff --name-only; git diff --cached --name-only; } | sort -u)
+# Changed backend source files (excludes tests, alembic, client) and their
+# dotted module names (pytest-cov matches imported modules, not file paths).
+CHANGED_PY := $(filter app/%.py,$(DIFF_FILES))
+CHANGED_MODULES := $(subst /,.,$(patsubst app/%.py,app.%,$(CHANGED_PY)))
 
 help: ## Show available commands
 	@echo "FastAPI OctoPOS - Make targets"
@@ -49,6 +57,14 @@ migration-current: ## Show current migration version
 lint: ## Run lint checks
 	pre-commit run --all-files
 
+lint-changes: ## Run pre-commit on changed files only
+	@if [ -z "$(DIFF_FILES)" ]; then \
+		echo "No changed files to lint"; \
+	else \
+		echo "Linting: $(DIFF_FILES)"; \
+		printf '%s\n' $(DIFF_FILES) | xargs pre-commit run --show-diff-on-failure --files; \
+	fi
+
 format: ## Auto-fix and format code with ruff
 	ruff check --fix .
 	ruff format .
@@ -59,6 +75,20 @@ test: ## Run test suite
 check: ## Run tests with coverage + compile check
 	pytest -q --cov=app --cov-report=term-missing --cov-fail-under=75
 	$(PYTHON) -m compileall app alembic
+
+check-changes: ## Tests with coverage + compile check on changed app files only
+	@if [ -z "$(CHANGED_PY)" ]; then \
+		echo "No changed app files; running tests without a coverage gate"; \
+		pytest -q; \
+	else \
+		echo "Coverage on: $(CHANGED_MODULES)"; \
+		pytest -q $(addprefix --cov=,$(CHANGED_MODULES)) --cov-report=term-missing --cov-fail-under=75; \
+	fi
+	@if [ -z "$(CHANGED_PY)" ]; then \
+		echo "No changed Python files to compile"; \
+	else \
+		$(PYTHON) -m compileall $(CHANGED_PY); \
+	fi
 
 pre-commit: ## Install pre-commit hooks
 	pre-commit install
