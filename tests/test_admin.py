@@ -934,6 +934,256 @@ def test_invoice_workflow_creates_and_approves(client, auth_factory, db):
     assert db.get(PurchaseInvoice, invoice_id).status == "approved"
 
 
+def _seed_received_po(db, user_id):
+    from decimal import Decimal
+
+    from app.models.purchase import PurchaseOrder, PurchaseOrderItem
+
+    supplier, product = _seed_low_stock(db, supplier_name="Review Supplier")
+    po = PurchaseOrder(
+        supplier_id=supplier.id,
+        user_id=user_id,
+        tenant_id=1,
+        status="received",
+    )
+    db.add(po)
+    db.flush()
+    db.add(
+        PurchaseOrderItem(
+            purchase_order_id=po.id,
+            product_id=product.id,
+            quantity_ordered=10,
+            quantity_received=10,
+            unit_cost=Decimal("4.00"),
+            tenant_id=1,
+        )
+    )
+    db.commit()
+    db.refresh(po)
+    return supplier, po
+
+
+def _seed_pending_invoice(db, user_id):
+    from decimal import Decimal
+
+    from app.models.purchase import PurchaseInvoice, PurchaseInvoiceItem
+
+    supplier, po = _seed_received_po(db, user_id)
+    po_item = po.items[0]
+    invoice = PurchaseInvoice(
+        purchase_order_id=po.id,
+        supplier_id=supplier.id,
+        user_id=user_id,
+        tenant_id=1,
+        invoice_number="INV-REV-001",
+        status="pending_review",
+        subtotal_amount=Decimal("40.00"),
+        total_amount=Decimal("40.00"),
+    )
+    db.add(invoice)
+    db.flush()
+    db.add(
+        PurchaseInvoiceItem(
+            invoice_id=invoice.id,
+            purchase_order_item_id=po_item.id,
+            product_id=po_item.product_id,
+            billed_quantity=10,
+            billed_unit_cost=Decimal("4.00"),
+            expected_quantity=10,
+            expected_unit_cost=Decimal("4.00"),
+            quantity_variance=0,
+            price_variance=Decimal("0.00"),
+            line_total=Decimal("40.00"),
+            tenant_id=1,
+        )
+    )
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+def _seed_pending_payment(db, user_id):
+    from decimal import Decimal
+
+    from app.models.purchase import SupplierPayment
+
+    invoice = _seed_pending_invoice(db, user_id)
+    invoice.status = "approved"
+    db.add(invoice)
+    db.commit()
+    payment = SupplierPayment(
+        supplier_id=invoice.supplier_id,
+        invoice_id=invoice.id,
+        user_id=user_id,
+        tenant_id=1,
+        amount=Decimal("40.00"),
+        payment_method="transfer",
+        reference="REF-REV-001",
+        status="pending_review",
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def test_review_queue_lists_pending_invoices(client, auth_factory, db):
+    user_id = _workflow_admin(client, auth_factory, db, "review-inv-boss@example.com")
+    _seed_pending_invoice(db, user_id)
+
+    page = client.get("/admin/workflows/review")
+    assert page.status_code == 200
+    assert "INV-REV-001" in page.text
+    assert "Approve" in page.text
+    assert "Review Supplier" in page.text
+
+
+def test_review_queue_approves_invoice(client, auth_factory, db):
+    from app.models.purchase import PurchaseInvoice
+
+    user_id = _workflow_admin(client, auth_factory, db, "review-appr-boss@example.com")
+    invoice = _seed_pending_invoice(db, user_id)
+
+    resp = client.post(
+        "/admin/workflows/review",
+        data={
+            "kind": "invoice",
+            "id": str(invoice.id),
+            "action": "approve",
+            "review_note": "looks good",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(PurchaseInvoice, invoice.id).status == "approved"
+
+
+def test_review_queue_rejects_invoice(client, auth_factory, db):
+    from app.models.purchase import PurchaseInvoice
+
+    user_id = _workflow_admin(client, auth_factory, db, "review-rej-boss@example.com")
+    invoice = _seed_pending_invoice(db, user_id)
+
+    resp = client.post(
+        "/admin/workflows/review",
+        data={
+            "kind": "invoice",
+            "id": str(invoice.id),
+            "action": "reject",
+            "review_note": "wrong cost",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(PurchaseInvoice, invoice.id).status == "rejected"
+
+
+def test_review_queue_lists_pending_payments(client, auth_factory, db):
+    user_id = _workflow_admin(client, auth_factory, db, "review-pay-boss@example.com")
+    _seed_pending_payment(db, user_id)
+
+    page = client.get("/admin/workflows/review")
+    assert page.status_code == 200
+    assert "REF-REV-001" in page.text
+    assert "Approve" in page.text
+
+
+def test_payment_workflow_approves_payment(client, auth_factory, db):
+    from app.models.purchase import SupplierPayment
+
+    user_id = _workflow_admin(client, auth_factory, db, "pay-appr-boss@example.com")
+    payment = _seed_pending_payment(db, user_id)
+
+    resp = client.post(
+        "/admin/workflows/review",
+        data={
+            "kind": "payment",
+            "id": str(payment.id),
+            "action": "approve",
+            "review_note": "paid",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(SupplierPayment, payment.id).status == "approved"
+
+
+def test_review_queue_rejects_payment(client, auth_factory, db):
+    from app.models.purchase import SupplierPayment
+
+    user_id = _workflow_admin(client, auth_factory, db, "pay-rej-boss@example.com")
+    payment = _seed_pending_payment(db, user_id)
+
+    resp = client.post(
+        "/admin/workflows/review",
+        data={
+            "kind": "payment",
+            "id": str(payment.id),
+            "action": "reject",
+            "review_note": "not paid",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(SupplierPayment, payment.id).status == "rejected"
+
+
+def test_review_queue_approves_self_created_document(client, auth_factory, db):
+    """Superuser path bypasses the self-approval guard (break-glass)."""
+    from app.models.purchase import PurchaseInvoice
+
+    user_id = _workflow_admin(client, auth_factory, db, "review-self-boss@example.com")
+    invoice = _seed_pending_invoice(db, user_id)
+
+    resp = client.post(
+        "/admin/workflows/review",
+        data={
+            "kind": "invoice",
+            "id": str(invoice.id),
+            "action": "approve",
+            "review_note": "admin override",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+    db.expire_all()
+    assert db.get(PurchaseInvoice, invoice.id).status == "approved"
+
+
+def test_review_queue_rejects_bad_action(client, auth_factory, db):
+    user_id = _workflow_admin(client, auth_factory, db, "review-bad-boss@example.com")
+    invoice = _seed_pending_invoice(db, user_id)
+
+    resp = client.post(
+        "/admin/workflows/review",
+        data={"kind": "invoice", "id": str(invoice.id), "action": "explode"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
+
+def test_review_queue_scoped_to_admin_tenant(client, auth_factory, db):
+    from app.models.tenant import Tenant
+
+    _workflow_admin(client, auth_factory, db, "review-scope-boss@example.com")
+    invoice = _seed_pending_invoice(db, 1)
+    tenant2 = Tenant(name="Other Tenant", slug="other-tenant")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+    invoice.tenant_id = tenant2.id
+    invoice.supplier.tenant_id = tenant2.id
+    db.commit()
+
+    page = client.get("/admin/workflows/review")
+    assert page.status_code == 200
+    assert "INV-REV-001" not in page.text
+
+
 def test_close_drawer_workflow_reconciles(client, auth_factory, db):
     """Close an open drawer with counted cash; reconciliation recorded."""
     from app.models.drawer import DrawerSession
