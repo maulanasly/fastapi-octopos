@@ -23,7 +23,7 @@ String _activeFormat = 'yyyy-MM-dd HH:mm:ss';
 
 /// Maps a strftime-style format (from the backend setting) to an intl
 /// DateFormat pattern. Unsupported tokens fall back to the shipped default.
-String _toIntlPattern(String strftimeFormat) {
+String toIntlPattern(String strftimeFormat) {
   switch (strftimeFormat) {
     case '%Y-%m-%d %H:%M:%S':
       return 'yyyy-MM-dd HH:mm:ss';
@@ -40,7 +40,7 @@ String _toIntlPattern(String strftimeFormat) {
 void configureDates({required String timezone, required String dateFormat}) {
   _ensureTz();
   _activeTz = timezone;
-  _activeFormat = _toIntlPattern(dateFormat);
+  _activeFormat = toIntlPattern(dateFormat);
 }
 
 /// Formats an ISO-8601 UTC datetime string in the active region timezone.

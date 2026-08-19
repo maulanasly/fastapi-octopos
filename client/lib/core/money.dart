@@ -28,7 +28,8 @@ void configureMoney({required String currency, required String numberFormat}) {
   _numberFormat = numberFormat;
 }
 
-String _currencySymbol(String currency) {
+/// Symbol for a currency code (e.g. 'USD' -> '$', 'IDR' -> 'Rp').
+String currencySymbol(String currency) {
   switch (currency) {
     case 'IDR':
       return 'Rp';
@@ -63,7 +64,7 @@ String formatCents(int cents) {
   final number = NumberFormat('#,##0.00', locale)
     ..minimumFractionDigits = decimalDigits
     ..maximumFractionDigits = decimalDigits;
-  final symbol = _currencySymbol(_currency);
+  final symbol = currencySymbol(_currency);
   // Indonesian convention: a space between "Rp" and the amount
   // (e.g. `Rp 4.500`); other currencies attach the symbol directly.
   final separator = _currency == 'IDR' ? ' ' : '';

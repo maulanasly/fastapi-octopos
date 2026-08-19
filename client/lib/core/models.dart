@@ -596,6 +596,35 @@ class LocalizationRegion {
       );
 }
 
+/// Supported values for tenant localization settings (UI selects).
+class LocalizationOptions {
+  final List<String> languages;
+  final List<String> currencies;
+  final List<String> timezones;
+  final List<String> dateFormats;
+  final List<String> numberFormats;
+  final List<String> countryCodes;
+
+  const LocalizationOptions({
+    required this.languages,
+    required this.currencies,
+    required this.timezones,
+    required this.dateFormats,
+    required this.numberFormats,
+    required this.countryCodes,
+  });
+
+  factory LocalizationOptions.fromJson(Map<String, dynamic> json) =>
+      LocalizationOptions(
+        languages: (json['languages'] as List<dynamic>).cast<String>(),
+        currencies: (json['currencies'] as List<dynamic>).cast<String>(),
+        timezones: (json['timezones'] as List<dynamic>).cast<String>(),
+        dateFormats: (json['date_formats'] as List<dynamic>).cast<String>(),
+        numberFormats: (json['number_formats'] as List<dynamic>).cast<String>(),
+        countryCodes: (json['country_codes'] as List<dynamic>).cast<String>(),
+      );
+}
+
 class Category {
   final int id;
   final String name;
