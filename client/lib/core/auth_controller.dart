@@ -11,6 +11,7 @@ enum AuthStatus { unknown, signedOut, signedIn }
 
 class AuthState {
   final AuthStatus status;
+  final int? userId;
   final String? email;
   final String? fullName;
   final Set<String> permissions;
@@ -19,6 +20,7 @@ class AuthState {
 
   const AuthState({
     this.status = AuthStatus.unknown,
+    this.userId,
     this.email,
     this.fullName,
     this.permissions = const {},
@@ -33,6 +35,7 @@ class AuthState {
 
   AuthState copyWith({
     AuthStatus? status,
+    int? userId,
     String? email,
     String? fullName,
     Set<String>? permissions,
@@ -40,6 +43,7 @@ class AuthState {
     bool? isSuperuser,
   }) => AuthState(
     status: status ?? this.status,
+    userId: userId ?? this.userId,
     email: email ?? this.email,
     fullName: fullName ?? this.fullName,
     permissions: permissions ?? this.permissions,
@@ -79,6 +83,7 @@ class AuthController extends Notifier<AuthState> {
     final perms = await ref.read(rbacRepositoryProvider).myPermissions();
     state = AuthState(
       status: AuthStatus.signedIn,
+      userId: profile.id,
       email: profile.email,
       fullName: profile.fullName,
       permissions: perms.toSet(),

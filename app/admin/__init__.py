@@ -25,6 +25,8 @@ from app.admin.views import (
     SupplierAdmin,
     SyncEventLogAdmin,
     TaxRuleAdmin,
+    TenantAdmin,
+    TenantSwitchAdmin,
     UserAdmin,
     UserRoleAdmin,
     WorkflowsAdmin,
@@ -59,4 +61,6 @@ all_admin_views = [
     LocalizationSettingAdmin,
     SyncEventLogAdmin,
     ReportsAdmin,
+    TenantSwitchAdmin,
+    TenantAdmin,
 ]

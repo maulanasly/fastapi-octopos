@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/auth_controller.dart';
 import '../../core/colors.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
@@ -31,6 +32,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
+    final auth = ref.watch(authControllerProvider);
     final catalog = ref.watch(catalogControllerProvider);
     final cart = ref.watch(cartControllerProvider);
     final drawer = ref.watch(drawerControllerProvider);
@@ -69,11 +71,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             children: [
-              TextButton.icon(
-                icon: const Icon(Icons.assignment_return, size: 18),
-                label: Text(s.of('refunds')),
-                onPressed: () => context.push('/refunds'),
-              ),
+              if (auth.has('refunds:create'))
+                TextButton.icon(
+                  icon: const Icon(Icons.assignment_return, size: 18),
+                  label: Text(s.of('refunds')),
+                  onPressed: () => context.push('/refunds'),
+                ),
               const Spacer(),
               IconButton(
                 tooltip: 'Refresh catalog',

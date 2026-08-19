@@ -20,20 +20,24 @@ and pgvector semantic search.
 
 | Step | Command | Notes |
 |---|---|---|
-| Lint | `pre-commit run --all-files --show-diff-on-failure` | ruff check+format, yaml, eof |
-| Lint (fast) | `ruff check .` && `ruff format --check .` | same rules, no pre-commit overhead |
+| Lint (changes) | `make lint-changes` | pre-commit (ruff check+format, yaml, eof) on changed files only |
+| Lint (fast, changes) | `ruff check <changed>` && `ruff format --check <changed>` | same rules, no pre-commit overhead |
 | Auto-fix | `make format` | `ruff check --fix .` then `ruff format .` |
-| Backend tests | `make test` | needs local postgres on `:5433` (see below) |
-| Coverage gate | `make check` | pytest with `--cov-fail-under=75` + compileall |
-| Client | `make client-analyze client-test` | run when `client/` changes |
+| Backend tests | `make test` | full suite — needs local postgres on `:5433` (see below) |
+| Coverage gate (changes) | `make check-changes` | pytest with `--cov-fail-under=75` + compileall, coverage measured on changed `app/` files only |
 
+- **Lint and coverage target the changes, not the whole tree**: `make
+  lint-changes` and `make check-changes` diff against `origin/main...HEAD`
+  plus staged/unstaged working-tree changes. With no changed `app/` source,
+  `check-changes` runs the tests without a coverage gate.
 - Tests rebuild the schema from the real Alembic chain on every run against
   `octopos_test` (default `postgresql+psycopg://postgres:postgres@localhost:5433/octopos_test`,
   override with `TEST_DATABASE_URL`). Start postgres first:
   `docker compose up -d db` (init-test-db.sql creates `octopos_test`).
-- CI (`.github/workflows/ci.yml`) runs the same gates on python 3.12 with
-  `TEST_DATABASE_URL` pointing at its pgvector service. **Do not change the
-  postgres image away from `pgvector/pgvector:pg16`** — migrations `CREATE EXTENSION vector`.
+- CI (`.github/workflows/ci.yml`) still runs the **full-tree** gates on python
+  3.12 with `TEST_DATABASE_URL` pointing at its pgvector service. **Do not
+  change the postgres image away from `pgvector/pgvector:pg16`** — migrations
+  `CREATE EXTENSION vector`.
 
 ## Ruff rules (pyproject.toml `[tool.ruff]`)
 
@@ -62,11 +66,27 @@ and pgvector semantic search.
 1. Branch off `origin/main` (fetch first): `git switch -c <scope>/<change>`.
 2. Conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`), one
    logical change per commit. Never commit secrets.
-3. Before pushing: `pre-commit run --all-files`, `make test` (full suite, not
-   just new tests), and client checks if `client/` changed.
-4. Push and open a PR to `main` (`gh pr create --base main`) with a summary of
-   changes + verification results. Wait for CI green; fix CI issues on the same
-   branch (new commit), don't amend pushed commits.
+3. Before pushing: `make lint-changes`, `make check-changes` (coverage on
+   changed files only), `make test` (full suite, not just new tests), and
+   client checks if `client/` changed.
+4. Always finish by pushing and opening the MR:
+   `git push -u origin <branch>` then `gh pr create --base main` with a
+   summary of changes + verification results. Wait for CI green; fix CI issues
+   on the same branch (new commit), don't amend pushed commits.
+
+## Knowledge graph
+
+- **Graph-first context**: before exploring the codebase, load the graphify
+  skill and answer context/architecture questions with
+  `graphify query "<question>"` — the graph covers the whole repo and answers
+  cite `source_location`. Only read specific files directly when the graph's
+  answer lacks the detail you need (paths come from the graph's
+  `source_location`).
+- **Update at task end**: after the MR is submitted, run the graphify `--update`
+  flow on the repo root (`/graphify . --update`) so the graph reflects the
+  final code — re-extracts only changed files (code-only runs skip semantic
+  extraction) and rebuilds `graph.json`, `GRAPH_REPORT.md`, `graph.html`.
+  `graphify-out/` is gitignored (local-only), so nothing extra gets committed.
 
 ## Client conventions
 

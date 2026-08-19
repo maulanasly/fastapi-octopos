@@ -14,6 +14,7 @@ DEFAULT_PERMISSION_DEFINITIONS: dict[str, str] = {
     "taxes:read": "View tax rules",
     "taxes:manage": "Manage tax rules",
     "settings:manage": "Manage system settings and localization",
+    "users:manage": "Manage staff (create, edit, deactivate)",
     "users:manage_roles": "Assign roles and manage RBAC",
     "orders:release_reservations": "Release expired reservations",
     "orders:track": "Track order trips and report service positions",

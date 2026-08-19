@@ -13,7 +13,11 @@ import '../features/catalog/products_screen.dart';
 import '../features/customers/customers_screen.dart';
 import '../features/inventory/inventory_screen.dart';
 import '../features/orders/orders_screen.dart';
+import '../features/purchasing/purchasing_screen.dart';
 import '../features/serving/serving_screen.dart';
+import '../features/settings/localization_settings_screen.dart';
+import '../features/staff/staff_screen.dart';
+import '../features/taxes/taxes_screen.dart';
 import '../features/tracking/tracking_screen.dart';
 import '../features/tracking/trip_map_screen.dart';
 import '../features/drawer/reconcile_screen.dart';
@@ -25,6 +29,48 @@ import 'home_shell.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
+
+/// Permission gate for deep links; the auth redirect falls back to POS
+/// when the signed-in user lacks the route's required permission.
+bool _permitted(AuthState auth, String path) {
+  if (auth.isSuperuser) return true;
+  final segment = path.split('/').where((p) => p.isNotEmpty).firstOrNull ?? '';
+  switch (segment) {
+    case 'pos':
+      return true;
+    case 'serving':
+    case 'orders':
+      return auth.has('orders:manage');
+    case 'tracking':
+      return auth.has('orders:track');
+    case 'inventory':
+      return auth.has('inventory:view');
+    case 'purchasing':
+      return auth.has('purchasing:manage');
+    case 'products':
+      return auth.has('products:manage');
+    case 'customers':
+      return auth.has('customers:create') || auth.has('customers:manage');
+    case 'promotions':
+      return auth.has('promotions:manage');
+    case 'taxes':
+      return auth.has('taxes:manage');
+    case 'settings':
+      return auth.has('settings:manage');
+    case 'staff':
+      return auth.has('users:manage');
+    case 'reports':
+      return auth.has('reports:view');
+    case 'admin':
+      return auth.isSuperuser;
+    case 'refunds':
+      return auth.has('refunds:create');
+    case 'reconcile':
+      return true;
+    default:
+      return true;
+  }
+}
 
 class _AuthListenable extends Listenable {
   _AuthListenable(this._ref) {
@@ -56,6 +102,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onLogin = state.uri.path == '/login';
       if (!signedIn && !onLogin) return '/login';
       if (signedIn && onLogin) return '/pos';
+      if (!_permitted(auth, state.uri.path)) return '/pos';
       return null;
     },
     routes: [
@@ -124,6 +171,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin',
             builder: (context, state) => const AdminScreen(),
+          ),
+          GoRoute(
+            path: '/staff',
+            builder: (context, state) => const StaffScreen(),
+          ),
+          GoRoute(
+            path: '/purchasing',
+            builder: (context, state) => const PurchasingScreen(),
+          ),
+          GoRoute(
+            path: '/taxes',
+            builder: (context, state) => const TaxesScreen(),
+          ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) => const LocalizationSettingsScreen(),
           ),
           GoRoute(
             path: '/reports',

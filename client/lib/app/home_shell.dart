@@ -26,6 +26,12 @@ class HomeShell extends ConsumerWidget {
     final canManagePromotions = auth.has('promotions:manage');
     final canManageOrders = auth.has('orders:manage');
     final canTrackOrders = auth.has('orders:track');
+    final canManageStaff = auth.has('users:manage');
+    final canManagePurchasing = auth.has('purchasing:manage');
+    final canManageTaxes = auth.has('taxes:manage');
+    final canManageSettings = auth.has('settings:manage');
+    final canViewCustomers =
+        auth.has('customers:create') || auth.has('customers:manage');
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
@@ -41,24 +47,50 @@ class HomeShell extends ConsumerWidget {
           label: 'Tracking',
           path: '/tracking',
         ),
-      const _Dest(icon: Icons.receipt_long, label: 'Orders', path: '/orders'),
+      if (canManageOrders)
+        const _Dest(
+          icon: Icons.receipt_long,
+          label: 'Orders',
+          path: '/orders',
+        ),
       if (canViewInventory)
         const _Dest(
           icon: Icons.inventory_2,
           label: 'Inventory',
           path: '/inventory',
         ),
+      if (canManagePurchasing)
+        const _Dest(
+          icon: Icons.shopping_cart_outlined,
+          label: 'Purchasing',
+          path: '/purchasing',
+        ),
       if (canManageProducts)
         const _Dest(icon: Icons.edit, label: 'Products', path: '/products'),
-      const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
+      if (canViewCustomers)
+        const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
       if (canManagePromotions)
         const _Dest(
           icon: Icons.percent,
           label: 'Promotions',
           path: '/promotions',
         ),
+      if (canManageTaxes)
+        const _Dest(
+          icon: Icons.receipt_long_outlined,
+          label: 'Tax rules',
+          path: '/taxes',
+        ),
+      if (canManageSettings)
+        const _Dest(
+          icon: Icons.settings_outlined,
+          label: 'Settings',
+          path: '/settings',
+        ),
       if (canViewReports)
         const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
+      if (canManageStaff)
+        const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
       if (auth.isSuperuser)
         const _Dest(
           icon: Icons.admin_panel_settings,
@@ -148,10 +180,18 @@ String _stringKeyForPath(String path) {
       return 'orders';
     case '/inventory':
       return 'inventory';
+    case '/purchasing':
+      return 'purchasing';
     case '/promotions':
       return 'promotions';
+    case '/taxes':
+      return 'taxRules';
+    case '/settings':
+      return 'localizationSettings';
     case '/admin':
       return 'admin';
+    case '/staff':
+      return 'staff';
     default:
       return 'pos';
   }

@@ -83,6 +83,18 @@ final localizationRepositoryProvider = Provider<LocalizationRepository>(
   (ref) => LocalizationRepository(ref.watch(apiClientProvider)),
 );
 
+final staffRepositoryProvider = Provider<StaffRepository>(
+  (ref) => StaffRepository(ref.watch(apiClientProvider)),
+);
+
+final purchasingRepositoryProvider = Provider<PurchasingRepository>(
+  (ref) => PurchasingRepository(ref.watch(apiClientProvider)),
+);
+
+final taxRepositoryProvider = Provider<TaxRepository>(
+  (ref) => TaxRepository(ref.watch(apiClientProvider)),
+);
+
 const _uuid = Uuid();
 
 /// Supported regional presets (fetched once).
@@ -514,6 +526,44 @@ class CustomerRepository {
     );
     return Customer.fromJson(resp.data!);
   }
+
+  Future<Customer> update(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/customers/$id',
+      data: body,
+    );
+    return Customer.fromJson(resp.data!);
+  }
+
+  Future<void> deactivate(int id) async {
+    await api.dio.delete('/customers/$id');
+  }
+}
+
+class TaxRepository {
+  final ApiClient api;
+  TaxRepository(this.api);
+
+  Future<List<TaxRule>> list() async {
+    final resp = await api.dio.get<List<dynamic>>('/taxes/');
+    return resp.data!
+        .map((e) => TaxRule.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<TaxRule> create(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>('/taxes/', data: body);
+    return TaxRule.fromJson(resp.data!);
+  }
+
+  Future<TaxRule> update(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>('/taxes/$id', data: body);
+    return TaxRule.fromJson(resp.data!);
+  }
+
+  Future<void> deactivate(int id) async {
+    await api.dio.delete('/taxes/$id');
+  }
 }
 
 class RbacRepository {
@@ -532,9 +582,43 @@ class ReportRepository {
   final ApiClient api;
   ReportRepository(this.api);
 
-  Future<SalesSummary> sales() async {
-    final resp = await api.dio.get<Map<String, dynamic>>('/reports/sales');
+  Future<SalesSummary> sales({String? startDate, String? endDate}) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/reports/sales',
+      queryParameters: {'start_date': ?startDate, 'end_date': ?endDate},
+    );
     return SalesSummary.fromJson(resp.data!);
+  }
+
+  Future<List<TopProductItem>> topProducts({
+    String? startDate,
+    String? endDate,
+    int limit = 10,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/reports/top-products',
+      queryParameters: {
+        'start_date': ?startDate,
+        'end_date': ?endDate,
+        'limit': limit,
+      },
+    );
+    return resp.data!
+        .map((e) => TopProductItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<CategorySalesItem>> categorySales({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/reports/categories',
+      queryParameters: {'start_date': ?startDate, 'end_date': ?endDate},
+    );
+    return resp.data!
+        .map((e) => CategorySalesItem.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Product>> lowStock() async {
@@ -737,6 +821,15 @@ class LocalizationRepository {
     return LocalizationSetting.fromJson(resp.data!);
   }
 
+  /// Update the tenant-level localization settings (settings:manage).
+  Future<LocalizationSetting> updateSettings(Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/localization/',
+      data: body,
+    );
+    return LocalizationSetting.fromJson(resp.data!);
+  }
+
   /// Effective per-user localization (region preset or global default).
   Future<LocalizationSetting> me() async {
     final resp = await api.dio.get<Map<String, dynamic>>('/localization/me');
@@ -758,5 +851,182 @@ class LocalizationRepository {
       data: {'region': region},
     );
     return LocalizationSetting.fromJson(resp.data!);
+  }
+}
+
+class PurchasingRepository {
+  final ApiClient api;
+  PurchasingRepository(this.api);
+
+  // ---- Suppliers ----
+
+  Future<List<Supplier>> suppliers() async {
+    final resp = await api.dio.get<List<dynamic>>('/purchasing/suppliers');
+    return resp.data!
+        .map((e) => Supplier.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Supplier> createSupplier(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/suppliers',
+      data: body,
+    );
+    return Supplier.fromJson(resp.data!);
+  }
+
+  Future<Supplier> updateSupplier(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/purchasing/suppliers/$id',
+      data: body,
+    );
+    return Supplier.fromJson(resp.data!);
+  }
+
+  // ---- Purchase orders ----
+
+  Future<List<PurchaseOrder>> orders({String? status, int limit = 100}) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/purchasing/orders',
+      queryParameters: {'status': ?status, 'limit': limit},
+    );
+    return resp.data!
+        .map((e) => PurchaseOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PurchaseOrder> createOrder({
+    required int supplierId,
+    required List<Map<String, dynamic>> items,
+    String? notes,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders',
+      data: {
+        'supplier_id': supplierId,
+        'items': items,
+        'notes': ?notes,
+      },
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrder> markOrdered(int purchaseOrderId) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/mark-ordered',
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrder> cancelOrder(int purchaseOrderId) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/cancel',
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrder> receiveItems(
+    int purchaseOrderId,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/receive',
+      data: {'items': items},
+    );
+    return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  // ---- Purchase invoices ----
+
+  Future<List<PurchaseInvoice>> invoices({
+    String? status,
+    int limit = 100,
+  }) async {
+    final resp = await api.dio.get<List<dynamic>>(
+      '/purchasing/invoices',
+      queryParameters: {'status': ?status, 'limit': limit},
+    );
+    return resp.data!
+        .map((e) => PurchaseInvoice.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PurchaseInvoice> createInvoice(Map<String, dynamic> body) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices',
+      data: body,
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+
+  Future<PurchaseInvoice> submitInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices/$invoiceId/submit-review',
+      data: {'review_note': ?reviewNote},
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+
+  Future<PurchaseInvoice> approveInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices/$invoiceId/approve',
+      data: {'review_note': ?reviewNote},
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+
+  Future<PurchaseInvoice> rejectInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/invoices/$invoiceId/reject',
+      data: {'review_note': ?reviewNote},
+    );
+    return PurchaseInvoice.fromJson(resp.data!);
+  }
+}
+
+class StaffRepository {
+  final ApiClient api;
+  StaffRepository(this.api);
+
+  /// Staff of the current tenant (superusers see all tenants).
+  Future<List<UserProfile>> users() async {
+    final resp = await api.dio.get<List<dynamic>>('/users/');
+    return resp.data!
+        .map((e) => UserProfile.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<UserProfile> createUser({
+    required String email,
+    String? fullName,
+    required String password,
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/users/',
+      data: {
+        'email': email,
+        'full_name': ?fullName,
+        'password': password,
+      },
+    );
+    return UserProfile.fromJson(resp.data!);
+  }
+
+  /// Update a staff member (name, active flag, password reset).
+  Future<UserProfile> updateUser(int id, Map<String, dynamic> body) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/users/$id',
+      data: body,
+    );
+    return UserProfile.fromJson(resp.data!);
   }
 }

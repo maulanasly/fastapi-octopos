@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -39,6 +40,7 @@ from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
 from app.models.sync_event import SyncEventLog
 from app.models.tax import OrderTaxLine, TaxRule
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.drawer import ShiftReconciliationCreate
 from app.schemas.purchase import (
@@ -82,9 +84,30 @@ from app.services.reports import (
 REPORTS_CACHE_SECONDS = 120
 _reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
 
-# The admin panel is superuser-only (cross-tenant by design); rows it
-# creates that require a tenant land in the seeded default tenant.
+# The admin panel is superuser-only (cross-tenant by design). The superuser
+# picks a working tenant via the Tenant switcher; rows the panel creates that
+# require a tenant land in that tenant (default: the seeded default tenant).
 ADMIN_TENANT_ID = 1
+
+
+def _selected_tenant_id(request: Request) -> int:
+    """The tenant selected by the superuser in the panel (default tenant 1)."""
+    return int(request.session.get("admin_tenant_id") or ADMIN_TENANT_ID)
+
+
+def _unique_tenant_slug(db, name: str, current_id: int | None = None) -> str:
+    """Unique slug for a tenant name, mirroring app.services.tenants."""
+    base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:40]
+    base = base or "business"
+    slug = base
+    counter = 1
+    query = db.query(Tenant.id).filter(Tenant.slug == slug)
+    if current_id is not None:
+        query = query.filter(Tenant.id != current_id)
+    while query.first():
+        counter += 1
+        slug = f"{base}-{counter}"
+    return slug
 
 
 class TenantScopedModelView(ModelView):
@@ -95,8 +118,73 @@ class TenantScopedModelView(ModelView):
     ) -> None:
         if is_created and hasattr(model, "tenant_id"):
             if "tenant_id" in model.__table__.c and model.tenant_id is None:
-                model.tenant_id = ADMIN_TENANT_ID
+                model.tenant_id = _selected_tenant_id(request)
         await super().on_model_change(data, model, is_created, request)
+
+
+class TenantAdmin(ModelView, model=Tenant):
+    """Platform-level tenant registry (create, toggle active)."""
+
+    name = "Tenants"
+    icon = "fa-solid fa-building"
+    category = "Platform"
+    category_icon = "fa-solid fa-globe"
+
+    column_list = [
+        Tenant.id,
+        Tenant.name,
+        Tenant.slug,
+        Tenant.is_active,
+        Tenant.created_at,
+    ]
+    column_searchable_list = [Tenant.name, Tenant.slug]
+    form_columns = [Tenant.name, Tenant.is_active]
+    column_default_sort = [(Tenant.id, True)]
+
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        # sqladmin applies form fields to the model AFTER on_model_change,
+        # so read the pending values from ``data``.
+        if is_created:
+            db = SessionLocal()
+            try:
+                model.slug = _unique_tenant_slug(db, data.get("name") or "Business")
+            finally:
+                db.close()
+        await super().on_model_change(data, model, is_created, request)
+
+
+class TenantSwitchAdmin(BaseView):
+    """Superuser tenant selector scoping panel writes and workflow/report
+    queries to a chosen tenant (default: the seeded default tenant)."""
+
+    name = "Tenant"
+    icon = "fa-solid fa-building-circle-arrow-right"
+    category = "Platform"
+
+    @expose("/tenant", methods=["GET", "POST"])
+    async def tenant_switch(self, request: Request):
+        if request.method == "POST":
+            form = await request.form()
+            raw = form.get("tenant_id")
+            if str(raw).isdigit():
+                request.session["admin_tenant_id"] = int(raw)
+                return RedirectResponse(url="/admin/tenant", status_code=303)
+        db = SessionLocal()
+        try:
+            tenants = db.query(Tenant).order_by(Tenant.id.asc()).all()
+            current_tenant_id = _selected_tenant_id(request)
+        finally:
+            db.close()
+        return await self.templates.TemplateResponse(
+            request,
+            "tenant_switch.html",
+            context={
+                "tenants": tenants,
+                "current_tenant_id": current_tenant_id,
+            },
+        )
 
 
 class UserAdmin(LabeledRelationsMixin, TenantScopedModelView, model=User):
@@ -369,7 +457,7 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
                     StockMovement(
                         product_id=product.id,
                         user_id=request.session.get("admin_user_id"),
-                        tenant_id=ADMIN_TENANT_ID,
+                        tenant_id=_selected_tenant_id(request),
                         movement_type="manual_adjustment",
                         quantity_before=quantity_before,
                         quantity_delta=delta,
@@ -455,16 +543,18 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
                 file_stem = uuid4().hex
                 original_name = f"{file_stem}_orig.webp"
                 thumbnail_name = f"{file_stem}_thumb.webp"
-                tenant_dir = product_media_dir(ADMIN_TENANT_ID)
+                tenant_dir = product_media_dir(_selected_tenant_id(request))
                 (tenant_dir / original_name).write_bytes(original_bytes)
                 (tenant_dir / thumbnail_name).write_bytes(thumbnail_bytes)
                 old_image_url, old_thumbnail_url = (
                     product.image_url,
                     product.thumbnail_url,
                 )
-                product.image_url = f"/media/{ADMIN_TENANT_ID}/products/{original_name}"
+                product.image_url = (
+                    f"/media/{_selected_tenant_id(request)}/products/{original_name}"
+                )
                 product.thumbnail_url = (
-                    f"/media/{ADMIN_TENANT_ID}/products/{thumbnail_name}"
+                    f"/media/{_selected_tenant_id(request)}/products/{thumbnail_name}"
                 )
                 db.add(product)
                 db.commit()
@@ -1313,7 +1403,7 @@ class WorkflowsAdmin(BaseView):
                 db.query(Product)
                 .filter(
                     Product.stock_quantity <= Product.reorder_point,
-                    Product.tenant_id == ADMIN_TENANT_ID,
+                    Product.tenant_id == _selected_tenant_id(request),
                 )
                 .count()
             )
@@ -1321,7 +1411,7 @@ class WorkflowsAdmin(BaseView):
                 db.query(PurchaseOrder)
                 .filter(
                     PurchaseOrder.status == "draft",
-                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                    PurchaseOrder.tenant_id == _selected_tenant_id(request),
                 )
                 .count()
             )
@@ -1329,7 +1419,7 @@ class WorkflowsAdmin(BaseView):
                 db.query(PurchaseInvoice)
                 .filter(
                     PurchaseInvoice.status == "pending_review",
-                    PurchaseInvoice.tenant_id == ADMIN_TENANT_ID,
+                    PurchaseInvoice.tenant_id == _selected_tenant_id(request),
                 )
                 .count()
             )
@@ -1337,7 +1427,7 @@ class WorkflowsAdmin(BaseView):
                 db.query(DrawerSession)
                 .filter(
                     DrawerSession.status == "open",
-                    DrawerSession.tenant_id == ADMIN_TENANT_ID,
+                    DrawerSession.tenant_id == _selected_tenant_id(request),
                 )
                 .count()
             )
@@ -1373,13 +1463,13 @@ class WorkflowsAdmin(BaseView):
                     PurchaseOrder.status.in_(
                         ("draft", "ordered", "partially_received")
                     ),
-                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                    PurchaseOrder.tenant_id == _selected_tenant_id(request),
                 )
                 .all()
             }
             low_stock_query = db.query(Product).filter(
                 Product.stock_quantity <= Product.reorder_point,
-                Product.tenant_id == ADMIN_TENANT_ID,
+                Product.tenant_id == _selected_tenant_id(request),
             )
             if pending_product_ids:
                 low_stock_query = low_stock_query.filter(
@@ -1480,7 +1570,7 @@ class WorkflowsAdmin(BaseView):
                                 items=items,
                                 notes=form.get("notes") or None,
                             ),
-                            tenant_id=ADMIN_TENANT_ID,
+                            tenant_id=_selected_tenant_id(request),
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1513,7 +1603,7 @@ class WorkflowsAdmin(BaseView):
                             db=db,
                             current_user=user,
                             purchase_order_id=po_id,
-                            tenant_id=ADMIN_TENANT_ID,
+                            tenant_id=_selected_tenant_id(request),
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1566,7 +1656,7 @@ class WorkflowsAdmin(BaseView):
                             current_user=user,
                             purchase_order_id=po_id,
                             receive_in=PurchaseOrderReceive(items=items),
-                            tenant_id=ADMIN_TENANT_ID,
+                            tenant_id=_selected_tenant_id(request),
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1589,7 +1679,7 @@ class WorkflowsAdmin(BaseView):
                 )
                 .filter(
                     PurchaseOrder.status == "draft",
-                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                    PurchaseOrder.tenant_id == _selected_tenant_id(request),
                 )
                 .order_by(PurchaseOrder.id.asc())
                 .all()
@@ -1598,14 +1688,14 @@ class WorkflowsAdmin(BaseView):
                 db.query(Supplier)
                 .filter(
                     Supplier.is_active.is_(True),
-                    Supplier.tenant_id == ADMIN_TENANT_ID,
+                    Supplier.tenant_id == _selected_tenant_id(request),
                 )
                 .order_by(Supplier.name.asc())
                 .all()
             )
             catalog_products = (
                 db.query(Product)
-                .filter(Product.tenant_id == ADMIN_TENANT_ID)
+                .filter(Product.tenant_id == _selected_tenant_id(request))
                 .order_by(Product.name.asc())
                 .all()
             )
@@ -1656,7 +1746,7 @@ class WorkflowsAdmin(BaseView):
                 )
                 .filter(
                     PurchaseOrder.status != "cancelled",
-                    PurchaseOrder.tenant_id == ADMIN_TENANT_ID,
+                    PurchaseOrder.tenant_id == _selected_tenant_id(request),
                 )
                 .order_by(PurchaseOrder.id.desc())
                 .limit(50)
@@ -1733,7 +1823,7 @@ class WorkflowsAdmin(BaseView):
                                 invoice_number=invoice_number,
                                 items=items,
                             ),
-                            tenant_id=ADMIN_TENANT_ID,
+                            tenant_id=_selected_tenant_id(request),
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1771,7 +1861,7 @@ class WorkflowsAdmin(BaseView):
                                 action_in=PurchaseInvoiceReviewAction(
                                     review_note=review_note
                                 ),
-                                tenant_id=ADMIN_TENANT_ID,
+                                tenant_id=_selected_tenant_id(request),
                             )
                             Flash.success(
                                 request, f"Invoice #{invoice_id} submitted for review."
@@ -1784,7 +1874,7 @@ class WorkflowsAdmin(BaseView):
                                 action_in=PurchaseInvoiceReviewAction(
                                     review_note=review_note
                                 ),
-                                tenant_id=ADMIN_TENANT_ID,
+                                tenant_id=_selected_tenant_id(request),
                             )
                             Flash.success(request, f"Invoice #{invoice_id} approved.")
                         elif action_name == "reject":
@@ -1795,7 +1885,7 @@ class WorkflowsAdmin(BaseView):
                                 action_in=PurchaseInvoiceReviewAction(
                                     review_note=review_note
                                 ),
-                                tenant_id=ADMIN_TENANT_ID,
+                                tenant_id=_selected_tenant_id(request),
                             )
                             Flash.success(request, f"Invoice #{invoice_id} rejected.")
                         else:
@@ -2111,7 +2201,7 @@ class WorkflowsAdmin(BaseView):
                                 idempotency_key=str(uuid4()),
                                 items=items,
                             ),
-                            tenant_id=ADMIN_TENANT_ID,
+                            tenant_id=_selected_tenant_id(request),
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)

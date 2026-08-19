@@ -146,10 +146,13 @@ def assign_user_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("users:manage_roles")),
 ):
-    _ = current_user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found") from None
+    if not current_user.is_superuser and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot manage staff outside your tenant"
+        ) from None
 
     roles = (
         db.query(Role).filter(Role.id.in_(payload.role_ids)).all()
@@ -184,10 +187,13 @@ def get_user_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("users:manage_roles")),
 ):
-    _ = current_user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found") from None
+    if not current_user.is_superuser and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(
+            status_code=403, detail="Cannot manage staff outside your tenant"
+        ) from None
     return UserRolesResponse(user_id=user.id, roles=user.roles)
 
 
