@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
@@ -50,6 +52,11 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         .payments(status: _paymentStatus);
   }
 
+  Future<void> _refresh() async {
+    _reload();
+    await Future.wait<void>([_orders, _invoices, _payments]);
+  }
+
   Future<void> _editSupplier({Supplier? supplier}) async {
     final s = ref.read(stringsProvider);
     final name = TextEditingController(text: supplier?.name ?? '');
@@ -68,12 +75,13 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 : s.of('editSupplier', args: {'name': supplier.name}),
           ),
           content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
+            width: dialogWidth(context),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
                   decoration: InputDecoration(
                     labelText: s.of('supplierName'),
                     isDense: true,
@@ -111,6 +119,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(
@@ -183,7 +192,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(s.of('newPurchaseOrder')),
           content: SizedBox(
-            width: 520,
+            width: dialogWidth(context),
             height: 480,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -324,7 +333,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('${s.of('purchaseOrders')} #${order.id}'),
         content: SizedBox(
-          width: 460,
+          width: dialogWidth(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -536,7 +545,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('${s.of('receiveItems')} #${order.id}'),
         content: SizedBox(
-          width: 460,
+          width: dialogWidth(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -649,7 +658,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(s.of('createInvoice')),
           content: SizedBox(
-            width: 520,
+            width: dialogWidth(context),
             height: 460,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -801,7 +810,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('${invoice.invoiceNumber} · ${invoice.status}'),
         content: SizedBox(
-          width: 460,
+          width: dialogWidth(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -986,13 +995,14 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(s.of('createPayment')),
           content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<int>(
-                  initialValue: supplier?.id,
-                  decoration: InputDecoration(
+            width: dialogWidth(context),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    initialValue: supplier?.id,
+                    decoration: InputDecoration(
                     labelText: s.of('suppliers'),
                     isDense: true,
                   ),
@@ -1044,11 +1054,17 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     labelText: s.of('paymentMethod'),
                     isDense: true,
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                    DropdownMenuItem(value: 'transfer', child: Text('Transfer')),
-                    DropdownMenuItem(value: 'card', child: Text('Card')),
-                    DropdownMenuItem(value: 'mobile', child: Text('Mobile')),
+                  items: [
+                    for (final method in const [
+                      'cash',
+                      'transfer',
+                      'card',
+                      'mobile',
+                    ])
+                      DropdownMenuItem(
+                        value: method,
+                        child: Text(paymentMethodLabel(s, method)),
+                      ),
                   ],
                   onChanged: (v) => setDialogState(() {
                     paymentMethod = v!;
@@ -1063,6 +1079,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(
@@ -1122,7 +1139,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('#${payment.id} · ${payment.status}'),
         content: SizedBox(
-          width: 420,
+          width: dialogWidth(context),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1130,7 +1147,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '${supplier?.name ?? '—'} · '
-                  '${s.of('paymentMethod')}: ${payment.paymentMethod}'
+                  '${s.of('paymentMethod')}: ${paymentMethodLabel(s, payment.paymentMethod)}'
                   '${payment.reference != null ? ' · ${payment.reference}' : ''}',
                   style: Theme.of(ctx).textTheme.bodyMedium,
                 ),
@@ -1430,36 +1447,43 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(child: Text(friendlyError(snapshot.error!, s)));
+                return ErrorStateView(
+                  message: friendlyError(snapshot.error!, s),
+                  onRetry: _reload,
+                );
               }
               final orders = snapshot.data ?? [];
               if (orders.isEmpty) {
-                return Center(child: Text(s.of('noPurchaseOrders')));
+                return EmptyStateView(message: s.of('noPurchaseOrders'));
               }
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: orders.length,
-                separatorBuilder: (_, _) => const Divider(height: 8),
-                itemBuilder: (context, i) {
-                  final order = orders[i];
-                  return Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      title: Text('PO #${order.id} · ${order.status}'),
-                      subtitle: Text(
-                        '${order.items.length} ${s.of('itemsCount', args: {'count': order.items.length})} · '
-                        '${formatCents(centsFromApi(order.totalEstimatedAmount))}'
-                        '${order.createdAt != null ? ' · ${formatDateTimeIso(order.createdAt)}' : ''}',
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: orders.length,
+                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  itemBuilder: (context, i) {
+                    final order = orders[i];
+                    return Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        title: Text('PO #${order.id} · ${order.status}'),
+                        subtitle: Text(
+                          '${order.items.length} ${s.of('itemsCount', args: {'count': order.items.length})} · '
+                          '${formatCents(centsFromApi(order.totalEstimatedAmount))}'
+                          '${order.createdAt != null ? ' · ${formatDateTimeIso(order.createdAt)}' : ''}',
+                        ),
+                        trailing: IconButton(
+                          tooltip: s.of('purchaseOrders'),
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () => _orderDetail(order),
+                        ),
+                        onTap: () => _orderDetail(order),
                       ),
-                      trailing: IconButton(
-                        tooltip: s.of('purchaseOrders'),
-                        icon: const Icon(Icons.chevron_right),
-                        onPressed: () => _orderDetail(order),
-                      ),
-                      onTap: () => _orderDetail(order),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           ),
@@ -1487,36 +1511,45 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(child: Text(friendlyError(snapshot.error!, s)));
+                return ErrorStateView(
+                  message: friendlyError(snapshot.error!, s),
+                  onRetry: _reload,
+                );
               }
               final invoices = snapshot.data ?? [];
               if (invoices.isEmpty) {
-                return Center(child: Text(s.of('noInvoices')));
+                return EmptyStateView(message: s.of('noInvoices'));
               }
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: invoices.length,
-                separatorBuilder: (_, _) => const Divider(height: 8),
-                itemBuilder: (context, i) {
-                  final invoice = invoices[i];
-                  return Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      title: Text('${invoice.invoiceNumber} · ${invoice.status}'),
-                      subtitle: Text(
-                        'PO #${invoice.purchaseOrderId} · '
-                        '${formatCents(centsFromApi(invoice.totalAmount))}'
-                        '${(invoice.hasQuantityVariance || invoice.hasPriceVariance) ? ' · ${s.of('variance')}' : ''}',
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: invoices.length,
+                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  itemBuilder: (context, i) {
+                    final invoice = invoices[i];
+                    return Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        title: Text(
+                          '${invoice.invoiceNumber} · ${invoice.status}',
+                        ),
+                        subtitle: Text(
+                          'PO #${invoice.purchaseOrderId} · '
+                          '${formatCents(centsFromApi(invoice.totalAmount))}'
+                          '${(invoice.hasQuantityVariance || invoice.hasPriceVariance) ? ' · ${s.of('variance')}' : ''}',
+                        ),
+                        trailing: IconButton(
+                          tooltip: s.of('purchaseInvoices'),
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () => _invoiceDetail(invoice),
+                        ),
+                        onTap: () => _invoiceDetail(invoice),
                       ),
-                      trailing: IconButton(
-                        tooltip: s.of('purchaseInvoices'),
-                        icon: const Icon(Icons.chevron_right),
-                        onPressed: () => _invoiceDetail(invoice),
-                      ),
-                      onTap: () => _invoiceDetail(invoice),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           ),
@@ -1544,42 +1577,63 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
-                return Center(child: Text(friendlyError(snapshot.error!, s)));
+                return ErrorStateView(
+                  message: friendlyError(snapshot.error!, s),
+                  onRetry: _reload,
+                );
               }
               final payments = snapshot.data ?? [];
               if (payments.isEmpty) {
-                return Center(child: Text(s.of('noPayments')));
+                return EmptyStateView(message: s.of('noPayments'));
               }
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: payments.length,
-                separatorBuilder: (_, _) => const Divider(height: 8),
-                itemBuilder: (context, i) {
-                  final payment = payments[i];
-                  return Card(
-                    margin: EdgeInsets.zero,
-                    child: ListTile(
-                      title: Text('#${payment.id} · ${payment.status}'),
-                      subtitle: Text(
-                        '${s.of('invoiceNumber')} #${payment.invoiceId} · '
-                        '${formatCents(centsFromApi(payment.amount))} · '
-                        '${payment.paymentMethod}'
-                        '${payment.reference != null ? ' · ${payment.reference}' : ''}',
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: payments.length,
+                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  itemBuilder: (context, i) {
+                    final payment = payments[i];
+                    return Card(
+                      margin: EdgeInsets.zero,
+                      child: ListTile(
+                        title: Text('#${payment.id} · ${payment.status}'),
+                        subtitle: Text(
+                          '${s.of('invoiceNumber')} #${payment.invoiceId} · '
+                          '${formatCents(centsFromApi(payment.amount))} · '
+                          '${paymentMethodLabel(s, payment.paymentMethod)}'
+                          '${payment.reference != null ? ' · ${payment.reference}' : ''}',
+                        ),
+                        trailing: IconButton(
+                          tooltip: s.of('supplierPayments'),
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () => _paymentDetail(payment),
+                        ),
+                        onTap: () => _paymentDetail(payment),
                       ),
-                      trailing: IconButton(
-                        tooltip: s.of('supplierPayments'),
-                        icon: const Icon(Icons.chevron_right),
-                        onPressed: () => _paymentDetail(payment),
-                      ),
-                      onTap: () => _paymentDetail(payment),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           ),
         ),
       ],
     );
+  }
+}
+
+/// Localized label for a supplier payment method.
+String paymentMethodLabel(AppStrings s, String method) {
+  switch (method) {
+    case 'transfer':
+      return s.of('payTransfer');
+    case 'card':
+      return s.of('payCard');
+    case 'mobile':
+      return s.of('payMobile');
+    default:
+      return s.of('payCash');
   }
 }
