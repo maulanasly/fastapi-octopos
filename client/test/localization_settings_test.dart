@@ -34,17 +34,32 @@ class _FakeAuth extends AuthController {
 }
 
 class _FakeLocalizationRepo extends LocalizationRepository {
-  _FakeLocalizationRepo()
-      : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
+  _FakeLocalizationRepo({
+    LocalizationSetting? current,
+    LocalizationOptions? supported,
+  }) : super(ApiClient(store: TokenStore(), onSessionExpired: () {})) {
+    this.current = current ??
+        const LocalizationSetting(
+          language: 'en',
+          timezone: 'UTC',
+          currency: 'USD',
+          dateFormat: '%Y-%m-%d %H:%M:%S',
+          numberFormat: 'en_US',
+          countryCode: 'US',
+        );
+    this.supported = supported ??
+        const LocalizationOptions(
+          languages: ['en', 'id'],
+          currencies: ['USD', 'IDR', 'EUR'],
+          timezones: ['UTC', 'Asia/Jakarta'],
+          dateFormats: ['%Y-%m-%d %H:%M:%S', '%d-%m-%Y %H:%M'],
+          numberFormats: ['en_US', 'id_ID'],
+          countryCodes: ['US', 'ID'],
+        );
+  }
 
-  LocalizationSetting current = const LocalizationSetting(
-    language: 'en',
-    timezone: 'UTC',
-    currency: 'USD',
-    dateFormat: '%Y-%m-%d %H:%M:%S',
-    numberFormat: 'en_US',
-    countryCode: 'US',
-  );
+  late LocalizationSetting current;
+  late LocalizationOptions supported;
 
   Map<String, dynamic>? saved;
   Object? error;
@@ -60,15 +75,7 @@ class _FakeLocalizationRepo extends LocalizationRepository {
   }
 
   @override
-  Future<LocalizationOptions> options() async =>
-      const LocalizationOptions(
-        languages: ['en', 'id'],
-        currencies: ['USD', 'IDR', 'EUR'],
-        timezones: ['UTC', 'Asia/Jakarta'],
-        dateFormats: ['%Y-%m-%d %H:%M:%S', '%d-%m-%Y %H:%M'],
-        numberFormats: ['en_US', 'id_ID'],
-        countryCodes: ['US', 'ID'],
-      );
+  Future<LocalizationOptions> options() async => supported;
 
   @override
   Future<List<LocalizationRegion>> regions() async => const [
@@ -122,6 +129,50 @@ void main() {
     expect(find.text('UTC'), findsOneWidget);
     expect(find.text('2026-08-19 14:30:00'), findsOneWidget);
     expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(7));
+  });
+
+  testWidgets('renders a stored value outside the supported options',
+      (tester) async {
+    // A legacy setting (e.g. a timezone/currency entered before selects were
+    // enforced) is not in the supported list; the screen must still render
+    // with that value selectable instead of throwing.
+    final repo = _FakeLocalizationRepo(
+      current: const LocalizationSetting(
+        language: 'en',
+        timezone: 'Asia/Calcutta',
+        currency: 'XYZ',
+        dateFormat: '%Y-%m-%d %H:%M:%S',
+        numberFormat: 'en_US',
+        countryCode: 'US',
+      ),
+    );
+    await _pump(tester, repo);
+
+    expect(find.text('Asia/Calcutta'), findsOneWidget);
+    expect(find.text('XYZ · \$'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('save preserves an unsupported stored value when unchanged',
+      (tester) async {
+    final repo = _FakeLocalizationRepo(
+      current: const LocalizationSetting(
+        language: 'en',
+        timezone: 'Asia/Calcutta',
+        currency: 'XYZ',
+        dateFormat: '%Y-%m-%d %H:%M:%S',
+        numberFormat: 'en_US',
+        countryCode: 'US',
+      ),
+    );
+    await _pump(tester, repo);
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(repo.saved, isNotNull);
+    expect(repo.saved!['timezone'], 'Asia/Calcutta');
+    expect(repo.saved!['currency'], 'XYZ');
   });
 
   testWidgets('preset fills all fields', (tester) async {
