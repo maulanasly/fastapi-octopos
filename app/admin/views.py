@@ -63,6 +63,7 @@ from app.schemas.purchase import (
     PurchaseOrderReceive,
     PurchaseOrderReceiveItem,
     PurchaseOrderReviewAction,
+    SupplierPaymentReviewAction,
 )
 from app.schemas.refund import RefundCreate, RefundItemCreate
 from app.services.auto_po import auto_generate_purchase_orders
@@ -75,11 +76,13 @@ from app.services.images import (
 )
 from app.services.purchasing import (
     approve_purchase_invoice,
+    approve_supplier_payment,
     create_purchase_invoice,
     create_purchase_order,
     mark_purchase_order_ordered,
     receive_purchase_order_items,
     reject_purchase_invoice,
+    reject_supplier_payment,
     submit_purchase_invoice_for_review,
     submit_purchase_order_for_review,
 )
@@ -1602,6 +1605,14 @@ class WorkflowsAdmin(BaseView):
                 )
                 .count()
             )
+            pending_payment_count = (
+                db.query(SupplierPayment)
+                .filter(
+                    SupplierPayment.status == "pending_review",
+                    SupplierPayment.tenant_id == _selected_tenant_id(request),
+                )
+                .count()
+            )
             open_drawer_count = (
                 db.query(DrawerSession)
                 .filter(
@@ -1618,6 +1629,7 @@ class WorkflowsAdmin(BaseView):
                     "low_stock_count": low_stock_count,
                     "draft_po_count": draft_po_count,
                     "pending_invoice_count": pending_invoice_count,
+                    "pending_payment_count": pending_payment_count,
                     "open_drawer_count": open_drawer_count,
                 },
             )
@@ -1914,6 +1926,119 @@ class WorkflowsAdmin(BaseView):
             return RedirectResponse(
                 url="/admin/workflows/restock?step=generate", status_code=303
             )
+        finally:
+            db.close()
+
+    # --------------------------------------------------------- review queue
+
+    @expose("/workflows/review", methods=["GET", "POST"])
+    async def review_workflow(self, request: Request):
+        """Resolve purchase invoices and supplier payments stuck in review.
+
+        Superuser-only by design (the panel admits only superusers): the acting
+        admin user bypasses the service-layer self-approval guard, so documents
+        nobody can otherwise approve get a resolution path.
+        """
+        db = SessionLocal()
+        try:
+            if request.method == "POST":
+                form = await request.form()
+                kind = form.get("kind")
+                doc_id = form.get("id")
+                action = form.get("action")
+                try:
+                    doc_id = int(doc_id or "")
+                except (TypeError, ValueError):
+                    raise HTTPException(
+                        status_code=400, detail="Invalid document id"
+                    ) from None
+                user = self._admin_user(db, request)
+                if user is None:
+                    raise HTTPException(status_code=403, detail="Admin user missing")
+                review_note = form.get("review_note") or None
+                tenant_id = _selected_tenant_id(request)
+                if kind == "invoice" and action in ("approve", "reject"):
+                    action_in = PurchaseInvoiceReviewAction(review_note=review_note)
+                    if action == "approve":
+                        approve_purchase_invoice(
+                            db=db,
+                            current_user=user,
+                            invoice_id=doc_id,
+                            action_in=action_in,
+                            tenant_id=tenant_id,
+                        )
+                    else:
+                        reject_purchase_invoice(
+                            db=db,
+                            current_user=user,
+                            invoice_id=doc_id,
+                            action_in=action_in,
+                            tenant_id=tenant_id,
+                        )
+                    Flash.success(request, f"Invoice #{doc_id} {action}ed.")
+                elif kind == "payment" and action in ("approve", "reject"):
+                    action_in = SupplierPaymentReviewAction(review_note=review_note)
+                    if action == "approve":
+                        approve_supplier_payment(
+                            db=db,
+                            current_user=user,
+                            payment_id=doc_id,
+                            action_in=action_in,
+                            tenant_id=tenant_id,
+                        )
+                    else:
+                        reject_supplier_payment(
+                            db=db,
+                            current_user=user,
+                            payment_id=doc_id,
+                            action_in=action_in,
+                            tenant_id=tenant_id,
+                        )
+                    Flash.success(request, f"Payment #{doc_id} {action}ed.")
+                else:
+                    raise HTTPException(status_code=400, detail="Unknown review action")
+                return RedirectResponse(url="/admin/workflows/review", status_code=303)
+
+            tenant_id = _selected_tenant_id(request)
+            pending_invoices = (
+                db.query(PurchaseInvoice)
+                .options(
+                    joinedload(PurchaseInvoice.supplier),
+                    joinedload(PurchaseInvoice.user),
+                )
+                .filter(
+                    PurchaseInvoice.status == "pending_review",
+                    PurchaseInvoice.tenant_id == tenant_id,
+                )
+                .order_by(PurchaseInvoice.id.asc())
+                .all()
+            )
+            pending_payments = (
+                db.query(SupplierPayment)
+                .options(
+                    joinedload(SupplierPayment.supplier),
+                    joinedload(SupplierPayment.invoice),
+                    joinedload(SupplierPayment.user),
+                )
+                .filter(
+                    SupplierPayment.status == "pending_review",
+                    SupplierPayment.tenant_id == tenant_id,
+                )
+                .order_by(SupplierPayment.id.asc())
+                .all()
+            )
+            return await self.templates.TemplateResponse(
+                request,
+                "workflows/review.html",
+                context={
+                    "title": "Review Queue",
+                    "pending_invoices": pending_invoices,
+                    "pending_payments": pending_payments,
+                },
+            )
+        except HTTPException as exc:
+            self._flash_http_error(request, exc)
+            return RedirectResponse(url="/admin/workflows/review", status_code=303)
         finally:
             db.close()
 
