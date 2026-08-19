@@ -16,7 +16,9 @@ class Tenant(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    slug = Column(String, nullable=False, unique=True, index=True)
+    # Client-side default so the sqladmin form treats a blank slug as
+    # optional (it is auto-generated from the name by the admin).
+    slug = Column(String, nullable=False, unique=True, index=True, default="")
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(
         DateTime(timezone=True),
