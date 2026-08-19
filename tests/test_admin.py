@@ -1,5 +1,7 @@
 """Integration tests for the sqladmin app: auth, dashboard, and reports."""
 
+import pytest
+
 from app.core.config import settings
 
 
@@ -1242,6 +1244,73 @@ def test_admin_localization_create_rejects_duplicate_for_tenant(client, db):
     assert resp.status_code == 400
     assert "Localization already exists" in resp.text
     assert db.query(LocalizationSetting).count() == 1
+
+
+def test_admin_localization_list_shows_tenant_column(client, db):
+    from app.models.localization import LocalizationSetting
+    from app.models.tenant import Tenant
+
+    _login(client)
+    tenant2 = Tenant(name="Cafe JKT", slug="cafe-jkt")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+    db.add(LocalizationSetting(tenant_id=1))
+    db.add(LocalizationSetting(tenant_id=tenant2.id, currency="IDR"))
+    db.commit()
+
+    resp = client.get("/admin/localization-setting/list")
+    assert resp.status_code == 200
+    assert "tenant_id" in resp.text
+    assert "USD" in resp.text
+    assert "IDR" in resp.text
+
+
+def test_admin_reports_use_selected_tenant_localization(client, db):
+    from app.models.localization import LocalizationSetting
+    from app.models.tenant import Tenant
+
+    _login(client)
+    tenant2 = Tenant(name="Cafe JKT", slug="cafe-jkt")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+    db.add(
+        LocalizationSetting(
+            tenant_id=tenant2.id,
+            language="id",
+            timezone="Asia/Jakarta",
+            currency="IDR",
+            date_format="%d-%m-%Y %H:%M",
+            number_format="id_ID",
+            country_code="ID",
+        )
+    )
+    db.commit()
+
+    resp = client.get("/admin/reports")
+    assert resp.status_code == 200
+    assert "$0.00" in resp.text
+    assert "Rp" not in resp.text
+
+    client.post("/admin/tenant", data={"tenant_id": str(tenant2.id)})
+    resp = client.get("/admin/reports")
+    assert resp.status_code == 200
+    assert "Rp 0" in resp.text
+    assert "$0.00" not in resp.text
+
+
+def test_localization_setting_unique_per_tenant_at_db_level(client, db):
+    from sqlalchemy.exc import IntegrityError
+
+    from app.models.localization import LocalizationSetting
+
+    db.add(LocalizationSetting(tenant_id=1))
+    db.commit()
+    db.add(LocalizationSetting(tenant_id=1))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
 
 
 def test_admin_product_suggest_sku_tenant_scoped_and_unique(client, db):

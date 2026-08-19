@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.localization import LocalizationSetting
@@ -62,7 +63,16 @@ def get_localization_setting(
     # Platform-level (admin) lookups without a tenant default to tenant 1.
     setting = LocalizationSetting(tenant_id=tenant_id or 1)
     db.add(setting)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Concurrent first-touch for the same tenant: another transaction
+        # created the row first, so keep theirs.
+        db.rollback()
+        existing = query.first()
+        if existing:
+            return existing
+        raise
     db.refresh(setting)
     return setting
 
