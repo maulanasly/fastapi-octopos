@@ -13,13 +13,23 @@ from starlette.exceptions import HTTPException
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse
+from wtforms import SelectField
 
 from app.admin.color_field import ColorField
 from app.admin.formatting import LabeledRelationsMixin
 from app.admin.password_field import AdminPasswordField
 from app.core.audit import log_action
 from app.core.database import SessionLocal
-from app.core.localization import format_currency, get_localization_setting
+from app.core.localization import (
+    SUPPORTED_COUNTRY_CODES,
+    SUPPORTED_CURRENCIES,
+    SUPPORTED_DATE_FORMATS,
+    SUPPORTED_LANGUAGES,
+    SUPPORTED_NUMBER_FORMATS,
+    SUPPORTED_TIMEZONES,
+    format_currency,
+    get_localization_setting,
+)
 from app.core.security import get_password_hash
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
@@ -271,6 +281,43 @@ class LocalizationSettingAdmin(
         LocalizationSetting.number_format,
         LocalizationSetting.country_code,
     ]
+
+    # Render supported values as selects instead of free-text inputs. The
+    # choices come from the same constants served by GET /localization/options.
+    form_overrides = {
+        LocalizationSetting.language: SelectField,
+        LocalizationSetting.timezone: SelectField,
+        LocalizationSetting.currency: SelectField,
+        LocalizationSetting.date_format: SelectField,
+        LocalizationSetting.number_format: SelectField,
+        LocalizationSetting.country_code: SelectField,
+    }
+    form_args = {
+        "language": {
+            "choices": SUPPORTED_LANGUAGES,
+            "validate_choice": False,
+        },
+        "timezone": {
+            "choices": SUPPORTED_TIMEZONES,
+            "validate_choice": False,
+        },
+        "currency": {
+            "choices": SUPPORTED_CURRENCIES,
+            "validate_choice": False,
+        },
+        "date_format": {
+            "choices": SUPPORTED_DATE_FORMATS,
+            "validate_choice": False,
+        },
+        "number_format": {
+            "choices": SUPPORTED_NUMBER_FORMATS,
+            "validate_choice": False,
+        },
+        "country_code": {
+            "choices": SUPPORTED_COUNTRY_CODES,
+            "validate_choice": False,
+        },
+    }
 
     async def on_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
