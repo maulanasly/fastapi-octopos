@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
@@ -28,6 +29,12 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
   void initState() {
     super.initState();
     _ordersFuture = ref.read(orderRepositoryProvider).recentOrders();
+  }
+
+  void _reload() {
+    setState(() {
+      _ordersFuture = ref.read(orderRepositoryProvider).recentOrders();
+    });
   }
 
   Future<void> _submit() async {
@@ -115,6 +122,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
   }
 
   Widget _orderList(BuildContext context) {
+    final s = ref.read(stringsProvider);
     return FutureBuilder<List<Order>>(
       future: _ordersFuture,
       builder: (context, snapshot) {
@@ -122,8 +130,9 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
-          return Center(
-            child: Text('Failed to load orders:\n${snapshot.error}'),
+          return ErrorStateView(
+            message: s.of('genericError'),
+            onRetry: _reload,
           );
         }
         final orders = snapshot.data ?? [];
@@ -131,7 +140,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
             .where((o) => o.status == 'serving' || o.status == 'completed')
             .toList();
         if (refundable.isEmpty) {
-          return const Center(child: Text('No completed orders yet'));
+          return EmptyStateView(message: s.of('noCompletedOrders'));
         }
         return ListView.separated(
           itemCount: refundable.length,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
@@ -195,11 +196,9 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                 );
               }
               if (snapshot.hasError) {
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Sales data unavailable:\n${snapshot.error}'),
-                  ),
+                return ErrorStateView(
+                  message: strings.of('genericError'),
+                  onRetry: () => setState(_load),
                 );
               }
               final s = snapshot.data!;
