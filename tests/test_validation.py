@@ -7,6 +7,8 @@ from fastapi import HTTPException
 
 from app.core.validation import validate_drawer_session_status
 
+pytestmark = pytest.mark.no_db
+
 
 class TestValidateDrawerSessionStatus:
     """Tests for drawer session validation helper."""

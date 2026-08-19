@@ -2,37 +2,173 @@
 
 The test database is a dedicated PostgreSQL database (default
 ``octopos_test``, override with ``TEST_DATABASE_URL``). Schema is built by
-running the real Alembic migration chain (``upgrade head``) on every test so
-tests exercise the exact production schema, including the RBAC seed data.
-The slowapi rate limiter is disabled so auth tests are not throttled.
+running the real Alembic migration chain (``upgrade head``) ONCE per pytest
+worker, then every test gets an empty-but-seeded schema via a fast
+DELETE-based reset. The slowapi rate limiter is disabled so auth tests are
+not throttled.
 
-Start the local Postgres with ``docker compose up -d`` (docker-compose.yml
-creates the ``octopos_test`` database via scripts/init-test-db.sql).
+With pytest-xdist each worker runs against its own database
+(``octopos_test`` / ``octopos_test_gw0`` / ``octopos_test_gw1`` / ...), so
+parallel workers never collide.
 """
 
+import hashlib
 import os
 import tempfile
 from pathlib import Path
 
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import make_url
+
 DEFAULT_TEST_URL = "postgresql+psycopg://postgres:postgres@localhost:5433/octopos_test"
-TEST_DB_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_TEST_URL)
+_BASE_TEST_URL = os.environ.get("TEST_DATABASE_URL", DEFAULT_TEST_URL)
+
+# Each xdist worker gets its own database (``octopos_test_gw0``, ...) so the
+# schema build and per-test resets never contend across workers.
+_worker = os.environ.get("PYTEST_XDIST_WORKER")
+if _worker:
+    TEST_DB_URL = (
+        make_url(_BASE_TEST_URL)
+        .set(database=f"{make_url(_BASE_TEST_URL).database}_{_worker}")
+        .render_as_string(hide_password=False)
+    )
+else:
+    TEST_DB_URL = _BASE_TEST_URL
+
+
+def _ensure_database() -> None:
+    """Create the per-worker test database if it does not exist yet."""
+    url = make_url(TEST_DB_URL)
+    admin_url = url.set(database="postgres").render_as_string(hide_password=False)
+    admin = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            exists = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": url.database},
+            ).scalar()
+            if not exists:
+                conn.execute(
+                    text(f'CREATE DATABASE "{url.database}" TEMPLATE template0')
+                )
+    finally:
+        admin.dispose()
+
+
+_ensure_database()
+
 os.environ["ENVIRONMENT"] = "development"
 os.environ["SQLALCHEMY_DATABASE_URI"] = TEST_DB_URL
 # Keep product-image uploads out of the repo tree.
 os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="octopos-test-media-")
 
 import _tenant_mode  # noqa: E402
+import bcrypt  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine, inspect, text  # noqa: E402
 
+import app.core.security as _security_mod  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
+from app.admin import views as _admin_mod  # noqa: E402
+from app.api.endpoints import auth as _auth_mod  # noqa: E402
 from app.core.database import SessionLocal  # noqa: E402
+
+
+def _fast_hash(password: str) -> str:
+    return "test$" + hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def _fast_verify(plain: str, hashed: str) -> bool:
+    if hashed.startswith("test$"):
+        return hashlib.sha256(plain.encode("utf-8")).hexdigest() == hashed[5:]
+    return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+
+
+# Replace bcrypt (~0.18s/hash) with a fast sha256 scheme. Done at conftest
+# import time (not in a fixture) so it is in place before any test module
+# does ``from app.core.security import verify_password``. Real bcrypt hashes
+# still verify (the fake falls back), so pre-existing hashes keep working.
+for _mod in (_security_mod, _auth_mod, _admin_mod):
+    _mod.get_password_hash = _fast_hash
+    _mod.verify_password = _fast_verify
 
 ROOT = Path(__file__).resolve().parents[1]
 
 test_engine = create_engine(TEST_DB_URL, pool_pre_ping=True)
+
+# Seed rows (RBAC roles/permissions, default tenant, default tax rule) are
+# snapshotted after the one-time schema build and restored on every reset.
+_SEED_TABLES: list[str] = []
+_ALL_TABLES: list[str] | None = None
+_SEQUENCES: list[str] | None = None
+_SCHEMA_BUILT = False
+
+
+def _all_tables() -> list[str]:
+    global _ALL_TABLES
+    if _ALL_TABLES is None:
+        _ALL_TABLES = [
+            t for t in inspect(test_engine).get_table_names() if t != "alembic_version"
+        ]
+    return _ALL_TABLES
+
+
+def _sequences() -> list[str]:
+    global _SEQUENCES
+    if _SEQUENCES is None:
+        with test_engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT sequence_name FROM information_schema.sequences "
+                    "WHERE sequence_schema = 'public'"
+                )
+            ).fetchall()
+        _SEQUENCES = [r[0] for r in rows]
+    return _SEQUENCES
+
+
+def _build_schema() -> None:
+    """Build the schema once, then snapshot the migration seed rows.
+
+    All objects are dropped first so the migrations always run their full
+    chain (``upgrade head`` is a no-op on an already-current database) and
+    no rows left over from a previous test run can contaminate the seed
+    snapshot. Each table is dropped in its own committed transaction: one
+    ``DROP SCHEMA ... CASCADE`` (or one transaction dropping everything)
+    locks every object at once, which exceeds postgres'
+    ``max_locks_per_transaction`` when several xdist workers build schemas
+    simultaneously.
+    """
+    with test_engine.connect() as conn:
+        for table in reversed(inspect(test_engine).get_table_names()):
+            conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
+            conn.commit()
+
+    cfg = Config(str(ROOT / "alembic.ini"))
+    cfg.set_main_option("sqlalchemy.url", TEST_DB_URL)
+    command.upgrade(cfg, "head")
+
+    with test_engine.begin() as conn:
+        conn.execute(text("CREATE SCHEMA IF NOT EXISTS seed_backup"))
+        for table in _all_tables():
+            has_rows = conn.execute(text(f'SELECT 1 FROM "{table}" LIMIT 1')).scalar()
+            if not has_rows:
+                continue
+            conn.execute(text(f'DROP TABLE IF EXISTS seed_backup."{table}"'))
+            conn.execute(
+                text(
+                    f'CREATE TABLE seed_backup."{table}" AS SELECT * FROM public."{table}"'
+                )
+            )
+            _SEED_TABLES.append(table)
+
+    with test_engine.connect() as conn:
+        role_names = {
+            r[0] for r in conn.execute(text("SELECT name FROM roles")).fetchall()
+        }
+    missing = {"admin", "manager", "cashier"} - role_names
+    assert not missing, f"RBAC seed missing after migration: {missing}"
 
 
 class _AuthFactory:
@@ -63,20 +199,60 @@ class _AuthFactory:
         return self.login(email, password)
 
 
-@pytest.fixture(autouse=True)
-def fresh_database():
-    """Rebuild schema from the real Alembic migration chain before each test.
+def _reset_database() -> None:
+    """Clear all data and restore the migration seed rows.
 
-    Tables are dropped via reflection (not ``Base.metadata``) so the fixture
-    does not depend on models having been imported yet.
+    Uses DELETE (not TRUNCATE) inside a replica-role transaction: TRUNCATE
+    forces a synchronous data-file sync on every table (~350ms each here),
+    while DELETE on a mostly-empty schema is a few ms and resets sequences
+    via setval. Replica role skips FK checks so delete order does not matter.
     """
     with test_engine.begin() as conn:
-        inspector = inspect(test_engine)
-        for table in reversed(inspector.get_table_names()):
-            conn.execute(text(f'DROP TABLE IF EXISTS "{table}" CASCADE'))
-    cfg = Config(str(ROOT / "alembic.ini"))
-    cfg.set_main_option("sqlalchemy.url", TEST_DB_URL)
-    command.upgrade(cfg, "head")
+        dirty = [
+            table
+            for table in _all_tables()
+            if conn.execute(text(f'SELECT 1 FROM "{table}" LIMIT 1')).scalar()
+        ]
+
+    with test_engine.begin() as conn:
+        conn.execute(text("SET LOCAL session_replication_role = replica"))
+        for table in dirty:
+            conn.execute(text(f'DELETE FROM "{table}"'))
+        for table in _SEED_TABLES:
+            conn.execute(
+                text(
+                    f'INSERT INTO public."{table}" SELECT * FROM seed_backup."{table}"'
+                )
+            )
+        for seq in _sequences():
+            conn.execute(text(f"SELECT setval('\"{seq}\"', 1, false)"))
+        for table in _SEED_TABLES:
+            conn.execute(
+                text(
+                    "SELECT setval(pg_get_serial_sequence('public.\""
+                    f"{table}\"', 'id'), COALESCE(MAX(id), 1), "
+                    "COALESCE(MAX(id), 1) > 0) FROM public."
+                    f'"{table}"'
+                )
+            )
+
+
+@pytest.fixture(autouse=True)
+def fresh_database(request):
+    """Reset the database to a clean, seeded state before each test.
+
+    The Alembic chain runs once per worker (``_build_schema``); every test
+    then gets an empty schema with the migration seed rows restored. Tests
+    marked ``no_db`` (pure unit tests) skip the reset entirely.
+    """
+    global _SCHEMA_BUILT
+    if request.node.get_closest_marker("no_db"):
+        yield
+        return
+    if not _SCHEMA_BUILT:
+        _build_schema()
+        _SCHEMA_BUILT = True
+    _reset_database()
     yield
 
 

@@ -2,9 +2,12 @@
 
 import re
 
+import pytest
 from wtforms import Form
 
 from app.admin.color_field import CATEGORY_COLOR_PALETTE, ColorField
+
+pytestmark = pytest.mark.no_db
 
 
 class _MultiDict:

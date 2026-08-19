@@ -1,7 +1,16 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-q --tb=short"
+addopts = "-q --tb=short -n auto --dist loadscope"
+markers = [
+    "no_db: pure unit test that skips the per-test database reset",
+]
+# Pinned starlette (1.2.1) deprecates the httpx-backed TestClient; our tests
+# still use fastapi.testclient.TestClient. Not actionable until we move to
+# httpx2, so keep the noise out of test output.
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["app"]
