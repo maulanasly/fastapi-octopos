@@ -25,6 +25,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 # pyrefly: ignore [missing-import]
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.staticfiles import StaticFiles
 
 from app.admin import all_admin_views
 from app.api.router import api_router
@@ -181,6 +182,9 @@ _MEDIA_PATH = Path(settings.MEDIA_DIR).resolve()
 _MEDIA_PATH.mkdir(parents=True, exist_ok=True)
 app.mount("/media", CachedStaticFiles(directory=str(_MEDIA_PATH)), name="media")
 
+# Admin panel branding assets (favicon + sidebar logo).
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 
 def _admin_session_expiry() -> str:
     expires = datetime.now(UTC) + timedelta(hours=settings.ADMIN_SESSION_HOURS)
@@ -280,6 +284,10 @@ admin = Admin(
     engine=engine,
     templates_dir="app/templates",
     authentication_backend=authentication_backend,
+    favicon_url="/static/favicon.png",
+    logo_url="/static/logo.png",
+    logo_width=32,
+    logo_height=32,
 )
 
 for admin_view in all_admin_views:
