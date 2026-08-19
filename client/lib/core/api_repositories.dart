@@ -102,6 +102,11 @@ final regionListProvider = FutureProvider<List<LocalizationRegion>>((ref) {
   return ref.watch(localizationRepositoryProvider).regions();
 });
 
+/// Supported values for tenant localization settings (fetched once).
+final localizationOptionsProvider = FutureProvider<LocalizationOptions>((ref) {
+  return ref.watch(localizationRepositoryProvider).options();
+});
+
 String newIdempotencyKey() => _uuid.v4();
 
 /// Idempotency-aware post helper: every mutating request carries a fresh
@@ -828,6 +833,14 @@ class LocalizationRepository {
       data: body,
     );
     return LocalizationSetting.fromJson(resp.data!);
+  }
+
+  /// Supported values for the tenant localization settings (settings:manage).
+  Future<LocalizationOptions> options() async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/localization/options',
+    );
+    return LocalizationOptions.fromJson(resp.data!);
   }
 
   /// Effective per-user localization (region preset or global default).

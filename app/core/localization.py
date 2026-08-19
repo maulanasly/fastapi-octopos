@@ -27,6 +27,28 @@ REGION_PRESETS: dict[str, dict[str, str]] = {
     },
 }
 
+# Supported option sets for tenant localization settings, served via
+# GET /localization/options and rendered as selects by the client.
+SUPPORTED_LANGUAGES = ["en", "id"]
+SUPPORTED_CURRENCIES = ["USD", "IDR", "EUR", "GBP", "SGD", "JPY", "MYR", "AUD"]
+SUPPORTED_NUMBER_FORMATS = ["en_US", "id_ID"]
+SUPPORTED_DATE_FORMATS = ["%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M", "%Y-%m-%d"]
+SUPPORTED_TIMEZONES = [
+    "UTC",
+    "Asia/Jakarta",
+    "Asia/Makassar",
+    "Asia/Jayapura",
+    "Asia/Singapore",
+    "Asia/Shanghai",
+    "Asia/Tokyo",
+    "Europe/London",
+    "Europe/Berlin",
+    "America/New_York",
+    "America/Los_Angeles",
+    "Australia/Sydney",
+]
+SUPPORTED_COUNTRY_CODES = list(REGION_PRESETS)
+
 
 def get_localization_setting(
     db: Session, tenant_id: int | None = None

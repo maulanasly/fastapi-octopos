@@ -87,6 +87,32 @@ def test_regions_endpoint_lists_presets(client, cashier_headers):
     assert by_code["ID"]["timezone"] == "Asia/Jakarta"
 
 
+def test_options_endpoint_lists_supported_values(client, manager_headers):
+    resp = client.get("/api/v1/localization/options", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["languages"] == ["en", "id"]
+    assert body["currencies"] == [
+        "USD",
+        "IDR",
+        "EUR",
+        "GBP",
+        "SGD",
+        "JPY",
+        "MYR",
+        "AUD",
+    ]
+    assert body["number_formats"] == ["en_US", "id_ID"]
+    assert body["country_codes"] == ["US", "ID"]
+    assert "Asia/Jakarta" in body["timezones"]
+    assert "%d-%m-%Y %H:%M" in body["date_formats"]
+
+
+def test_options_endpoint_requires_settings_manage(client, cashier_headers):
+    resp = client.get("/api/v1/localization/options", headers=cashier_headers)
+    assert resp.status_code == 403
+
+
 def test_me_uses_global_default_when_no_region(client, cashier_headers):
     resp = client.get("/api/v1/localization/me", headers=cashier_headers)
     assert resp.status_code == 200, resp.text
