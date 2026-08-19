@@ -1197,6 +1197,7 @@ def test_admin_localization_create_adds_config_for_selected_tenant(client, db):
     resp = client.post(
         "/admin/localization-setting/create",
         data={
+            "tenant": "1",
             "language": "id",
             "timezone": "Asia/Jakarta",
             "currency": "IDR",
@@ -1217,6 +1218,41 @@ def test_admin_localization_create_adds_config_for_selected_tenant(client, db):
     assert setting.currency == "IDR"
 
 
+def test_admin_localization_create_adds_config_for_chosen_tenant(client, db):
+    """Superadmin can create a localization for any tenant via the form, not
+    only the currently-selected tenant."""
+    from app.models.localization import LocalizationSetting
+    from app.models.tenant import Tenant
+
+    _login(client)
+    tenant2 = Tenant(name="Cafe JKT", slug="cafe-jkt")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+
+    resp = client.post(
+        "/admin/localization-setting/create",
+        data={
+            "tenant": str(tenant2.id),
+            "language": "id",
+            "timezone": "Asia/Jakarta",
+            "currency": "IDR",
+            "date_format": "%d-%m-%Y %H:%M",
+            "number_format": "id_ID",
+            "country_code": "ID",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+
+    setting = (
+        db.query(LocalizationSetting).order_by(LocalizationSetting.id.desc()).first()
+    )
+    assert setting is not None
+    assert setting.tenant_id == tenant2.id
+    assert setting.currency == "IDR"
+
+
 def test_admin_localization_create_rejects_duplicate_for_tenant(client, db):
     from app.models.localization import LocalizationSetting
 
@@ -1224,6 +1260,7 @@ def test_admin_localization_create_rejects_duplicate_for_tenant(client, db):
     resp = client.post(
         "/admin/localization-setting/create",
         data={
+            "tenant": "1",
             "language": "en",
             "timezone": "UTC",
             "currency": "USD",
@@ -1239,6 +1276,7 @@ def test_admin_localization_create_rejects_duplicate_for_tenant(client, db):
     resp = client.post(
         "/admin/localization-setting/create",
         data={
+            "tenant": "1",
             "language": "id",
             "timezone": "Asia/Jakarta",
             "currency": "IDR",
@@ -1251,6 +1289,41 @@ def test_admin_localization_create_rejects_duplicate_for_tenant(client, db):
     assert resp.status_code == 400
     assert "Localization already exists" in resp.text
     assert db.query(LocalizationSetting).count() == 1
+
+
+def test_admin_localization_edit_rejects_moving_onto_occupied_tenant(client, db):
+    from app.models.localization import LocalizationSetting
+    from app.models.tenant import Tenant
+
+    _login(client)
+    tenant2 = Tenant(name="Cafe JKT", slug="cafe-jkt")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+
+    row1 = LocalizationSetting(tenant_id=1)
+    db.add(row1)
+    db.add(LocalizationSetting(tenant_id=tenant2.id, currency="IDR"))
+    db.commit()
+    db.refresh(row1)
+
+    resp = client.post(
+        f"/admin/localization-setting/edit/{row1.id}",
+        data={
+            "tenant": str(tenant2.id),
+            "language": "en",
+            "timezone": "UTC",
+            "currency": "USD",
+            "date_format": "%Y-%m-%d %H:%M:%S",
+            "number_format": "en_US",
+            "country_code": "US",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 400
+    assert "Localization already exists" in resp.text
+    db.expire_all()
+    assert db.get(LocalizationSetting, row1.id).tenant_id == 1
 
 
 def test_admin_localization_list_shows_tenant_column(client, db):
@@ -1268,7 +1341,8 @@ def test_admin_localization_list_shows_tenant_column(client, db):
 
     resp = client.get("/admin/localization-setting/list")
     assert resp.status_code == 200
-    assert "tenant_id" in resp.text
+    assert "Default Business" in resp.text
+    assert "Cafe JKT" in resp.text
     assert "USD" in resp.text
     assert "IDR" in resp.text
 
@@ -1278,9 +1352,11 @@ def test_admin_localization_form_uses_selects_for_supported_values(client, db):
     resp = client.get("/admin/localization-setting/create")
     assert resp.status_code == 200
 
-    # The six localization fields render as <select> boxes fed by the same
-    # supported-value sets served by GET /localization/options, not free text.
+    # The tenant selector plus the six localization fields render as <select>
+    # boxes; the six are fed by the same supported-value sets served by
+    # GET /localization/options, not free text.
     for field in [
+        "tenant",
         "language",
         "timezone",
         "currency",
@@ -1289,7 +1365,7 @@ def test_admin_localization_form_uses_selects_for_supported_values(client, db):
         "country_code",
     ]:
         assert f'id="{field}"' in resp.text
-    assert resp.text.count("<select") == 6
+    assert resp.text.count("<select") == 7
 
     assert '<option value="id">id</option>' in resp.text
     assert '<option value="Asia/Jakarta">Asia/Jakarta</option>' in resp.text

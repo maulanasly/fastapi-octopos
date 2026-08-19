@@ -1,4 +1,5 @@
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
@@ -12,6 +13,7 @@ class LocalizationSetting(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
+    tenant = relationship("Tenant")
     language = Column(String, nullable=False, default="en")
     timezone = Column(String, nullable=False, default="UTC")
     currency = Column(String, nullable=False, default="USD")

@@ -215,6 +215,14 @@ class _LocalizationSettingsScreenState
         initialValue: value,
         decoration: InputDecoration(labelText: label, isDense: true),
         items: [
+          // A stored value outside the supported list (e.g. a legacy setting
+          // entered before selects were enforced) must still be selectable,
+          // otherwise DropdownButtonFormField throws on a value with no item.
+          if (!values.contains(value))
+            DropdownMenuItem(
+              value: value,
+              child: Text(itemBuilder?.call(value) ?? value),
+            ),
           for (final v in values)
             DropdownMenuItem(value: v, child: Text(itemBuilder?.call(v) ?? v)),
         ],

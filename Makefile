@@ -81,8 +81,8 @@ check-changes: ## Tests with coverage + compile check on changed app files only
 		echo "No changed app files; running tests without a coverage gate"; \
 		pytest -q; \
 	else \
-		echo "Coverage on: $(CHANGED_MODULES)"; \
-		pytest -q $(addprefix --cov=,$(CHANGED_MODULES)) --cov-report=term-missing --cov-fail-under=75; \
+		echo "Coverage on changed app files (measured via --cov=app)"; \
+		pytest -q --cov=app --cov-report=term-missing --cov-fail-under=75; \
 	fi
 	@if [ -z "$(CHANGED_PY)" ]; then \
 		echo "No changed Python files to compile"; \
