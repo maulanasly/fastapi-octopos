@@ -1,0 +1,35 @@
+{% extends "sqladmin/edit.html" %}
+
+{% block submit_buttons_bottom %}
+{{ super() }}
+<button type="button" id="suggest-sku-btn" class="btn btn-outline-primary">
+  <i class="fa-solid fa-wand-magic-sparkles me-1"></i>Suggest SKU
+</button>
+{% endblock %}
+
+{% block tail_js %}
+{{ super() }}
+<script>
+(function () {
+  const btn = document.getElementById("suggest-sku-btn");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const name = document.getElementById("name");
+    const sku = document.getElementById("sku");
+    if (!sku || !name || !name.value.trim()) {
+      alert("Enter a product name first so a SKU can be suggested.");
+      return;
+    }
+    const params = new URLSearchParams({ name: name.value.trim() });
+    {% if obj %}params.set("exclude_id", {{ obj.id }});{% endif %}
+    try {
+      const res = await fetch("/admin/product/suggest-sku?" + params.toString());
+      const data = await res.json();
+      if (data.sku) sku.value = data.sku;
+    } catch {
+      alert("Could not fetch a SKU suggestion.");
+    }
+  });
+})();
+</script>
+{% endblock %}

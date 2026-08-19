@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
-from starlette.responses import RedirectResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from app.admin.color_field import ColorField
 from app.admin.formatting import LabeledRelationsMixin
@@ -101,13 +101,14 @@ def _unique_tenant_slug(db, name: str, current_id: int | None = None) -> str:
     base = base or "business"
     slug = base
     counter = 1
-    query = db.query(Tenant.id).filter(Tenant.slug == slug)
-    if current_id is not None:
-        query = query.filter(Tenant.id != current_id)
-    while query.first():
+    while True:
+        query = db.query(Tenant.id).filter(Tenant.slug == slug)
+        if current_id is not None:
+            query = query.filter(Tenant.id != current_id)
+        if not query.first():
+            return slug
         counter += 1
         slug = f"{base}-{counter}"
-    return slug
 
 
 class TenantScopedModelView(ModelView):
@@ -138,20 +139,27 @@ class TenantAdmin(ModelView, model=Tenant):
         Tenant.created_at,
     ]
     column_searchable_list = [Tenant.name, Tenant.slug]
-    form_columns = [Tenant.name, Tenant.is_active]
+    form_columns = [Tenant.name, Tenant.slug, Tenant.is_active]
+    # A blank slug is allowed in the form: it is auto-generated from the name
+    # (or uniquified) in on_model_change. Tenant.slug carries a client-side
+    # default so sqladmin does not scaffold InputRequired on it.
     column_default_sort = [(Tenant.id, True)]
 
     async def on_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
         # sqladmin applies form fields to the model AFTER on_model_change,
-        # so read the pending values from ``data``.
-        if is_created:
-            db = SessionLocal()
-            try:
-                model.slug = _unique_tenant_slug(db, data.get("name") or "Business")
-            finally:
-                db.close()
+        # so read/mutate the pending values from ``data``.
+        db = SessionLocal()
+        try:
+            raw = (data.get("slug") or "").strip()
+            if not raw:
+                raw = data.get("name") or "Business"
+            data["slug"] = _unique_tenant_slug(
+                db, raw, current_id=None if is_created else model.id
+            )
+        finally:
+            db.close()
         await super().on_model_change(data, model, is_created, request)
 
 
@@ -248,8 +256,39 @@ class LocalizationSettingAdmin(
         LocalizationSetting.updated_at,
     ]
     column_default_sort = [(LocalizationSetting.updated_at, True)]
-    can_create = False
     can_delete = False
+
+    form_columns = [
+        LocalizationSetting.language,
+        LocalizationSetting.timezone,
+        LocalizationSetting.currency,
+        LocalizationSetting.date_format,
+        LocalizationSetting.number_format,
+        LocalizationSetting.country_code,
+    ]
+
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        """Keep one LocalizationSetting per tenant (singleton semantics the
+        API relies on): reject creating a second row for the selected tenant."""
+        if is_created:
+            tenant_id = _selected_tenant_id(request)
+            db = SessionLocal()
+            try:
+                existing = (
+                    db.query(LocalizationSetting)
+                    .filter(LocalizationSetting.tenant_id == tenant_id)
+                    .first()
+                )
+            finally:
+                db.close()
+            if existing:
+                raise ValueError(
+                    "Localization already exists for the selected tenant; "
+                    "edit the existing row instead."
+                )
+        await super().on_model_change(data, model, is_created, request)
 
 
 class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
@@ -366,6 +405,9 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
     category = "Inventory"
     category_icon = "fa-solid fa-boxes-stacked"
 
+    create_template = "product_create.html"
+    edit_template = "product_edit.html"
+
     column_list = [
         Product.id,
         Product.name,
@@ -398,6 +440,35 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.thumbnail_url,
         Product.embedding,  # managed by the embedding service / backfill script
     ]
+
+    @expose("/suggest-sku", methods=["GET"])
+    async def suggest_sku(self, request: Request):
+        """JSON SKU suggestion for the create/edit form: name-derived,
+        uniqueness-checked against the selected tenant's products."""
+        name = (request.query_params.get("name") or "").strip()
+        exclude_raw = request.query_params.get("exclude_id")
+        tenant_id = _selected_tenant_id(request)
+        base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:16]
+        candidate = f"SKU-{(base or 'product').upper()}"
+        db = self.session_maker()
+        try:
+
+            def _taken(sku: str) -> bool:
+                query = db.query(Product.id).filter(
+                    Product.tenant_id == tenant_id, Product.sku == sku
+                )
+                if exclude_raw and str(exclude_raw).isdigit():
+                    query = query.filter(Product.id != int(exclude_raw))
+                return query.first() is not None
+
+            original = candidate
+            counter = 2
+            while _taken(candidate):
+                candidate = f"{original}-{counter}"
+                counter += 1
+        finally:
+            db.close()
+        return JSONResponse({"sku": candidate})
 
     @action(
         "adjust-stock",

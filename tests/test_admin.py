@@ -1139,3 +1139,173 @@ def test_tenant_admin_creates_tenant_with_unique_slug(client, db):
     )
     assert tenant is not None
     assert tenant.slug == "cafe-lima"
+
+
+def test_tenant_admin_updates_slug_unique_and_sanitized(client, db):
+    from app.models.tenant import Tenant
+
+    _login(client)
+    resp = client.post(
+        "/admin/tenant/create",
+        data={"name": "Cafe JKT", "is_active": "y"},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+    tenant = (
+        db.query(Tenant)
+        .filter(Tenant.name == "Cafe JKT")
+        .order_by(Tenant.id.desc())
+        .first()
+    )
+    assert tenant.slug == "cafe-jkt"
+
+    resp = client.post(
+        f"/admin/tenant/edit/{tenant.id}",
+        data={"name": "Cafe JKT", "slug": "Cafe JKT!", "is_active": "y"},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+    db.expire_all()
+    tenant = db.get(Tenant, tenant.id)
+    assert tenant.slug == "cafe-jkt"
+
+    other = db.query(Tenant).filter(Tenant.id != tenant.id).first()
+    resp = client.post(
+        f"/admin/tenant/edit/{other.id}",
+        data={"name": other.name, "slug": "cafe-jkt", "is_active": "y"},
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+    db.expire_all()
+    other = db.get(Tenant, other.id)
+    assert other.slug == "cafe-jkt-2"
+
+
+def test_admin_localization_create_adds_config_for_selected_tenant(client, db):
+    from app.models.localization import LocalizationSetting
+
+    _login(client)
+    resp = client.post(
+        "/admin/localization-setting/create",
+        data={
+            "language": "id",
+            "timezone": "Asia/Jakarta",
+            "currency": "IDR",
+            "date_format": "%d-%m-%Y %H:%M",
+            "number_format": "id_ID",
+            "country_code": "ID",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+
+    setting = (
+        db.query(LocalizationSetting).order_by(LocalizationSetting.id.desc()).first()
+    )
+    assert setting is not None
+    assert setting.tenant_id == 1
+    assert setting.language == "id"
+    assert setting.currency == "IDR"
+
+
+def test_admin_localization_create_rejects_duplicate_for_tenant(client, db):
+    from app.models.localization import LocalizationSetting
+
+    _login(client)
+    resp = client.post(
+        "/admin/localization-setting/create",
+        data={
+            "language": "en",
+            "timezone": "UTC",
+            "currency": "USD",
+            "date_format": "%Y-%m-%d %H:%M:%S",
+            "number_format": "en_US",
+            "country_code": "US",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code in (302, 303)
+    assert db.query(LocalizationSetting).count() == 1
+
+    resp = client.post(
+        "/admin/localization-setting/create",
+        data={
+            "language": "id",
+            "timezone": "Asia/Jakarta",
+            "currency": "IDR",
+            "date_format": "%d-%m-%Y %H:%M",
+            "number_format": "id_ID",
+            "country_code": "ID",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 400
+    assert "Localization already exists" in resp.text
+    assert db.query(LocalizationSetting).count() == 1
+
+
+def test_admin_product_suggest_sku_tenant_scoped_and_unique(client, db):
+    from app.models.product import Product
+    from app.models.tenant import Tenant
+
+    _login(client)
+    resp = client.get("/admin/product/suggest-sku?name=Coffee Bean")
+    assert resp.status_code == 200
+    assert resp.json()["sku"] == "SKU-COFFEE-BEAN"
+
+    db.add(Product(name="Coffee Bean", sku="SKU-COFFEE-BEAN", price=5.0, tenant_id=1))
+    db.commit()
+
+    resp = client.get("/admin/product/suggest-sku?name=Coffee Bean")
+    assert resp.json()["sku"] == "SKU-COFFEE-BEAN-2"
+
+    product = (
+        db.query(Product)
+        .filter(Product.sku == "SKU-COFFEE-BEAN")
+        .order_by(Product.id.desc())
+        .first()
+    )
+    resp = client.get(
+        f"/admin/product/suggest-sku?name=Coffee Bean&exclude_id={product.id}"
+    )
+    assert resp.json()["sku"] == "SKU-COFFEE-BEAN"
+
+    other_tenant = Tenant(name="Second Biz", slug="second-biz", is_active=True)
+    db.add(other_tenant)
+    db.commit()
+    db.refresh(other_tenant)
+    db.add(
+        Product(
+            name="Other Tenant",
+            sku="SKU-COFFEE-BEAN",
+            price=5.0,
+            tenant_id=other_tenant.id,
+        )
+    )
+    db.commit()
+    resp = client.get("/admin/product/suggest-sku?name=Coffee Bean")
+    assert resp.json()["sku"] == "SKU-COFFEE-BEAN-2"
+
+
+def test_admin_product_suggest_sku_falls_back_to_product(client, db):
+    _login(client)
+    resp = client.get("/admin/product/suggest-sku?name=%21%21%21%20")
+    assert resp.status_code == 200
+    assert resp.json()["sku"] == "SKU-PRODUCT"
+
+
+def test_admin_product_create_edit_pages_include_suggest_sku_button(client, db):
+    from app.models.product import Product
+
+    _login(client)
+    page = client.get("/admin/product/create")
+    assert page.status_code == 200
+    assert "Suggest SKU" in page.text
+
+    product = Product(name="Suggester", sku="SKU-SUGGEST-1", price=5.0, tenant_id=1)
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    page = client.get(f"/admin/product/edit/{product.id}")
+    assert page.status_code == 200
+    assert "Suggest SKU" in page.text
