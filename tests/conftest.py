@@ -201,6 +201,14 @@ def manager_headers(client, auth_factory, assign_role):
 
 
 @pytest.fixture()
+def admin_headers(client, auth_factory, assign_role):
+    """A user promoted to the seeded admin role (has purchasing:approve)."""
+    user = auth_factory.register("admin@example.com")
+    assign_role(user["id"], "admin")
+    return auth_factory.login("admin@example.com")
+
+
+@pytest.fixture()
 def cashier_headers(auth_factory):
     """Default cashier user (no products/manage permission)."""
     return auth_factory.user("cashier@example.com")
