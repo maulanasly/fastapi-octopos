@@ -6,6 +6,12 @@ from app.api.dependencies import get_current_active_user, require_permissions
 from app.core.database import get_db
 from app.core.localization import (
     REGION_PRESETS,
+    SUPPORTED_COUNTRY_CODES,
+    SUPPORTED_CURRENCIES,
+    SUPPORTED_DATE_FORMATS,
+    SUPPORTED_LANGUAGES,
+    SUPPORTED_NUMBER_FORMATS,
+    SUPPORTED_TIMEZONES,
     get_localization_setting,
     resolve_user_localization,
 )
@@ -28,6 +34,31 @@ class RegionInfo(BaseModel):
 class MyRegionUpdate(BaseModel):
     region: str | None = Field(
         None, description='Regional preset country code ("US", "ID") or null to reset'
+    )
+
+
+class LocalizationOptions(BaseModel):
+    languages: list[str]
+    currencies: list[str]
+    timezones: list[str]
+    date_formats: list[str]
+    number_formats: list[str]
+    country_codes: list[str]
+
+
+@router.get("/options", response_model=LocalizationOptions)
+def list_localization_options(
+    current_user: User = Depends(require_permissions("settings:manage")),
+):
+    """Supported values for tenant localization settings (for UI selects)."""
+    _ = current_user
+    return LocalizationOptions(
+        languages=SUPPORTED_LANGUAGES,
+        currencies=SUPPORTED_CURRENCIES,
+        timezones=SUPPORTED_TIMEZONES,
+        date_formats=SUPPORTED_DATE_FORMATS,
+        number_formats=SUPPORTED_NUMBER_FORMATS,
+        country_codes=SUPPORTED_COUNTRY_CODES,
     )
 
 
