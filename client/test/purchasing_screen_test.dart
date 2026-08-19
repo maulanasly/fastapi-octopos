@@ -37,7 +37,10 @@ class _FakePurchasing extends PurchasingRepository {
   _FakePurchasing()
     : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
 
+  int submitOrderCalls = 0;
   int markOrderedCalls = 0;
+  int submitPaymentCalls = 0;
+  int createPaymentCalls = 0;
 
   @override
   Future<List<Supplier>> suppliers() async => const [
@@ -95,6 +98,40 @@ class _FakePurchasing extends PurchasingRepository {
   }
 
   @override
+  Future<List<SupplierPayment>> payments({
+    String? status,
+    int limit = 100,
+  }) async {
+    return const [
+      SupplierPayment(
+        id: 41,
+        supplierId: 1,
+        invoiceId: 31,
+        userId: 1,
+        amount: 100.0,
+        paymentMethod: 'cash',
+        status: 'pending_review',
+      ),
+    ];
+  }
+
+  @override
+  Future<PurchaseOrder> submitOrder(
+    int purchaseOrderId, {
+    String? reviewNote,
+  }) async {
+    submitOrderCalls++;
+    return const PurchaseOrder(
+      id: 11,
+      supplierId: 1,
+      userId: 1,
+      status: 'pending_review',
+      totalEstimatedAmount: 150.0,
+      items: [],
+    );
+  }
+
+  @override
   Future<PurchaseOrder> markOrdered(int purchaseOrderId) async {
     markOrderedCalls++;
     return const PurchaseOrder(
@@ -104,6 +141,37 @@ class _FakePurchasing extends PurchasingRepository {
       status: 'ordered',
       totalEstimatedAmount: 150.0,
       items: [],
+    );
+  }
+
+  @override
+  Future<SupplierPayment> submitPayment(
+    int paymentId, {
+    String? reviewNote,
+  }) async {
+    submitPaymentCalls++;
+    return const SupplierPayment(
+      id: 41,
+      supplierId: 1,
+      invoiceId: 31,
+      userId: 1,
+      amount: 100.0,
+      paymentMethod: 'cash',
+      status: 'pending_review',
+    );
+  }
+
+  @override
+  Future<SupplierPayment> createPayment(Map<String, dynamic> body) async {
+    createPaymentCalls++;
+    return const SupplierPayment(
+      id: 41,
+      supplierId: 1,
+      invoiceId: 31,
+      userId: 1,
+      amount: 100.0,
+      paymentMethod: 'cash',
+      status: 'draft',
     );
   }
 }
@@ -147,7 +215,7 @@ void main() {
     expect(find.text('PO #11 · draft'), findsOneWidget);
   });
 
-  testWidgets('draft PO can be marked ordered', (tester) async {
+  testWidgets('draft PO can be submitted for review', (tester) async {
     final container = _container();
     addTearDown(container.dispose);
     final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
@@ -158,12 +226,13 @@ void main() {
 
     await tester.tap(find.textContaining('PO #11'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mark ordered'));
+    await tester.tap(find.text('Submit for review'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Mark ordered').last);
+    await tester.tap(find.text('Submit for review').last);
     await tester.pumpAndSettle();
 
-    expect(fake.markOrderedCalls, 1);
+    expect(fake.submitOrderCalls, 1);
+    expect(fake.markOrderedCalls, 0);
   });
 
   testWidgets('invoices tab shows pending review invoice', (tester) async {
@@ -175,5 +244,54 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('INV-001 · pending_review'), findsOneWidget);
+  });
+
+  testWidgets('payments tab lists pending payment', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Supplier payments'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('#41 · pending_review'), findsOneWidget);
+    expect(find.textContaining('100.00'), findsOneWidget);
+  });
+
+  testWidgets('pending payment can be submitted', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Supplier payments'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#41 · pending_review'));
+    await tester.pumpAndSettle();
+    expect(find.text('Approve'), findsOneWidget);
+
+    await tester.tap(find.text('Approve'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approve').last);
+    await tester.pumpAndSettle();
+
+    expect(fake.createPaymentCalls, 0);
+  });
+
+  testWidgets('create payment dialog requires approved invoice', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Supplier payments'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create payment'), findsWidgets);
+    expect(find.text('Amount'), findsOneWidget);
+    expect(fake.createPaymentCalls, 0);
   });
 }

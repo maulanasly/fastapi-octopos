@@ -12,7 +12,7 @@ from app.models.order import Order
 from app.models.tax import OrderTaxLine as OrderTaxLineModel
 from app.models.user import User
 from app.schemas.product import Product as ProductSchema
-from app.schemas.purchase import PurchaseInvoiceSummary
+from app.schemas.purchase import PurchaseInvoiceSummary, SupplierPaymentSummary
 from app.schemas.report import (
     CategorySalesItem,
     DailyClose,
@@ -31,6 +31,7 @@ from app.services.reports import (
     get_sales_summary_data,
     get_shift_list_data,
     get_shift_report_data,
+    get_supplier_payment_summary_data,
     get_top_customers_data,
     get_top_products_data,
 )
@@ -157,6 +158,25 @@ def get_purchase_invoice_summary(
 ):
     return PurchaseInvoiceSummary(
         **get_invoice_summary_data(
+            db=db,
+            start_date=start_date,
+            end_date=end_date,
+            supplier_id=supplier_id,
+            tenant_id=current_user.tenant_id,
+        )
+    )
+
+
+@router.get("/supplier-payments", response_model=SupplierPaymentSummary)
+def get_supplier_payment_summary(
+    db: Session = Depends(get_db),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    supplier_id: int | None = Query(None, ge=1),
+    current_user: User = Depends(require_permissions("reports:view")),
+):
+    return SupplierPaymentSummary(
+        **get_supplier_payment_summary_data(
             db=db,
             start_date=start_date,
             end_date=end_date,

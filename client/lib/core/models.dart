@@ -258,6 +258,58 @@ class PurchaseInvoice {
       );
 }
 
+class SupplierPayment {
+  final int id;
+  final int supplierId;
+  final int invoiceId;
+  final int userId;
+  final double amount;
+  final String paymentMethod;
+  final String? reference;
+  final String status;
+  final String? paymentDate;
+  final String? notes;
+  final String? reviewNote;
+  final String? approvedAt;
+  final String? rejectedAt;
+  final String? createdAt;
+
+  const SupplierPayment({
+    required this.id,
+    required this.supplierId,
+    required this.invoiceId,
+    required this.userId,
+    required this.amount,
+    required this.paymentMethod,
+    this.reference,
+    required this.status,
+    this.paymentDate,
+    this.notes,
+    this.reviewNote,
+    this.approvedAt,
+    this.rejectedAt,
+    this.createdAt,
+  });
+
+  factory SupplierPayment.fromJson(Map<String, dynamic> json) =>
+      SupplierPayment(
+        id: json['id'] as int,
+        supplierId: json['supplier_id'] as int,
+        invoiceId: json['invoice_id'] as int,
+        userId: json['user_id'] as int,
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        paymentMethod: json['payment_method'] as String,
+        reference: json['reference'] as String?,
+        status: json['status'] as String,
+        paymentDate: json['payment_date'] as String?,
+        notes: json['notes'] as String?,
+        reviewNote: json['review_note'] as String?,
+        approvedAt: json['approved_at'] as String?,
+        rejectedAt: json['rejected_at'] as String?,
+        createdAt: json['created_at'] as String?,
+      );
+}
+
 class StockMovement {
   final int id;
   final int productId;

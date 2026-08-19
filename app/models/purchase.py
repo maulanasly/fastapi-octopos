@@ -40,9 +40,10 @@ class PurchaseOrder(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     status = Column(
         String, nullable=False, default="draft", index=True
-    )  # draft, ordered, partially_received, received, cancelled
+    )  # draft, pending_review, ordered, partially_received, received, cancelled, rejected
     total_estimated_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     notes = Column(Text, nullable=True)
+    review_note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     ordered_at = Column(DateTime(timezone=True), nullable=True)
     received_at = Column(DateTime(timezone=True), nullable=True)
@@ -133,3 +134,33 @@ class PurchaseInvoiceItem(Base):
         "PurchaseOrderItem", back_populates="invoice_items"
     )
     product = relationship("Product")
+
+
+class SupplierPayment(Base):
+    __tablename__ = "supplier_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False, index=True)
+    supplier_id = Column(
+        Integer, ForeignKey("suppliers.id"), nullable=False, index=True
+    )
+    invoice_id = Column(
+        Integer, ForeignKey("purchase_invoices.id"), nullable=False, index=True
+    )
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount = Column(Numeric(12, 2), nullable=False)
+    payment_method = Column(String, nullable=False)  # e.g. "cash", "transfer", "card"
+    reference = Column(String, nullable=True)
+    status = Column(
+        String, nullable=False, default="draft", index=True
+    )  # draft, pending_review, approved, rejected
+    payment_date = Column(DateTime(timezone=True), nullable=True)
+    notes = Column(Text, nullable=True)
+    review_note = Column(Text, nullable=True)
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    supplier = relationship("Supplier")
+    invoice = relationship("PurchaseInvoice")
+    user = relationship("User")

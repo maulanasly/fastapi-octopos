@@ -679,6 +679,13 @@ def test_restock_workflow_generates_and_receives(client, auth_factory, db):
     assert new_po is not None
     assert new_po.status == "draft"
 
+    resp = client.post(
+        "/admin/workflows/restock",
+        data={"step": "order", "po_id": str(new_po.id)},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 303
+
     page = client.get(f"/admin/workflows/restock?step=receive&po_id={new_po.id}")
     assert page.status_code == 200
     assert f"PO #{new_po.id}" in page.text

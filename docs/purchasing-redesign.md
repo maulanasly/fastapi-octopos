@@ -1,8 +1,9 @@
 # Purchasing Flow & Redesign Plan
 
-The intended purchasing lifecycle and a phased redesign proposal. Phase 1
-(the "make it usable" baseline) is implemented; phases 2–4 are a spec for
-later work.
+The intended purchasing lifecycle and the phased redesign. Phase 1 (the
+"make it usable" baseline), the supplier payment recording (Phase 3
+financials), and the requester-vs-approver separation (Phase 4) are
+implemented; the remaining spec items are listed at the end.
 
 ## Intended lifecycle
 
@@ -23,61 +24,89 @@ later work.
      admin Restock workflow now exposes this via the **Create PO** step
      (supplier + product qty/cost rows), so POs can be raised even when
      inventory is healthy.
-4. **Mark ordered** — `mark_purchase_order_ordered` sets `ordered` +
-   `ordered_at` (PO confirmed/sent). Admin: button on a draft PO in the
-   Receive step.
+4. **PO review & approval** — `submit_purchase_order_for_review`
+   (`POST /purchasing/orders/{id}/submit-review`) moves a draft to
+   `pending_review`; `mark_purchase_order_ordered` now acts as the approve
+   step (only `pending_review` POs, sets `ordered` + `ordered_at`), and
+   `POST /purchasing/orders/{id}/reject` → `rejected`. Approval requires
+   `purchasing:approve` **and** a different user than the creator (strict
+   4-eyes; superusers exempt — keeps the admin panel workflow working).
+   Admin: the Restock workflow's "order" step submits then approves in one
+   action.
 5. **Receive goods** — `receive_purchase_order_items`: partial or full;
-   updates `quantity_received`, product stock + unit cost, and records a
-   `StockMovement`; PO auto-transitions to `partially_received`/`received`
-   with `received_at`.
+   only `ordered` / `partially_received` POs can receive (draft/rejected/
+   cancelled cannot); updates `quantity_received`, product stock + unit
+   cost, and records a `StockMovement`; PO auto-transitions to
+   `partially_received`/`received` with `received_at`.
 6. **Invoice / payable** — `create_purchase_invoice` against received
    quantities (`invoice_number`, per-item billed qty/cost) computes
    **quantity and price variance** vs the PO; status `draft`. Then
    `submit_purchase_invoice_for_review` → `pending_review`, and
    `approve_purchase_invoice` → `approved` (`approved_at`, the financial
-   recognition point) or `reject` → `rejected`.
+   recognition point) or `reject` → `rejected`. Approval requires
+   `purchasing:approve` and a different user than the creator (4-eyes).
+7. **Supplier payment** — `create_supplier_payment`
+   (`POST /purchasing/payments`) records a payment against an **approved**
+   invoice (amount, method, reference, optional payment date); partial
+   payments are allowed and overpayment is rejected
+   (outstanding = invoice total − approved payments). Same review workflow:
+   `draft → pending_review → approved | rejected` via
+   `submit-review` / `approve` / `reject`, with the same 4-eyes rule.
+   Approval is the paid recognition point.
 
 Status enums:
 
-- `purchase_orders.status`: `draft → ordered → partially_received →
-  received`, or `cancelled`.
+- `purchase_orders.status`: `draft → pending_review → ordered →
+  partially_received → received`, or `rejected | cancelled`.
 - `purchase_invoices.status`: `draft → pending_review → approved | rejected`.
+- `supplier_payments.status`: `draft → pending_review → approved | rejected`.
 
-## Phase 1 — implemented
+## RBAC
 
-- Manual **Create PO** step in the Restock workflow (`app/templates/
-  workflows/restock.html`, `app/admin/views.py`).
-- **Mark ordered** action for draft POs in the Receive step.
-- Workflow queries (restock low-stock/pending/draft, invoice eligible POs,
-  dashboard counts) scoped to `ADMIN_TENANT_ID`.
-- `_supplier_for_products` fallback to the tenant's sole active supplier.
+- `purchasing:manage` — create suppliers/POs/invoices/payments and submit
+  them for review (router-wide on `/purchasing/*`).
+- `purchasing:approve` — approve/reject invoices, orders, and payments
+  (endpoint-level). The seeded **manager** role has `purchasing:manage`
+  only; the **admin** role has both. Approvers see the tenant's full review
+  queue (lists are not filtered to own rows for approvers).
+- 4-eyes: a non-superuser cannot approve/reject an invoice, order, or
+  payment they created (403 "you created"). Superusers (admin panel) are
+  exempt.
 
-## Phase 2 — replenishment UX (spec)
+## Audit trail
 
-- Suggestion table with editable `recommended_order_quantity` and unit cost
-  before generating; allow per-row supplier overrides.
-- Surface skip reasons (no supplier / inactive supplier / already in a
-  pending PO) inline instead of as a flash message.
-- Batch "generate for all suppliers" vs per-supplier review.
+Purchasing lifecycle actions are recorded via `log_action`
+(`app/core/audit.py`) into `audit_logs`: `purchase_order.create/submit/
+approve/reject/cancel/receive`, `purchase_invoice.create/submit/approve/
+reject`, `supplier_payment.create/submit/approve/reject`. Viewable via
+`GET /api/v1/audit/logs`.
 
-## Phase 3 — lifecycle visibility & financials (spec)
+## Reporting
 
-- Consolidated PO detail: timeline draft → ordered → received → invoiced,
-  with per-item received/invoiced totals and variance summary.
-- Supplier ledger: open POs, pending invoices, total payable (sum of
-  approved invoices not yet paid). Note: there is currently **no supplier
-  payment recording** — a `payments` model for suppliers (payment date,
-  amount, method, reference) is a larger addition; "payable" today means
-  approved invoices.
-- Invoice review page surfacing `has_quantity_variance` /
-  `has_price_variance` with approve/reject rationale.
-- Purchasing reports: COGS via received unit cost, spend by supplier,
-  variance trends over time.
+- `GET /reports/purchase-invoices` — invoice counts/approved totals/
+  variance (`get_invoice_summary_data`).
+- `GET /reports/supplier-payments` — payment counts/approved total and
+  `outstanding_payable` (approved invoice total − approved payments).
+- Admin dashboard: Supplier Paid Total and Supplier Outstanding cards.
 
-## Phase 4 — automation & config (spec)
+## Client (Flutter)
 
-- Settings for the scheduled auto-PO task (`REPLENISHMENT_*`): enable flag,
-  lookback days, min stock trigger.
-- Optional requester-vs-approver separation using the existing
-  `purchasing:manage` / `purchasing:approve` RBAC permissions (approve
-  requires a user without `purchasing:manage`).
+- Purchase orders: draft POs get **Submit for review**; pending review
+  POs show **Approve**/**Reject** for users with `purchasing:approve`
+  (status chips include `pending_review`/`rejected`).
+- Invoices: create dialog now edits per-line billed qty/cost (defaults to
+  received qty + PO cost) and sets `invoice_date`/`due_date`.
+- Payments tab: list with status filter, create-payment dialog (approved
+  invoice, amount, method, reference), detail + submit/approve/reject.
+
+## Remaining spec (not implemented)
+
+- **Phase 2 — replenishment UX**: editable suggestion quantities/costs
+  before generating, per-row supplier overrides, skip-reason surfacing,
+  batch generate.
+- **Phase 3 — visibility**: consolidated PO detail timeline with per-item
+  received/invoiced totals; supplier ledger view (open POs, pending
+  invoices, total payable); purchasing reports (COGS, spend by supplier,
+  variance trends).
+- **Phase 4 — automation**: settings for the scheduled auto-PO task
+  (`REPLENISHMENT_*`): enable flag, lookback days, min stock trigger.

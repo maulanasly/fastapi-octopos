@@ -1,4 +1,5 @@
 """Admin views module."""
+
 from app.admin.views import (
     CategoryAdmin,
     CustomerAdmin,
@@ -23,6 +24,7 @@ from app.admin.views import (
     ShiftReconciliationAdmin,
     StockMovementAdmin,
     SupplierAdmin,
+    SupplierPaymentAdmin,
     SyncEventLogAdmin,
     TaxRuleAdmin,
     TenantAdmin,
@@ -46,6 +48,7 @@ all_admin_views = [
     PurchaseOrderItemAdmin,
     PurchaseInvoiceAdmin,
     PurchaseInvoiceItemAdmin,
+    SupplierPaymentAdmin,
     ProductAdmin,
     CategoryAdmin,
     StockMovementAdmin,

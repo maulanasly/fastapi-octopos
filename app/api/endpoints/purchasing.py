@@ -6,8 +6,14 @@ from app.api.dependencies import (
     has_permission,
     require_permissions,
 )
+from app.core.audit import log_action
 from app.core.database import get_db
-from app.models.purchase import PurchaseInvoice, PurchaseOrder, Supplier
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseOrder,
+    Supplier,
+    SupplierPayment,
+)
 from app.models.user import User
 from app.schemas.purchase import PurchaseInvoice as PurchaseInvoiceSchema
 from app.schemas.purchase import (
@@ -15,15 +21,22 @@ from app.schemas.purchase import (
     PurchaseInvoiceReviewAction,
     PurchaseOrderCreate,
     PurchaseOrderReceive,
+    PurchaseOrderReviewAction,
     SupplierCreate,
+    SupplierPaymentCreate,
+    SupplierPaymentReviewAction,
     SupplierUpdate,
 )
 from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
 from app.schemas.purchase import Supplier as SupplierSchema
+from app.schemas.purchase import SupplierPayment as SupplierPaymentSchema
 from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
 from app.services.purchasing import _get_purchase_invoice_for_user
 from app.services.purchasing import (
     approve_purchase_invoice as approve_purchase_invoice_service,
+)
+from app.services.purchasing import (
+    approve_supplier_payment as approve_supplier_payment_service,
 )
 from app.services.purchasing import (
     cancel_purchase_order as cancel_purchase_order_service,
@@ -38,6 +51,9 @@ from app.services.purchasing import (
     create_purchase_order_from_replenishment as create_purchase_order_from_replenishment_service,
 )
 from app.services.purchasing import (
+    create_supplier_payment as create_supplier_payment_service,
+)
+from app.services.purchasing import (
     mark_purchase_order_ordered as mark_purchase_order_ordered_service,
 )
 from app.services.purchasing import (
@@ -47,10 +63,28 @@ from app.services.purchasing import (
     reject_purchase_invoice as reject_purchase_invoice_service,
 )
 from app.services.purchasing import (
+    reject_purchase_order as reject_purchase_order_service,
+)
+from app.services.purchasing import (
+    reject_supplier_payment as reject_supplier_payment_service,
+)
+from app.services.purchasing import (
     submit_purchase_invoice_for_review as submit_purchase_invoice_for_review_service,
+)
+from app.services.purchasing import (
+    submit_purchase_order_for_review as submit_purchase_order_for_review_service,
+)
+from app.services.purchasing import (
+    submit_supplier_payment_for_review as submit_supplier_payment_for_review_service,
 )
 
 router = APIRouter(dependencies=[Depends(require_permissions("purchasing:manage"))])
+
+
+def _is_approver(db: Session, current_user: User) -> bool:
+    return current_user.is_superuser or has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    )
 
 
 @router.get("/suppliers", response_model=list[SupplierSchema])
@@ -128,7 +162,7 @@ def get_purchase_invoices(
         .filter(PurchaseInvoice.tenant_id == current_user.tenant_id)
         .order_by(PurchaseInvoice.id.desc())
     )
-    if not current_user.is_superuser:
+    if not _is_approver(db, current_user):
         query = query.filter(PurchaseInvoice.user_id == current_user.id)
     if status:
         query = query.filter(PurchaseInvoice.status == status)
@@ -159,12 +193,26 @@ def create_purchase_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return create_purchase_invoice_service(
+    invoice = create_purchase_invoice_service(
         db=db,
         current_user=current_user,
         invoice_in=invoice_in,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_invoice.create",
+        user_id=current_user.id,
+        resource_type="purchase_invoice",
+        resource_id=invoice.id,
+        details={
+            "invoice_number": invoice.invoice_number,
+            "purchase_order_id": invoice.purchase_order_id,
+            "total_amount": float(invoice.total_amount),
+        },
+    )
+    db.commit()
+    return invoice
 
 
 @router.post(
@@ -176,13 +224,23 @@ def submit_purchase_invoice_for_review(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return submit_purchase_invoice_for_review_service(
+    invoice = submit_purchase_invoice_for_review_service(
         db=db,
         current_user=current_user,
         invoice_id=invoice_id,
         action_in=action_in,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_invoice.submit",
+        user_id=current_user.id,
+        resource_type="purchase_invoice",
+        resource_id=invoice.id,
+        details={"invoice_number": invoice.invoice_number},
+    )
+    db.commit()
+    return invoice
 
 
 @router.post("/invoices/{invoice_id}/approve", response_model=PurchaseInvoiceSchema)
@@ -200,13 +258,26 @@ def approve_purchase_invoice(
             detail="Missing permission: purchasing:approve",
         )
 
-    return approve_purchase_invoice_service(
+    invoice = approve_purchase_invoice_service(
         db=db,
         current_user=current_user,
         invoice_id=invoice_id,
         action_in=action_in,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_invoice.approve",
+        user_id=current_user.id,
+        resource_type="purchase_invoice",
+        resource_id=invoice.id,
+        details={
+            "invoice_number": invoice.invoice_number,
+            "review_note": invoice.review_note,
+        },
+    )
+    db.commit()
+    return invoice
 
 
 @router.post("/invoices/{invoice_id}/reject", response_model=PurchaseInvoiceSchema)
@@ -224,13 +295,26 @@ def reject_purchase_invoice(
             detail="Missing permission: purchasing:approve",
         )
 
-    return reject_purchase_invoice_service(
+    invoice = reject_purchase_invoice_service(
         db=db,
         current_user=current_user,
         invoice_id=invoice_id,
         action_in=action_in,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_invoice.reject",
+        user_id=current_user.id,
+        resource_type="purchase_invoice",
+        resource_id=invoice.id,
+        details={
+            "invoice_number": invoice.invoice_number,
+            "review_note": invoice.review_note,
+        },
+    )
+    db.commit()
+    return invoice
 
 
 @router.get("/orders", response_model=list[PurchaseOrderSchema])
@@ -248,7 +332,7 @@ def get_purchase_orders(
         .filter(PurchaseOrder.tenant_id == current_user.tenant_id)
         .order_by(PurchaseOrder.id.desc())
     )
-    if not current_user.is_superuser:
+    if not _is_approver(db, current_user):
         query = query.filter(PurchaseOrder.user_id == current_user.id)
     if status:
         query = query.filter(PurchaseOrder.status == status)
@@ -287,12 +371,25 @@ def create_purchase_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return create_purchase_order_service(
+    purchase_order = create_purchase_order_service(
         db=db,
         current_user=current_user,
         purchase_order_in=purchase_order_in,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_order.create",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+        details={
+            "supplier_id": purchase_order.supplier_id,
+            "total_estimated_amount": float(purchase_order.total_estimated_amount),
+        },
+    )
+    db.commit()
+    return purchase_order
 
 
 @router.post("/orders/from-replenishment", response_model=PurchaseOrderSchema)
@@ -301,12 +398,53 @@ def create_purchase_order_from_replenishment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return create_purchase_order_from_replenishment_service(
+    purchase_order = create_purchase_order_from_replenishment_service(
         db=db,
         current_user=current_user,
         payload=payload,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_order.create",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+        details={
+            "supplier_id": purchase_order.supplier_id,
+            "total_estimated_amount": float(purchase_order.total_estimated_amount),
+            "source": "replenishment",
+        },
+    )
+    db.commit()
+    return purchase_order
+
+
+@router.post(
+    "/orders/{purchase_order_id}/submit-review", response_model=PurchaseOrderSchema
+)
+def submit_purchase_order_for_review(
+    purchase_order_id: int,
+    action_in: PurchaseOrderReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    purchase_order = submit_purchase_order_for_review_service(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
+    )
+    log_action(
+        db=db,
+        action="purchase_order.submit",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+    )
+    db.commit()
+    return purchase_order
 
 
 @router.post(
@@ -317,12 +455,63 @@ def mark_purchase_order_ordered(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return mark_purchase_order_ordered_service(
+    if not has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Missing permission: purchasing:approve",
+        )
+
+    purchase_order = mark_purchase_order_ordered_service(
         db=db,
         current_user=current_user,
         purchase_order_id=purchase_order_id,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_order.approve",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+    )
+    db.commit()
+    return purchase_order
+
+
+@router.post("/orders/{purchase_order_id}/reject", response_model=PurchaseOrderSchema)
+def reject_purchase_order(
+    purchase_order_id: int,
+    action_in: PurchaseOrderReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Missing permission: purchasing:approve",
+        )
+
+    purchase_order = reject_purchase_order_service(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
+    )
+    log_action(
+        db=db,
+        action="purchase_order.reject",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+        details={"review_note": purchase_order.review_note},
+    )
+    db.commit()
+    return purchase_order
 
 
 @router.post("/orders/{purchase_order_id}/cancel", response_model=PurchaseOrderSchema)
@@ -331,12 +520,21 @@ def cancel_purchase_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return cancel_purchase_order_service(
+    purchase_order = cancel_purchase_order_service(
         db=db,
         current_user=current_user,
         purchase_order_id=purchase_order_id,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_order.cancel",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+    )
+    db.commit()
+    return purchase_order
 
 
 @router.post("/orders/{purchase_order_id}/receive", response_model=PurchaseOrderSchema)
@@ -346,10 +544,188 @@ def receive_purchase_order_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return receive_purchase_order_items_service(
+    purchase_order = receive_purchase_order_items_service(
         db=db,
         current_user=current_user,
         purchase_order_id=purchase_order_id,
         receive_in=receive_in,
         tenant_id=current_user.tenant_id,
     )
+    log_action(
+        db=db,
+        action="purchase_order.receive",
+        user_id=current_user.id,
+        resource_type="purchase_order",
+        resource_id=purchase_order.id,
+        details={
+            "received_items": [
+                {
+                    "purchase_order_item_id": item.purchase_order_item_id,
+                    "quantity_received": item.quantity_received,
+                }
+                for item in receive_in.items
+            ]
+        },
+    )
+    db.commit()
+    return purchase_order
+
+
+# ------------------------------------------------------------- supplier payments
+
+
+@router.get("/payments", response_model=list[SupplierPaymentSchema])
+def get_supplier_payments(
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 100,
+    status: str | None = Query(None),
+    supplier_id: int | None = Query(None, ge=1),
+    invoice_id: int | None = Query(None, ge=1),
+    current_user: User = Depends(get_current_active_user),
+):
+    query = (
+        db.query(SupplierPayment)
+        .filter(SupplierPayment.tenant_id == current_user.tenant_id)
+        .order_by(SupplierPayment.id.desc())
+    )
+    if not _is_approver(db, current_user):
+        query = query.filter(SupplierPayment.user_id == current_user.id)
+    if status:
+        query = query.filter(SupplierPayment.status == status)
+    if supplier_id:
+        query = query.filter(SupplierPayment.supplier_id == supplier_id)
+    if invoice_id:
+        query = query.filter(SupplierPayment.invoice_id == invoice_id)
+    return query.offset(skip).limit(limit).all()
+
+
+@router.post("/payments", response_model=SupplierPaymentSchema)
+def create_supplier_payment(
+    payment_in: SupplierPaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    payment = create_supplier_payment_service(
+        db=db,
+        current_user=current_user,
+        payment_in=payment_in,
+        tenant_id=current_user.tenant_id,
+    )
+    log_action(
+        db=db,
+        action="supplier_payment.create",
+        user_id=current_user.id,
+        resource_type="supplier_payment",
+        resource_id=payment.id,
+        details={
+            "invoice_id": payment.invoice_id,
+            "amount": float(payment.amount),
+            "payment_method": payment.payment_method,
+        },
+    )
+    db.commit()
+    return payment
+
+
+@router.post(
+    "/payments/{payment_id}/submit-review", response_model=SupplierPaymentSchema
+)
+def submit_supplier_payment_for_review(
+    payment_id: int,
+    action_in: SupplierPaymentReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    payment = submit_supplier_payment_for_review_service(
+        db=db,
+        current_user=current_user,
+        payment_id=payment_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
+    )
+    log_action(
+        db=db,
+        action="supplier_payment.submit",
+        user_id=current_user.id,
+        resource_type="supplier_payment",
+        resource_id=payment.id,
+        details={"amount": float(payment.amount)},
+    )
+    db.commit()
+    return payment
+
+
+@router.post("/payments/{payment_id}/approve", response_model=SupplierPaymentSchema)
+def approve_supplier_payment(
+    payment_id: int,
+    action_in: SupplierPaymentReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Missing permission: purchasing:approve",
+        )
+
+    payment = approve_supplier_payment_service(
+        db=db,
+        current_user=current_user,
+        payment_id=payment_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
+    )
+    log_action(
+        db=db,
+        action="supplier_payment.approve",
+        user_id=current_user.id,
+        resource_type="supplier_payment",
+        resource_id=payment.id,
+        details={
+            "invoice_id": payment.invoice_id,
+            "amount": float(payment.amount),
+            "review_note": payment.review_note,
+        },
+    )
+    db.commit()
+    return payment
+
+
+@router.post("/payments/{payment_id}/reject", response_model=SupplierPaymentSchema)
+def reject_supplier_payment(
+    payment_id: int,
+    action_in: SupplierPaymentReviewAction,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    if not has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Missing permission: purchasing:approve",
+        )
+
+    payment = reject_supplier_payment_service(
+        db=db,
+        current_user=current_user,
+        payment_id=payment_id,
+        action_in=action_in,
+        tenant_id=current_user.tenant_id,
+    )
+    log_action(
+        db=db,
+        action="supplier_payment.reject",
+        user_id=current_user.id,
+        resource_type="supplier_payment",
+        resource_id=payment.id,
+        details={
+            "amount": float(payment.amount),
+            "review_note": payment.review_note,
+        },
+    )
+    db.commit()
+    return payment
