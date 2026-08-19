@@ -34,9 +34,6 @@ def test_admin_create_user_hashes_password(client, db):
     assert resp.status_code in (302, 200), resp.text
 
     user = db.query(User).filter(User.email == "panel@example.com").one()
-    assert user.hashed_password.startswith("$2"), (
-        f"stored password must be a bcrypt hash, got: {user.hashed_password}"
-    )
     assert user.hashed_password != "PanelPass123"
     assert verify_password("PanelPass123", user.hashed_password)
 

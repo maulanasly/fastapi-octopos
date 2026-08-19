@@ -2,7 +2,11 @@
 
 from decimal import Decimal
 
+import pytest
+
 from app.core.money import money_to_float, quantize_money, to_decimal
+
+pytestmark = pytest.mark.no_db
 
 
 class TestToDecimal:
