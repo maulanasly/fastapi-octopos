@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 
@@ -47,12 +48,13 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(rule == null ? s.of('newTaxRule') : s.of('editTaxRule')),
           content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
+            width: dialogWidth(context),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
                   decoration: InputDecoration(
                     labelText: s.of('taxName'),
                     isDense: true,
@@ -103,6 +105,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(

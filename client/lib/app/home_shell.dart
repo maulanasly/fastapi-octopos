@@ -101,6 +101,7 @@ class HomeShell extends ConsumerWidget {
 
     final currentPath = GoRouterState.of(context).uri.path;
     final selected = destinations.indexWhere((d) => d.path == currentPath);
+    final narrow = MediaQuery.sizeOf(context).width < 840;
 
     return Scaffold(
       appBar: AppBar(
@@ -137,23 +138,39 @@ class HomeShell extends ConsumerWidget {
       ),
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: selected < 0 ? 0 : selected,
-            onDestinationSelected: (index) =>
-                context.go(destinations[index].path),
-            labelType: NavigationRailLabelType.all,
-            destinations: [
-              for (final d in destinations)
-                NavigationRailDestination(
-                  icon: Icon(d.icon),
-                  label: Text(s.of(_stringKeyForPath(d.path))),
-                ),
-            ],
-          ),
-          const VerticalDivider(width: 1),
+          if (!narrow) ...[
+            NavigationRail(
+              selectedIndex: selected < 0 ? 0 : selected,
+              onDestinationSelected: (index) =>
+                  context.go(destinations[index].path),
+              labelType: NavigationRailLabelType.all,
+              destinations: [
+                for (final d in destinations)
+                  NavigationRailDestination(
+                    icon: Icon(d.icon),
+                    label: Text(s.of(_stringKeyForPath(d.path))),
+                  ),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+          ],
           Expanded(child: child),
         ],
       ),
+      bottomNavigationBar: narrow
+          ? NavigationBar(
+              selectedIndex: selected < 0 ? 0 : selected,
+              onDestinationSelected: (index) =>
+                  context.go(destinations[index].path),
+              destinations: [
+                for (final d in destinations)
+                  NavigationDestination(
+                    icon: Icon(d.icon),
+                    label: s.of(_stringKeyForPath(d.path)),
+                  ),
+              ],
+            )
+          : null,
     );
   }
 }

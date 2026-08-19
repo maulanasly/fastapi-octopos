@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/errors.dart';
 import '../../core/strings.dart';
@@ -202,7 +203,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Failed to load:\n${snapshot.error}'));
+            return ErrorStateView(
+              message: s.of('genericError'),
+              onRetry: () => setState(
+                () => _future = ref.read(customerRepositoryProvider).list(),
+              ),
+            );
           }
           final customers = snapshot.data ?? [];
           return ListView.separated(

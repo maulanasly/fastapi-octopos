@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_repositories.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 
@@ -189,24 +190,25 @@ class _RolesTabState extends ConsumerState<_RolesTab> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(role == null ? s.of('newRole') : s.of('editRole')),
           content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: name,
-                  decoration: InputDecoration(
-                    labelText: s.of('roleName'),
-                    isDense: true,
+            width: dialogWidth(context),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: name,
+                    decoration: InputDecoration(
+                      labelText: s.of('roleName'),
+                      isDense: true,
+                    ),
                   ),
-                ),
-                TextField(
-                  controller: description,
-                  decoration: InputDecoration(
-                    labelText: s.of('description'),
-                    isDense: true,
+                  TextField(
+                    controller: description,
+                    decoration: InputDecoration(
+                      labelText: s.of('description'),
+                      isDense: true,
+                    ),
                   ),
-                ),
                 const Divider(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -215,37 +217,36 @@ class _RolesTabState extends ConsumerState<_RolesTab> {
                     style: Theme.of(ctx).textTheme.titleSmall,
                   ),
                 ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final permission in permissions)
-                        CheckboxListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(permission.code),
-                          subtitle: permission.description == null
-                              ? null
-                              : Text(
-                                  permission.description!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                          value: selected.contains(permission.code),
-                          onChanged: (v) => setDialogState(() {
-                            if (v == true) {
-                              selected.add(permission.code);
-                            } else {
-                              selected.remove(permission.code);
-                            }
-                          }),
-                        ),
-                    ],
-                  ),
+                ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final permission in permissions)
+                      CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        title: Text(permission.code),
+                        subtitle: permission.description == null
+                            ? null
+                            : Text(
+                                permission.description!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                        value: selected.contains(permission.code),
+                        onChanged: (v) => setDialogState(() {
+                          if (v == true) {
+                            selected.add(permission.code);
+                          } else {
+                            selected.remove(permission.code);
+                          }
+                        }),
+                      ),
+                  ],
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(

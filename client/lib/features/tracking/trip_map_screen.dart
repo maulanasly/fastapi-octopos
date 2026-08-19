@@ -202,8 +202,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       );
     } catch (_) {
       if (mounted) {
+        final strings = ref.read(stringsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Location unavailable')),
+          SnackBar(content: Text(strings.of('locationUnavailable'))),
         );
       }
     } finally {

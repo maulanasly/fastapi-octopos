@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/colors.dart';
 import '../../core/strings.dart';
@@ -186,21 +187,32 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           child: catalog.loading
               ? const Center(child: CircularProgressIndicator())
               : catalog.error != null
-              ? Center(child: Text('Failed to load catalog:\n${catalog.error}'))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(8),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200,
-                    childAspectRatio: 0.9,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (context, i) => ProductTile(
-                    product: products[i],
-                    onTap: () => ref
-                        .read(cartControllerProvider.notifier)
-                        .addProduct(products[i]),
+              ? ErrorStateView(
+                  message: s.of('genericError'),
+                  onRetry: () => ref
+                      .read(catalogControllerProvider.notifier)
+                      .refresh(),
+                )
+              : RefreshIndicator(
+                  onRefresh: () =>
+                      ref.read(catalogControllerProvider.notifier).refresh(),
+                  child: GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(8),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 200,
+                          childAspectRatio: 0.9,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                        ),
+                    itemCount: products.length,
+                    itemBuilder: (context, i) => ProductTile(
+                      product: products[i],
+                      onTap: () => ref
+                          .read(cartControllerProvider.notifier)
+                          .addProduct(products[i]),
+                    ),
                   ),
                 ),
         ),

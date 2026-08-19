@@ -10,9 +10,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/errors.dart';
 import '../../core/colors.dart';
 import '../../core/config.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
@@ -143,7 +145,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (catalog.error != null) {
-      return Center(child: Text('Failed to load:\n${catalog.error}'));
+      return ErrorStateView(
+        message: s.of('genericError'),
+        onRetry: () => ref.read(catalogControllerProvider.notifier).refresh(),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -455,7 +460,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
     return AlertDialog(
       title: Text(s.of('categories')),
       content: SizedBox(
-        width: 380,
+        width: dialogWidth(context),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

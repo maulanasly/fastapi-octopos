@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 
@@ -44,12 +45,13 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(s.of('newStaff')),
         content: SizedBox(
-          width: 380,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: email,
+          width: dialogWidth(context),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: email,
                 decoration: InputDecoration(
                   labelText: s.of('staffEmail'),
                   isDense: true,
@@ -74,6 +76,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
               ),
             ],
           ),
+        ),
         ),
         actions: [
           TextButton(
@@ -121,12 +124,13 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(s.of('editStaff', args: {'name': user.fullName ?? user.email})),
           content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: fullName,
+            width: dialogWidth(context),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: fullName,
                   decoration: InputDecoration(
                     labelText: s.of('staffFullName'),
                     isDense: true,
@@ -150,6 +154,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                 ),
               ],
             ),
+          ),
           ),
           actions: [
             TextButton(
@@ -234,7 +239,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(s.of('assignRoles')),
           content: SizedBox(
-            width: 380,
+            width: dialogWidth(context),
             child: ListView(
               shrinkWrap: true,
               children: [

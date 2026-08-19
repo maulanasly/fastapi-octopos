@@ -79,16 +79,7 @@ class _LocalizationSettingsScreenState
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(s.of('localizationSettings')),
-        actions: [
-          IconButton(
-            tooltip: s.of('save'),
-            onPressed: _save,
-            icon: const Icon(Icons.save_outlined),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(s.of('localizationSettings'))),
       body: FutureBuilder<LocalizationSetting>(
         future: _future,
         builder: (context, snapshot) {
