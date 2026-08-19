@@ -247,6 +247,7 @@ class LocalizationSettingAdmin(
 
     column_list = [
         LocalizationSetting.id,
+        LocalizationSetting.tenant_id,
         LocalizationSetting.language,
         LocalizationSetting.timezone,
         LocalizationSetting.currency,
@@ -1305,7 +1306,7 @@ class ReportsAdmin(BaseView):
     async def reports_page(self, request: Request):
         db = SessionLocal()
         try:
-            localization = get_localization_setting(db)
+            localization = get_localization_setting(db, _selected_tenant_id(request))
             period = request.query_params.get("period", "30d")
 
             shift_reports = (
