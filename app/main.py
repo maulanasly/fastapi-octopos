@@ -284,6 +284,7 @@ admin = Admin(
     engine=engine,
     templates_dir="app/templates",
     authentication_backend=authentication_backend,
+    title="OctoPOS",
     favicon_url="/static/favicon.png",
     logo_url="/static/logo.png",
     logo_width=32,
