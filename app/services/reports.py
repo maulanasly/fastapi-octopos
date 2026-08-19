@@ -8,7 +8,12 @@ from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.product import Category, Product
-from app.models.purchase import PurchaseInvoice, PurchaseOrder, PurchaseOrderItem
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    SupplierPayment,
+)
 from app.models.refund import Refund
 from app.models.shift_reconciliation import ShiftReconciliation
 
@@ -401,6 +406,96 @@ def get_invoice_summary_data(
         "approved_total": float(approved_total or 0.0),
         "billed_total": float(billed_total or 0.0),
         "variance_total": float(variance_total or 0.0),
+    }
+
+
+def get_supplier_payment_summary_data(
+    db: Session,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    supplier_id: int | None = None,
+    tenant_id: int | None = None,
+) -> dict:
+    payment_query = db.query(SupplierPayment)
+    if tenant_id is not None:
+        payment_query = payment_query.filter(SupplierPayment.tenant_id == tenant_id)
+    if start_date:
+        payment_query = payment_query.filter(SupplierPayment.created_at >= start_date)
+    if end_date:
+        payment_query = payment_query.filter(SupplierPayment.created_at <= end_date)
+    if supplier_id:
+        payment_query = payment_query.filter(SupplierPayment.supplier_id == supplier_id)
+
+    rows = payment_query.with_entities(
+        func.count(SupplierPayment.id),
+        func.coalesce(
+            func.sum(
+                case(
+                    (SupplierPayment.status == "approved", SupplierPayment.amount),
+                    else_=0.0,
+                )
+            ),
+            0.0,
+        ),
+        func.coalesce(
+            func.sum(case((SupplierPayment.status == "approved", 1), else_=0)), 0
+        ),
+        func.coalesce(
+            func.sum(case((SupplierPayment.status == "rejected", 1), else_=0)), 0
+        ),
+        func.coalesce(
+            func.sum(case((SupplierPayment.status == "pending_review", 1), else_=0)),
+            0,
+        ),
+        func.coalesce(
+            func.sum(case((SupplierPayment.status == "draft", 1), else_=0)), 0
+        ),
+    ).first()
+
+    (
+        payment_count,
+        approved_total,
+        approved_count,
+        rejected_count,
+        pending_review_count,
+        draft_count,
+    ) = rows
+
+    invoice_query = db.query(PurchaseInvoice)
+    if tenant_id is not None:
+        invoice_query = invoice_query.filter(PurchaseInvoice.tenant_id == tenant_id)
+    if start_date:
+        invoice_query = invoice_query.filter(PurchaseInvoice.created_at >= start_date)
+    if end_date:
+        invoice_query = invoice_query.filter(PurchaseInvoice.created_at <= end_date)
+    if supplier_id:
+        invoice_query = invoice_query.filter(PurchaseInvoice.supplier_id == supplier_id)
+
+    approved_invoice_total = invoice_query.with_entities(
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        PurchaseInvoice.status == "approved",
+                        PurchaseInvoice.total_amount,
+                    ),
+                    else_=0.0,
+                )
+            ),
+            0.0,
+        )
+    ).scalar()
+
+    return {
+        "payment_count": int(payment_count or 0),
+        "approved_count": int(approved_count or 0),
+        "rejected_count": int(rejected_count or 0),
+        "pending_review_count": int(pending_review_count or 0),
+        "draft_count": int(draft_count or 0),
+        "approved_total": float(approved_total or 0.0),
+        "outstanding_payable": float(
+            float(approved_invoice_total or 0.0) - float(approved_total or 0.0)
+        ),
     }
 
 

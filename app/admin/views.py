@@ -33,6 +33,7 @@ from app.models.purchase import (
     PurchaseOrder,
     PurchaseOrderItem,
     Supplier,
+    SupplierPayment,
 )
 from app.models.rbac import Permission, Role, RolePermission, UserRole
 from app.models.refund import Refund, RefundItem
@@ -51,6 +52,7 @@ from app.schemas.purchase import (
     PurchaseOrderItemCreate,
     PurchaseOrderReceive,
     PurchaseOrderReceiveItem,
+    PurchaseOrderReviewAction,
 )
 from app.schemas.refund import RefundCreate, RefundItemCreate
 from app.services.auto_po import auto_generate_purchase_orders
@@ -69,6 +71,7 @@ from app.services.purchasing import (
     receive_purchase_order_items,
     reject_purchase_invoice,
     submit_purchase_invoice_for_review,
+    submit_purchase_order_for_review,
 )
 from app.services.refunds import create_refund
 from app.services.reports import (
@@ -77,6 +80,7 @@ from app.services.reports import (
     get_invoice_summary_data,
     get_low_stock_products_data,
     get_sales_summary_data,
+    get_supplier_payment_summary_data,
     get_top_customers_data,
     get_top_products_data,
 )
@@ -863,6 +867,42 @@ class PurchaseInvoiceItemAdmin(
     can_delete = False
 
 
+class SupplierPaymentAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=SupplierPayment
+):
+    name = "Supplier Payments"
+    icon = "fa-solid fa-money-bill-transfer"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
+
+    column_list = [
+        SupplierPayment.id,
+        SupplierPayment.supplier,
+        SupplierPayment.invoice,
+        SupplierPayment.user,
+        SupplierPayment.amount,
+        SupplierPayment.payment_method,
+        SupplierPayment.status,
+        SupplierPayment.payment_date,
+        SupplierPayment.reference,
+        SupplierPayment.created_at,
+    ]
+    column_searchable_list = [
+        SupplierPayment.status,
+        SupplierPayment.payment_method,
+        SupplierPayment.reference,
+    ]
+    column_sortable_list = [
+        SupplierPayment.created_at,
+        SupplierPayment.amount,
+        SupplierPayment.status,
+    ]
+    column_default_sort = [(SupplierPayment.created_at, True)]
+    can_create = False
+    can_edit = False
+    can_delete = False
+
+
 class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
     name = "Orders"
     icon = "fa-solid fa-cart-shopping"
@@ -1190,6 +1230,9 @@ class ReportsAdmin(BaseView):
         invoice_summary = get_invoice_summary_data(
             db=db, start_date=start_date, end_date=end_date
         )
+        payment_summary = get_supplier_payment_summary_data(
+            db=db, start_date=start_date, end_date=end_date
+        )
         executive_summary = get_executive_summary_data(
             db=db, invoice_summary=invoice_summary
         )
@@ -1237,6 +1280,16 @@ class ReportsAdmin(BaseView):
             ),
             "invoice_variance_total": format_currency(
                 float(executive_summary["invoice_variance_total"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "supplier_paid_total": format_currency(
+                float(payment_summary["approved_total"]),
+                localization.currency,
+                localization.number_format,
+            ),
+            "supplier_outstanding": format_currency(
+                float(payment_summary["outstanding_payable"]),
                 localization.currency,
                 localization.number_format,
             ),
@@ -1671,11 +1724,19 @@ class WorkflowsAdmin(BaseView):
                             raise HTTPException(
                                 status_code=403, detail="Admin user missing"
                             )
+                        tenant_id = _selected_tenant_id(request)
+                        submit_purchase_order_for_review(
+                            db=db,
+                            current_user=user,
+                            purchase_order_id=po_id,
+                            action_in=PurchaseOrderReviewAction(review_note=None),
+                            tenant_id=tenant_id,
+                        )
                         mark_purchase_order_ordered(
                             db=db,
                             current_user=user,
                             purchase_order_id=po_id,
-                            tenant_id=_selected_tenant_id(request),
+                            tenant_id=tenant_id,
                         )
                     except HTTPException as exc:
                         self._flash_http_error(request, exc)
@@ -1683,7 +1744,9 @@ class WorkflowsAdmin(BaseView):
                             url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
                             status_code=303,
                         )
-                    Flash.success(request, f"PO #{po_id} marked as ordered.")
+                    Flash.success(
+                        request, f"PO #{po_id} reviewed and marked as ordered."
+                    )
                     return RedirectResponse(
                         url=f"/admin/workflows/restock?step=receive&po_id={po_id}",
                         status_code=303,
@@ -1750,7 +1813,7 @@ class WorkflowsAdmin(BaseView):
                     joinedload(PurchaseOrder.supplier),
                 )
                 .filter(
-                    PurchaseOrder.status == "draft",
+                    PurchaseOrder.status.in_(["draft", "ordered"]),
                     PurchaseOrder.tenant_id == _selected_tenant_id(request),
                 )
                 .order_by(PurchaseOrder.id.asc())
