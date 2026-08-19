@@ -69,9 +69,24 @@ and pgvector semantic search.
 3. Before pushing: `make lint-changes`, `make check-changes` (coverage on
    changed files only), `make test` (full suite, not just new tests), and
    client checks if `client/` changed.
-4. Push and open a PR to `main` (`gh pr create --base main`) with a summary of
-   changes + verification results. Wait for CI green; fix CI issues on the same
-   branch (new commit), don't amend pushed commits.
+4. Always finish by pushing and opening the MR:
+   `git push -u origin <branch>` then `gh pr create --base main` with a
+   summary of changes + verification results. Wait for CI green; fix CI issues
+   on the same branch (new commit), don't amend pushed commits.
+
+## Knowledge graph
+
+- **Graph-first context**: before exploring the codebase, load the graphify
+  skill and answer context/architecture questions with
+  `graphify query "<question>"` — the graph covers the whole repo and answers
+  cite `source_location`. Only read specific files directly when the graph's
+  answer lacks the detail you need (paths come from the graph's
+  `source_location`).
+- **Update at task end**: after the MR is submitted, run the graphify `--update`
+  flow on the repo root (`/graphify . --update`) so the graph reflects the
+  final code — re-extracts only changed files (code-only runs skip semantic
+  extraction) and rebuilds `graph.json`, `GRAPH_REPORT.md`, `graph.html`.
+  `graphify-out/` is gitignored (local-only), so nothing extra gets committed.
 
 ## Client conventions
 
