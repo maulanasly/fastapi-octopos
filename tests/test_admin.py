@@ -1273,6 +1273,32 @@ def test_admin_localization_list_shows_tenant_column(client, db):
     assert "IDR" in resp.text
 
 
+def test_admin_localization_form_uses_selects_for_supported_values(client, db):
+    _login(client)
+    resp = client.get("/admin/localization-setting/create")
+    assert resp.status_code == 200
+
+    # The six localization fields render as <select> boxes fed by the same
+    # supported-value sets served by GET /localization/options, not free text.
+    for field in [
+        "language",
+        "timezone",
+        "currency",
+        "date_format",
+        "number_format",
+        "country_code",
+    ]:
+        assert f'id="{field}"' in resp.text
+    assert resp.text.count("<select") == 6
+
+    assert '<option value="id">id</option>' in resp.text
+    assert '<option value="Asia/Jakarta">Asia/Jakarta</option>' in resp.text
+    assert '<option value="IDR">IDR</option>' in resp.text
+    assert '<option value="%d-%m-%Y %H:%M">%d-%m-%Y %H:%M</option>' in resp.text
+    assert '<option value="id_ID">id_ID</option>' in resp.text
+    assert '<option value="ID">ID</option>' in resp.text
+
+
 def test_admin_reports_use_selected_tenant_localization(client, db):
     from app.models.localization import LocalizationSetting
     from app.models.tenant import Tenant
