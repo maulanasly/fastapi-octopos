@@ -39,11 +39,13 @@ from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 from app.models.stock_movement import StockMovement
 from app.models.tax import OrderTaxLine, TaxRule
+from app.models.tenant import Tenant
 from app.models.user import User
 
 RelationLabelSpec = tuple[str, ...] | Callable[[Any], str]
 
 RELATION_LABELS: dict[type, RelationLabelSpec] = {
+    Tenant: ("name",),
     Product: ("name",),
     Category: ("name",),
     User: ("email",),

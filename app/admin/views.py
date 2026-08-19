@@ -261,7 +261,7 @@ class LocalizationSettingAdmin(
 
     column_list = [
         LocalizationSetting.id,
-        LocalizationSetting.tenant_id,
+        LocalizationSetting.tenant,
         LocalizationSetting.language,
         LocalizationSetting.timezone,
         LocalizationSetting.currency,
@@ -274,6 +274,7 @@ class LocalizationSettingAdmin(
     can_delete = False
 
     form_columns = [
+        LocalizationSetting.tenant,
         LocalizationSetting.language,
         LocalizationSetting.timezone,
         LocalizationSetting.currency,
@@ -323,23 +324,29 @@ class LocalizationSettingAdmin(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
         """Keep one LocalizationSetting per tenant (singleton semantics the
-        API relies on): reject creating a second row for the selected tenant."""
-        if is_created:
+        API relies on): reject creating a second row for the chosen tenant,
+        or moving an existing row onto a tenant that already has one."""
+        chosen = data.get("tenant")
+        try:
+            tenant_id = int(chosen)
+        except (TypeError, ValueError):
             tenant_id = _selected_tenant_id(request)
-            db = SessionLocal()
-            try:
-                existing = (
-                    db.query(LocalizationSetting)
-                    .filter(LocalizationSetting.tenant_id == tenant_id)
-                    .first()
-                )
-            finally:
-                db.close()
-            if existing:
-                raise ValueError(
-                    "Localization already exists for the selected tenant; "
-                    "edit the existing row instead."
-                )
+        db = SessionLocal()
+        try:
+            existing = (
+                db.query(LocalizationSetting)
+                .filter(LocalizationSetting.tenant_id == tenant_id)
+                .first()
+            )
+        finally:
+            db.close()
+        if existing and (is_created or existing.id != model.id):
+            raise ValueError(
+                "Localization already exists for the chosen tenant; "
+                "edit the existing row instead."
+            )
+        if is_created:
+            data["tenant"] = tenant_id
         await super().on_model_change(data, model, is_created, request)
 
 
