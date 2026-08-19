@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.dependencies import has_permission
 from app.core.money import quantize_money, to_decimal
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
@@ -14,6 +15,7 @@ from app.models.purchase import (
     PurchaseOrder,
     PurchaseOrderItem,
     Supplier,
+    SupplierPayment,
 )
 from app.models.stock_movement import StockMovement
 from app.models.user import User
@@ -22,8 +24,20 @@ from app.schemas.purchase import (
     PurchaseInvoiceReviewAction,
     PurchaseOrderCreate,
     PurchaseOrderReceive,
+    PurchaseOrderReviewAction,
+    SupplierPaymentCreate,
+    SupplierPaymentReviewAction,
 )
 from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
+
+
+def _can_access_any_tenant_document(db: Session, current_user: User) -> bool:
+    """Approvers (and superusers) see the whole tenant review queue."""
+    if current_user.is_superuser:
+        return True
+    return has_permission(
+        db=db, user=current_user, permission_code="purchasing:approve"
+    )
 
 
 def _get_purchase_invoice_for_user(
@@ -43,7 +57,10 @@ def _get_purchase_invoice_for_user(
     )
     if not invoice:
         raise HTTPException(status_code=404, detail="Purchase invoice not found")
-    if not current_user.is_superuser and invoice.user_id != current_user.id:
+    if (
+        not _can_access_any_tenant_document(db, current_user)
+        and invoice.user_id != current_user.id
+    ):
         raise HTTPException(
             status_code=403, detail="Not authorized to access this purchase invoice"
         )
@@ -72,7 +89,10 @@ def create_purchase_invoice(
     )
     if not purchase_order:
         raise HTTPException(status_code=404, detail="Purchase order not found")
-    if not current_user.is_superuser and purchase_order.user_id != current_user.id:
+    if (
+        not _can_access_any_tenant_document(db, current_user)
+        and purchase_order.user_id != current_user.id
+    ):
         raise HTTPException(
             status_code=403, detail="Not authorized to invoice this purchase order"
         )
@@ -265,6 +285,11 @@ def approve_purchase_invoice(
     if invoice.status != "pending_review":
         raise HTTPException(
             status_code=400, detail="Only pending_review invoices can be approved"
+        )
+    if not current_user.is_superuser and invoice.user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot approve a purchase invoice you created",
         )
 
     invoice.status = "approved"
@@ -510,7 +535,7 @@ def create_purchase_order_from_replenishment(
     )
 
 
-def mark_purchase_order_ordered(
+def _get_purchase_order_for_user(
     db: Session,
     current_user: User,
     purchase_order_id: int,
@@ -527,17 +552,100 @@ def mark_purchase_order_ordered(
     )
     if not purchase_order:
         raise HTTPException(status_code=404, detail="Purchase order not found")
-    if not current_user.is_superuser and purchase_order.user_id != current_user.id:
+    if (
+        not _can_access_any_tenant_document(db, current_user)
+        and purchase_order.user_id != current_user.id
+    ):
         raise HTTPException(
-            status_code=403, detail="Not authorized to update this purchase order"
+            status_code=403, detail="Not authorized to access this purchase order"
         )
+    return purchase_order
+
+
+def submit_purchase_order_for_review(
+    db: Session,
+    current_user: User,
+    purchase_order_id: int,
+    action_in: PurchaseOrderReviewAction,
+    tenant_id: int,
+) -> PurchaseOrder:
+    purchase_order = _get_purchase_order_for_user(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=tenant_id,
+    )
     if purchase_order.status != "draft":
         raise HTTPException(
-            status_code=400, detail="Only draft purchase orders can be marked ordered"
+            status_code=400,
+            detail="Only draft purchase orders can be submitted for review",
+        )
+
+    purchase_order.status = "pending_review"
+    purchase_order.review_note = action_in.review_note
+    db.add(purchase_order)
+    db.commit()
+    db.refresh(purchase_order)
+    return purchase_order
+
+
+def mark_purchase_order_ordered(
+    db: Session,
+    current_user: User,
+    purchase_order_id: int,
+    tenant_id: int,
+) -> PurchaseOrder:
+    purchase_order = _get_purchase_order_for_user(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=tenant_id,
+    )
+    if purchase_order.status != "pending_review":
+        raise HTTPException(
+            status_code=400,
+            detail="Only purchase orders pending review can be marked ordered",
+        )
+    if not current_user.is_superuser and purchase_order.user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot approve a purchase order you created",
         )
 
     purchase_order.status = "ordered"
     purchase_order.ordered_at = datetime.now(UTC)
+    db.add(purchase_order)
+    db.commit()
+    db.refresh(purchase_order)
+    return purchase_order
+
+
+def reject_purchase_order(
+    db: Session,
+    current_user: User,
+    purchase_order_id: int,
+    action_in: PurchaseOrderReviewAction,
+    tenant_id: int,
+) -> PurchaseOrder:
+    purchase_order = _get_purchase_order_for_user(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=tenant_id,
+    )
+    if purchase_order.status != "pending_review":
+        raise HTTPException(
+            status_code=400,
+            detail="Only purchase orders pending review can be rejected",
+        )
+    if not current_user.is_superuser and purchase_order.user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot reject a purchase order you created",
+        )
+
+    purchase_order.status = "rejected"
+    purchase_order.review_note = action_in.review_note
     db.add(purchase_order)
     db.commit()
     db.refresh(purchase_order)
@@ -550,21 +658,12 @@ def cancel_purchase_order(
     purchase_order_id: int,
     tenant_id: int,
 ) -> PurchaseOrder:
-    purchase_order = (
-        db.query(PurchaseOrder)
-        .options(joinedload(PurchaseOrder.items))
-        .filter(
-            PurchaseOrder.id == purchase_order_id,
-            PurchaseOrder.tenant_id == tenant_id,
-        )
-        .first()
+    purchase_order = _get_purchase_order_for_user(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=tenant_id,
     )
-    if not purchase_order:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
-    if not current_user.is_superuser and purchase_order.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to cancel this purchase order"
-        )
     if purchase_order.status == "cancelled":
         raise HTTPException(
             status_code=400, detail="Purchase order is already cancelled"
@@ -594,25 +693,18 @@ def receive_purchase_order_items(
             status_code=400, detail="Receive request must contain at least one item"
         )
 
-    purchase_order = (
-        db.query(PurchaseOrder)
-        .options(joinedload(PurchaseOrder.items))
-        .filter(
-            PurchaseOrder.id == purchase_order_id,
-            PurchaseOrder.tenant_id == tenant_id,
-        )
-        .first()
+    purchase_order = _get_purchase_order_for_user(
+        db=db,
+        current_user=current_user,
+        purchase_order_id=purchase_order_id,
+        tenant_id=tenant_id,
     )
-    if not purchase_order:
-        raise HTTPException(status_code=404, detail="Purchase order not found")
-    if not current_user.is_superuser and purchase_order.user_id != current_user.id:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to receive this purchase order"
-        )
-    if purchase_order.status in ("cancelled", "received"):
+    if purchase_order.status not in ("ordered", "partially_received"):
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot receive items for a {purchase_order.status} purchase order",
+            detail=(
+                f"Cannot receive items for a {purchase_order.status} purchase order"
+            ),
         )
 
     po_item_map = {item.id: item for item in purchase_order.items}
@@ -688,8 +780,6 @@ def receive_purchase_order_items(
         purchase_order.received_at = datetime.now(UTC)
     elif any_received:
         purchase_order.status = "partially_received"
-    elif purchase_order.status == "draft":
-        purchase_order.status = "ordered"
 
     db.add(purchase_order)
     db.commit()
@@ -703,3 +793,227 @@ def receive_purchase_order_items(
         )
         .first()
     )
+
+
+def _paid_total_for_invoice(db: Session, invoice: PurchaseInvoice) -> Decimal:
+    return db.query(func.coalesce(func.sum(SupplierPayment.amount), 0)).filter(
+        SupplierPayment.invoice_id == invoice.id,
+        SupplierPayment.tenant_id == invoice.tenant_id,
+        SupplierPayment.status == "approved",
+    ).scalar() or Decimal("0")
+
+
+def _get_supplier_payment_for_user(
+    db: Session,
+    current_user: User,
+    payment_id: int,
+    tenant_id: int,
+) -> SupplierPayment:
+    payment = (
+        db.query(SupplierPayment)
+        .filter(
+            SupplierPayment.id == payment_id,
+            SupplierPayment.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not payment:
+        raise HTTPException(status_code=404, detail="Supplier payment not found")
+    if (
+        not _can_access_any_tenant_document(db, current_user)
+        and payment.user_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this supplier payment"
+        )
+    return payment
+
+
+def create_supplier_payment(
+    db: Session,
+    current_user: User,
+    payment_in: SupplierPaymentCreate,
+    tenant_id: int,
+) -> SupplierPayment:
+    supplier = (
+        db.query(Supplier)
+        .filter(
+            Supplier.id == payment_in.supplier_id,
+            Supplier.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    if not supplier.is_active:
+        raise HTTPException(status_code=400, detail="Supplier is inactive")
+
+    invoice = (
+        db.query(PurchaseInvoice)
+        .filter(
+            PurchaseInvoice.id == payment_in.invoice_id,
+            PurchaseInvoice.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Purchase invoice not found")
+    if invoice.supplier_id != supplier.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Invoice does not belong to the selected supplier",
+        )
+    if invoice.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail="Only approved invoices can be paid",
+        )
+
+    paid_total = _paid_total_for_invoice(db, invoice)
+    outstanding = to_decimal(invoice.total_amount) - paid_total
+    payment_amount = quantize_money(to_decimal(payment_in.amount))
+    if payment_amount > outstanding:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Payment exceeds outstanding amount. Outstanding: "
+                f"{outstanding}, payment: {payment_amount}"
+            ),
+        )
+
+    payment = SupplierPayment(
+        supplier_id=supplier.id,
+        invoice_id=invoice.id,
+        user_id=current_user.id,
+        tenant_id=tenant_id,
+        amount=payment_amount,
+        payment_method=payment_in.payment_method.strip(),
+        reference=payment_in.reference,
+        status="draft",
+        payment_date=payment_in.payment_date,
+        notes=payment_in.notes,
+    )
+    if not payment.payment_method:
+        raise HTTPException(status_code=400, detail="Payment method cannot be empty")
+
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def submit_supplier_payment_for_review(
+    db: Session,
+    current_user: User,
+    payment_id: int,
+    action_in: SupplierPaymentReviewAction,
+    tenant_id: int,
+) -> SupplierPayment:
+    payment = _get_supplier_payment_for_user(
+        db=db,
+        current_user=current_user,
+        payment_id=payment_id,
+        tenant_id=tenant_id,
+    )
+    if payment.status != "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Only draft payments can be submitted for review",
+        )
+
+    payment.status = "pending_review"
+    payment.review_note = action_in.review_note
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def approve_supplier_payment(
+    db: Session,
+    current_user: User,
+    payment_id: int,
+    action_in: SupplierPaymentReviewAction,
+    tenant_id: int,
+) -> SupplierPayment:
+    payment = _get_supplier_payment_for_user(
+        db=db,
+        current_user=current_user,
+        payment_id=payment_id,
+        tenant_id=tenant_id,
+    )
+    if payment.status != "pending_review":
+        raise HTTPException(
+            status_code=400,
+            detail="Only pending_review payments can be approved",
+        )
+    if not current_user.is_superuser and payment.user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot approve a supplier payment you created",
+        )
+
+    invoice = (
+        db.query(PurchaseInvoice)
+        .filter(
+            PurchaseInvoice.id == payment.invoice_id,
+            PurchaseInvoice.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not invoice or invoice.status != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail="Payment can only be approved against an approved invoice",
+        )
+
+    paid_total = _paid_total_for_invoice(db, invoice)
+    outstanding = to_decimal(invoice.total_amount) - paid_total
+    if to_decimal(payment.amount) > outstanding:
+        raise HTTPException(
+            status_code=400,
+            detail="Approving this payment would exceed the outstanding amount",
+        )
+
+    payment.status = "approved"
+    payment.review_note = action_in.review_note
+    payment.approved_at = datetime.now(UTC)
+    payment.rejected_at = None
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment
+
+
+def reject_supplier_payment(
+    db: Session,
+    current_user: User,
+    payment_id: int,
+    action_in: SupplierPaymentReviewAction,
+    tenant_id: int,
+) -> SupplierPayment:
+    payment = _get_supplier_payment_for_user(
+        db=db,
+        current_user=current_user,
+        payment_id=payment_id,
+        tenant_id=tenant_id,
+    )
+    if payment.status != "pending_review":
+        raise HTTPException(
+            status_code=400,
+            detail="Only pending_review payments can be rejected",
+        )
+    if not current_user.is_superuser and payment.user_id == current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot reject a supplier payment you created",
+        )
+
+    payment.status = "rejected"
+    payment.review_note = action_in.review_note
+    payment.rejected_at = datetime.now(UTC)
+    payment.approved_at = None
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment

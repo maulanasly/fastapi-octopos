@@ -69,6 +69,7 @@ class PurchaseOrder(BaseModel):
     status: str
     total_estimated_amount: float
     notes: str | None = None
+    review_note: str | None = None
     created_at: datetime
     ordered_at: datetime | None = None
     received_at: datetime | None = None
@@ -94,6 +95,43 @@ class PurchaseInvoiceCreate(BaseModel):
 
 class PurchaseInvoiceReviewAction(BaseModel):
     review_note: str | None = None
+
+
+class PurchaseOrderReviewAction(BaseModel):
+    review_note: str | None = None
+
+
+class SupplierPaymentCreate(BaseModel):
+    supplier_id: int
+    invoice_id: int
+    amount: float = Field(gt=0)
+    payment_method: str
+    reference: str | None = None
+    payment_date: datetime | None = None
+    notes: str | None = None
+
+
+class SupplierPaymentReviewAction(BaseModel):
+    review_note: str | None = None
+
+
+class SupplierPayment(BaseModel):
+    id: int
+    supplier_id: int
+    invoice_id: int
+    user_id: int
+    amount: float
+    payment_method: str
+    reference: str | None = None
+    status: str
+    payment_date: datetime | None = None
+    notes: str | None = None
+    review_note: str | None = None
+    approved_at: datetime | None = None
+    rejected_at: datetime | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class PurchaseInvoiceItem(BaseModel):
@@ -145,3 +183,13 @@ class PurchaseInvoiceSummary(BaseModel):
     approved_total: float
     billed_total: float
     variance_total: float
+
+
+class SupplierPaymentSummary(BaseModel):
+    payment_count: int
+    approved_count: int
+    rejected_count: int
+    pending_review_count: int
+    draft_count: int
+    approved_total: float
+    outstanding_payable: float
