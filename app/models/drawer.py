@@ -20,6 +20,7 @@ class DrawerSession(Base):
     expected_cash = Column(Numeric(12, 2), default=0.0, nullable=False)
     status = Column(String, default="open", nullable=False)  # "open", "closed"
 
+    tenant = relationship("Tenant")
     user = relationship("User")
     orders = relationship("Order", back_populates="drawer_session")
     reconciliation = relationship(

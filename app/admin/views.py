@@ -16,7 +16,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 from wtforms import SelectField
 
 from app.admin.color_field import ColorField
-from app.admin.formatting import LabeledRelationsMixin
+from app.admin.formatting import LabeledRelationsMixin, _make_relation_formatter
 from app.admin.password_field import AdminPasswordField
 from app.core.audit import log_action
 from app.core.database import SessionLocal
@@ -129,7 +129,52 @@ def _unique_tenant_slug(db, name: str, current_id: int | None = None) -> str:
 
 
 class TenantScopedModelView(ModelView):
-    """ModelView that stamps tenant_id on rows created through the panel."""
+    """ModelView that stamps tenant_id on rows created through the panel.
+
+    Also surfaces the tenant on every tenant-scoped list: the tenant column
+    (rendered as the tenant name, right after ``id``) and a tenant filter
+    dropdown. Detail pages already render all relationships labeled via
+    :class:`LabeledRelationsMixin`.
+    """
+
+    #: Keep the ``tenant`` relationship out of create/edit forms: writes are
+    #: scoped to the Tenant switcher (stamped in ``on_model_change``), and an
+    #: unset dropdown would otherwise overwrite the stamp with NULL. Views
+    #: that manage tenant explicitly in their form opt out.
+    exclude_tenant_from_form = True
+
+    def __init__(self, *args, **kwargs):
+        model = getattr(self, "model", None)
+        tenant_rel = getattr(model, "tenant", None) if model is not None else None
+        # Exclude tenant from the form BEFORE ModelView.__init__ snapshots
+        # _form_prop_names; a blank tenant dropdown would otherwise overwrite
+        # the stamped tenant_id with NULL on create/edit.
+        if tenant_rel is not None and self.exclude_tenant_from_form:
+            excluded = list(getattr(self, "form_excluded_columns", []) or [])
+            excluded_keys = {getattr(item, "key", item) for item in excluded}
+            if "tenant" not in excluded_keys:
+                self.form_excluded_columns = excluded + [tenant_rel]
+        super().__init__(*args, **kwargs)
+        if model is None or tenant_rel is None:
+            return
+        columns = list(getattr(self, "column_list", []) or [])
+        if not any(getattr(column, "key", None) == "tenant" for column in columns):
+            self.column_list = columns[:1] + [tenant_rel] + columns[1:]
+            # LabeledRelationsMixin built its formatters from the pre-injection
+            # column_list, so label the injected tenant column here.
+            self.column_formatters = {
+                **dict(getattr(self, "column_formatters", {}) or {}),
+                tenant_rel: _make_relation_formatter("tenant"),
+            }
+        filters = list(getattr(self, "column_filters", []) or [])
+        if not any(
+            getattr(filter_, "parameter_name", None) == "tenant_id"
+            for filter_ in filters
+        ):
+            self.column_filters = [
+                ForeignKeyFilter(model.tenant_id, Tenant.name, foreign_model=Tenant),
+                *filters,
+            ]
 
     async def on_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
@@ -261,6 +306,10 @@ class LocalizationSettingAdmin(
     icon = "fa-solid fa-earth-asia"
     category = "System"
     category_icon = "fa-solid fa-gear"
+
+    # The tenant is chosen explicitly in the create/edit form (singleton
+    # per tenant semantics are enforced in on_model_change).
+    exclude_tenant_from_form = False
 
     column_list = [
         LocalizationSetting.id,

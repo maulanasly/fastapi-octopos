@@ -567,6 +567,103 @@ def test_admin_drawer_session_list_and_filter_render(client, db, auth_factory):
     assert "drawer-boss@example.com" in resp.text
 
 
+def test_admin_product_list_shows_tenant_name(client, db):
+    """Tenant-scoped list views show the tenant name as a column."""
+    from app.models.product import Category, Product
+
+    _login(client)
+    category = Category(name="Tenant Cat", description="x", tenant_id=1)
+    product = Product(
+        name="Tenant Widget",
+        sku="SKU-TEN-1",
+        price=5.0,
+        category=category,
+        tenant_id=1,
+    )
+    db.add_all([category, product])
+    db.commit()
+
+    page = client.get("/admin/product/list")
+    assert page.status_code == 200
+    assert "Tenant Widget" in page.text
+    assert "Default Business" in page.text
+    assert "<Tenant" not in page.text
+
+
+def test_admin_category_list_shows_tenant_name(client, db):
+    """Category list also renders the tenant name."""
+    from app.models.product import Category
+
+    _login(client)
+    db.add(Category(name="Beverages", description="x", tenant_id=1))
+    db.commit()
+
+    page = client.get("/admin/category/list")
+    assert page.status_code == 200
+    assert "Beverages" in page.text
+    assert "Default Business" in page.text
+
+
+def test_admin_product_list_filters_by_tenant(client, db):
+    """The tenant filter dropdown scopes the list to one tenant."""
+    from app.models.product import Category, Product
+    from app.models.tenant import Tenant
+
+    tenant2 = Tenant(name="Other Tenant", slug="other-tenant")
+    db.add(tenant2)
+    db.commit()
+    db.refresh(tenant2)
+
+    db.add_all(
+        [
+            Product(name="Main Shop Widget", sku="SKU-TEN-M1", price=1.0, tenant_id=1),
+            Category(name="Other Cat", description="x", tenant_id=tenant2.id),
+        ]
+    )
+    db.commit()
+    other_product = Product(
+        name="Other Tenant Widget",
+        sku="SKU-TEN-O1",
+        price=2.0,
+        tenant_id=tenant2.id,
+    )
+    db.add(other_product)
+    db.commit()
+
+    _login(client)
+
+    unfiltered = client.get("/admin/product/list")
+    assert unfiltered.status_code == 200
+    assert "Main Shop Widget" in unfiltered.text
+    assert "Other Tenant Widget" in unfiltered.text
+
+    filtered = client.get("/admin/product/list?tenant_id=2")
+    assert filtered.status_code == 200
+    assert "Other Tenant Widget" in filtered.text
+    assert "Other Tenant" in filtered.text
+    assert "Main Shop Widget" not in filtered.text
+
+
+def test_admin_create_stamps_selected_tenant(client, db):
+    """Admin-created rows land in the selected tenant, not NULL.
+
+    The tenant relationship must stay out of create/edit forms: a blank
+    tenant dropdown would overwrite the on_model_change stamp with NULL
+    (breaking NOT NULL columns and the login flow for panel-created users).
+    """
+    from app.models.product import Category
+
+    _login(client)
+    resp = client.post(
+        "/admin/category/create",
+        data={"name": "Stamped Cat", "description": "x", "color": "#000000"},
+    )
+    assert resp.status_code in (302, 200), resp.text
+
+    category = db.query(Category).filter(Category.name == "Stamped Cat").one()
+    assert category.tenant_id == 1
+
+
 def _workflow_admin(client, auth_factory, db, email):
     user = auth_factory.register(email)
     _make_superuser(db, user["id"])

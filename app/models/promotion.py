@@ -58,6 +58,7 @@ class Promotion(Base):
         nullable=False,
     )
 
+    tenant = relationship("Tenant")
     product = relationship("Product")
     category = relationship("Category")
     orders = relationship("Order", back_populates="promotion")

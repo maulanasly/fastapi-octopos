@@ -38,6 +38,7 @@ class Category(Base):
         nullable=False,
     )
 
+    tenant = relationship("Tenant")
     products = relationship("Product", back_populates="category")
 
 
@@ -71,5 +72,6 @@ class Product(Base):
         nullable=False,
     )
 
+    tenant = relationship("Tenant")
     category = relationship("Category", back_populates="products")
     stock_movements = relationship("StockMovement", back_populates="product")

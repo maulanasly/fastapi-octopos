@@ -37,5 +37,6 @@ class ShiftReconciliation(Base):
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     drawer_session = relationship("DrawerSession", back_populates="reconciliation")
     closed_by_user = relationship("User")
