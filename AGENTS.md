@@ -100,12 +100,11 @@ and pgvector semantic search.
 
 ## Knowledge graph
 
-- **Graph-first context**: before exploring the codebase, load the graphify
-  skill and answer context/architecture questions with
-  `graphify query "<question>"` — the graph covers the whole repo and answers
-  cite `source_location`. Only read specific files directly when the graph's
-  answer lacks the detail you need (paths come from the graph's
-  `source_location`).
+- **Graph-first workflow (required)**: for **every** feature request,
+  improvement, or bugfix, **always** start by querying the knowledge graph
+  (`graphify query "<question>"`) before any other code exploration — no matter
+  the task type. Only read specific files directly when the graph's answer lacks
+  the detail you need (paths come from the graph's `source_location`).
 - **Update at task end**: after the MR is submitted, run the graphify `--update`
   flow on the repo root (`/graphify . --update`) so the graph reflects the
   final code — re-extracts only changed files (code-only runs skip semantic
