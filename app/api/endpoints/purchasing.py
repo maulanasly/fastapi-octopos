@@ -31,7 +31,10 @@ from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
 from app.schemas.purchase import Supplier as SupplierSchema
 from app.schemas.purchase import SupplierPayment as SupplierPaymentSchema
 from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
-from app.services.purchasing import _get_purchase_invoice_for_user
+from app.services.purchasing import (
+    _attach_outstanding_amounts,
+    _get_purchase_invoice_for_user,
+)
 from app.services.purchasing import (
     approve_purchase_invoice as approve_purchase_invoice_service,
 )
@@ -170,7 +173,9 @@ def get_purchase_invoices(
         query = query.filter(PurchaseInvoice.supplier_id == supplier_id)
     if purchase_order_id:
         query = query.filter(PurchaseInvoice.purchase_order_id == purchase_order_id)
-    return query.offset(skip).limit(limit).all()
+    invoices = query.offset(skip).limit(limit).all()
+    _attach_outstanding_amounts(db, invoices, current_user.tenant_id)
+    return invoices
 
 
 @router.get("/invoices/{invoice_id}", response_model=PurchaseInvoiceSchema)
@@ -179,12 +184,14 @@ def get_purchase_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return _get_purchase_invoice_for_user(
+    invoice = _get_purchase_invoice_for_user(
         db=db,
         invoice_id=invoice_id,
         current_user=current_user,
         tenant_id=current_user.tenant_id,
     )
+    _attach_outstanding_amounts(db, [invoice], current_user.tenant_id)
+    return invoice
 
 
 @router.post("/invoices", response_model=PurchaseInvoiceSchema)
@@ -452,6 +459,7 @@ def submit_purchase_order_for_review(
 )
 def mark_purchase_order_ordered(
     purchase_order_id: int,
+    action_in: PurchaseOrderReviewAction | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -467,6 +475,7 @@ def mark_purchase_order_ordered(
         db=db,
         current_user=current_user,
         purchase_order_id=purchase_order_id,
+        action_in=action_in or PurchaseOrderReviewAction(),
         tenant_id=current_user.tenant_id,
     )
     log_action(
@@ -475,6 +484,7 @@ def mark_purchase_order_ordered(
         user_id=current_user.id,
         resource_type="purchase_order",
         resource_id=purchase_order.id,
+        details={"review_note": purchase_order.review_note},
     )
     db.commit()
     return purchase_order

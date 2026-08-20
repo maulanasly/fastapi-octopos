@@ -1802,6 +1802,7 @@ class WorkflowsAdmin(BaseView):
                             db=db,
                             current_user=user,
                             purchase_order_id=po_id,
+                            action_in=PurchaseOrderReviewAction(review_note=None),
                             tenant_id=tenant_id,
                         )
                     except HTTPException as exc:

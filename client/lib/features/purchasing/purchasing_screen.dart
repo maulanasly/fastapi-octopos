@@ -57,6 +57,17 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     await Future.wait<void>([_orders, _invoices, _payments]);
   }
 
+  /// True when the signed-in user may review (approve/reject) a document.
+  ///
+  /// Mirrors the backend rule: approvers can review any document except one
+  /// they created themselves, unless they are a superuser.
+  bool _canReview({required int ownerUserId}) {
+    final auth = ref.read(authControllerProvider);
+    if (!auth.has('purchasing:approve')) return false;
+    if (auth.isSuperuser) return true;
+    return ownerUserId != auth.userId;
+  }
+
   Future<void> _editSupplier({Supplier? supplier}) async {
     final s = ref.read(stringsProvider);
     final name = TextEditingController(text: supplier?.name ?? '');
@@ -324,9 +335,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         .isEmpty
         ? null
         : suppliers.firstWhere((sup) => sup.id == order.supplierId);
-    final canApprove = ref
-        .read(authControllerProvider)
-        .has('purchasing:approve');
+    final auth = ref.read(authControllerProvider);
+    final canApprove = auth.has('purchasing:approve');
+    final canReview = _canReview(ownerUserId: order.userId);
 
     await showDialog<void>(
       context: context,
@@ -371,6 +382,17 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   style: Theme.of(ctx).textTheme.titleSmall,
                 ),
               ),
+              if (order.reviewNote != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '${s.of('reviewNote')}: ${order.reviewNote}',
+                      style: Theme.of(ctx).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -395,7 +417,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               child: Text(s.of('cancelOrder')),
             ),
           ],
-          if (order.status == 'pending_review' && canApprove) ...[
+          if (order.status == 'pending_review' && canReview) ...[
             FilledButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -449,12 +471,27 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ? s.of('reject')
               : s.of('submitForReviewOrder'),
         ),
-        content: Text(
-          action == 'approve'
-              ? s.of('confirmApproveOrder')
-              : action == 'reject'
-              ? s.of('confirmRejectOrder')
-              : s.of('confirmSubmitOrder'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              action == 'approve'
+                  ? s.of('confirmApproveOrder')
+                  : action == 'reject'
+                  ? s.of('confirmRejectOrder')
+                  : s.of('confirmSubmitOrder'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: note,
+              decoration: InputDecoration(
+                labelText: s.of('reviewNote'),
+                isDense: true,
+              ),
+              minLines: 1,
+              maxLines: 3,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -477,19 +514,14 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     if (ok != true) return;
     try {
       final repo = ref.read(purchasingRepositoryProvider);
+      final reviewNote = note.text.trim().isEmpty ? null : note.text.trim();
       switch (action) {
         case 'approve':
-          await repo.markOrdered(order.id);
+          await repo.markOrdered(order.id, reviewNote: reviewNote);
         case 'reject':
-          await repo.rejectOrder(
-            order.id,
-            reviewNote: note.text.trim().isEmpty ? null : note.text.trim(),
-          );
+          await repo.rejectOrder(order.id, reviewNote: reviewNote);
         default:
-          await repo.submitOrder(
-            order.id,
-            reviewNote: note.text.trim().isEmpty ? null : note.text.trim(),
-          );
+          await repo.submitOrder(order.id, reviewNote: reviewNote);
       }
       if (mounted) setState(_reload);
     } catch (e) {
@@ -801,9 +833,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         .isEmpty
         ? null
         : suppliers.firstWhere((sup) => sup.id == invoice.supplierId);
-    final canApprove = ref
-        .read(authControllerProvider)
-        .has('purchasing:approve');
+    final canReview = _canReview(ownerUserId: invoice.userId);
 
     await showDialog<void>(
       context: context,
@@ -891,7 +921,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               },
               child: Text(s.of('submitForReview')),
             ),
-          if (invoice.status == 'pending_review' && canApprove) ...[
+          if (invoice.status == 'pending_review' && canReview) ...[
             TextButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -922,12 +952,27 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         title: Text(
           action == 'approve' ? s.of('approve') : action == 'reject' ? s.of('reject') : s.of('submitForReview'),
         ),
-        content: Text(
-          action == 'approve'
-              ? s.of('confirmApprove')
-              : action == 'reject'
-              ? s.of('confirmReject')
-              : '${invoice.invoiceNumber} — ${s.of('submitForReview')}',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              action == 'approve'
+                  ? s.of('confirmApprove')
+                  : action == 'reject'
+                  ? s.of('confirmReject')
+                  : '${invoice.invoiceNumber} — ${s.of('submitForReview')}',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: note,
+              decoration: InputDecoration(
+                labelText: s.of('reviewNote'),
+                isDense: true,
+              ),
+              minLines: 1,
+              maxLines: 3,
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -950,13 +995,14 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     if (ok != true) return;
     try {
       final repo = ref.read(purchasingRepositoryProvider);
+      final reviewNote = note.text.trim().isEmpty ? null : note.text.trim();
       switch (action) {
         case 'approve':
-          await repo.approveInvoice(invoice.id, reviewNote: note.text.trim().isEmpty ? null : note.text.trim());
+          await repo.approveInvoice(invoice.id, reviewNote: reviewNote);
         case 'reject':
-          await repo.rejectInvoice(invoice.id, reviewNote: note.text.trim().isEmpty ? null : note.text.trim());
+          await repo.rejectInvoice(invoice.id, reviewNote: reviewNote);
         default:
-          await repo.submitInvoice(invoice.id, reviewNote: note.text.trim().isEmpty ? null : note.text.trim());
+          await repo.submitInvoice(invoice.id, reviewNote: reviewNote);
       }
       if (mounted) setState(_reload);
     } catch (e) {
@@ -974,9 +1020,12 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     final suppliers = await repo.suppliers();
     final invoices = await repo.invoices(status: 'approved');
     if (!mounted) return;
+    final payableInvoices = invoices
+        .where((inv) => inv.outstandingAmount > 0)
+        .toList();
     final activeSuppliers =
         suppliers.where((sup) => sup.isActive).toList();
-    if (activeSuppliers.isEmpty || invoices.isEmpty) {
+    if (activeSuppliers.isEmpty || payableInvoices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(s.of('noApprovedInvoices'))),
       );
@@ -1025,19 +1074,21 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     isDense: true,
                   ),
                   items: [
-                    for (final inv in invoices)
+                    for (final inv in payableInvoices)
                       if (inv.supplierId == supplier?.id)
                         DropdownMenuItem<int>(
                           value: inv.id,
                           child: Text(
                             '${inv.invoiceNumber} · '
-                            '${formatCents(centsFromApi(inv.totalAmount))}',
+                            '${formatCents(centsFromApi(inv.totalAmount))}'
+                            ' · ${s.of('outstanding')}: '
+                            '${formatCents(centsFromApi(inv.outstandingAmount))}',
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                   ],
                   onChanged: (v) => setDialogState(() {
-                    invoice = invoices.firstWhere((inv) => inv.id == v);
+                    invoice = payableInvoices.firstWhere((inv) => inv.id == v);
                   }),
                 ),
                 TextField(
@@ -1130,9 +1181,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         .isEmpty
         ? null
         : suppliers.firstWhere((sup) => sup.id == payment.supplierId);
-    final canApprove = ref
-        .read(authControllerProvider)
-        .has('purchasing:approve');
+    final canReview = _canReview(ownerUserId: payment.userId);
 
     await showDialog<void>(
       context: context,
@@ -1188,7 +1237,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               },
               child: Text(s.of('submitForReview')),
             ),
-          if (payment.status == 'pending_review' && canApprove) ...[
+          if (payment.status == 'pending_review' && canReview) ...[
             TextButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
@@ -1226,12 +1275,27 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ? s.of('reject')
               : s.of('submitForReview'),
         ),
-        content: Text(
-          action == 'approve'
-              ? s.of('confirmApprovePayment')
-              : action == 'reject'
-              ? s.of('confirmRejectPayment')
-              : s.of('confirmSubmitPayment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              action == 'approve'
+                  ? s.of('confirmApprovePayment')
+                  : action == 'reject'
+                  ? s.of('confirmRejectPayment')
+                  : s.of('confirmSubmitPayment'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: note,
+              decoration: InputDecoration(
+                labelText: s.of('reviewNote'),
+                isDense: true,
+              ),
+              minLines: 1,
+              maxLines: 3,
+            ),
+          ],
         ),
         actions: [
           TextButton(

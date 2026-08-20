@@ -24,12 +24,18 @@ class _FixedLanguageLocalization extends LocalizationController {
 }
 
 class _FakeAuth extends AuthController {
+  _FakeAuth({this.ownerId = 1, this.isSuperuser = false});
+
+  final int? ownerId;
+  final bool isSuperuser;
+
   @override
-  AuthState build() => const AuthState(
+  AuthState build() => AuthState(
     status: AuthStatus.signedIn,
-    userId: 1,
+    userId: ownerId,
     email: 'manager@example.com',
     permissions: {'purchasing:manage', 'purchasing:approve'},
+    isSuperuser: isSuperuser,
   );
 }
 
@@ -39,8 +45,18 @@ class _FakePurchasing extends PurchasingRepository {
 
   int submitOrderCalls = 0;
   int markOrderedCalls = 0;
+  int rejectOrderCalls = 0;
+  int submitInvoiceCalls = 0;
+  int approveInvoiceCalls = 0;
+  int rejectInvoiceCalls = 0;
   int submitPaymentCalls = 0;
+  int approvePaymentCalls = 0;
+  int rejectPaymentCalls = 0;
   int createPaymentCalls = 0;
+
+  String? lastOrderNote;
+  String? lastInvoiceNote;
+  String? lastPaymentNote;
 
   @override
   Future<List<Supplier>> suppliers() async => const [
@@ -59,8 +75,8 @@ class _FakePurchasing extends PurchasingRepository {
       PurchaseOrder(
         id: 11,
         supplierId: 1,
-        userId: 1,
-        status: 'draft',
+        userId: 2,
+        status: 'pending_review',
         totalEstimatedAmount: 150.0,
         createdAt: '2026-08-17T10:00:00',
         items: [
@@ -84,7 +100,7 @@ class _FakePurchasing extends PurchasingRepository {
         id: 31,
         supplierId: 1,
         purchaseOrderId: 11,
-        userId: 1,
+        userId: 2,
         invoiceNumber: 'INV-001',
         status: 'pending_review',
         subtotalAmount: 150.0,
@@ -92,6 +108,7 @@ class _FakePurchasing extends PurchasingRepository {
         varianceAmount: 0,
         hasQuantityVariance: false,
         hasPriceVariance: false,
+        outstandingAmount: 150.0,
         items: [],
       ),
     ];
@@ -107,7 +124,7 @@ class _FakePurchasing extends PurchasingRepository {
         id: 41,
         supplierId: 1,
         invoiceId: 31,
-        userId: 1,
+        userId: 2,
         amount: 100.0,
         paymentMethod: 'cash',
         status: 'pending_review',
@@ -121,10 +138,11 @@ class _FakePurchasing extends PurchasingRepository {
     String? reviewNote,
   }) async {
     submitOrderCalls++;
+    lastOrderNote = reviewNote;
     return const PurchaseOrder(
       id: 11,
       supplierId: 1,
-      userId: 1,
+      userId: 2,
       status: 'pending_review',
       totalEstimatedAmount: 150.0,
       items: [],
@@ -132,14 +150,104 @@ class _FakePurchasing extends PurchasingRepository {
   }
 
   @override
-  Future<PurchaseOrder> markOrdered(int purchaseOrderId) async {
+  Future<PurchaseOrder> markOrdered(
+    int purchaseOrderId, {
+    String? reviewNote,
+  }) async {
     markOrderedCalls++;
+    lastOrderNote = reviewNote;
     return const PurchaseOrder(
       id: 11,
       supplierId: 1,
-      userId: 1,
+      userId: 2,
       status: 'ordered',
       totalEstimatedAmount: 150.0,
+      items: [],
+    );
+  }
+
+  @override
+  Future<PurchaseOrder> rejectOrder(
+    int purchaseOrderId, {
+    String? reviewNote,
+  }) async {
+    rejectOrderCalls++;
+    lastOrderNote = reviewNote;
+    return const PurchaseOrder(
+      id: 11,
+      supplierId: 1,
+      userId: 2,
+      status: 'rejected',
+      totalEstimatedAmount: 150.0,
+      items: [],
+    );
+  }
+
+  @override
+  Future<PurchaseInvoice> submitInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    submitInvoiceCalls++;
+    lastInvoiceNote = reviewNote;
+    return const PurchaseInvoice(
+      id: 31,
+      supplierId: 1,
+      purchaseOrderId: 11,
+      userId: 2,
+      invoiceNumber: 'INV-001',
+      status: 'pending_review',
+      subtotalAmount: 150.0,
+      totalAmount: 150.0,
+      varianceAmount: 0,
+      hasQuantityVariance: false,
+      hasPriceVariance: false,
+      items: [],
+    );
+  }
+
+  @override
+  Future<PurchaseInvoice> approveInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    approveInvoiceCalls++;
+    lastInvoiceNote = reviewNote;
+    return const PurchaseInvoice(
+      id: 31,
+      supplierId: 1,
+      purchaseOrderId: 11,
+      userId: 2,
+      invoiceNumber: 'INV-001',
+      status: 'approved',
+      subtotalAmount: 150.0,
+      totalAmount: 150.0,
+      varianceAmount: 0,
+      hasQuantityVariance: false,
+      hasPriceVariance: false,
+      items: [],
+    );
+  }
+
+  @override
+  Future<PurchaseInvoice> rejectInvoice(
+    int invoiceId, {
+    String? reviewNote,
+  }) async {
+    rejectInvoiceCalls++;
+    lastInvoiceNote = reviewNote;
+    return const PurchaseInvoice(
+      id: 31,
+      supplierId: 1,
+      purchaseOrderId: 11,
+      userId: 2,
+      invoiceNumber: 'INV-001',
+      status: 'rejected',
+      subtotalAmount: 150.0,
+      totalAmount: 150.0,
+      varianceAmount: 0,
+      hasQuantityVariance: false,
+      hasPriceVariance: false,
       items: [],
     );
   }
@@ -150,11 +258,12 @@ class _FakePurchasing extends PurchasingRepository {
     String? reviewNote,
   }) async {
     submitPaymentCalls++;
+    lastPaymentNote = reviewNote;
     return const SupplierPayment(
       id: 41,
       supplierId: 1,
       invoiceId: 31,
-      userId: 1,
+      userId: 2,
       amount: 100.0,
       paymentMethod: 'cash',
       status: 'pending_review',
@@ -168,21 +277,60 @@ class _FakePurchasing extends PurchasingRepository {
       id: 41,
       supplierId: 1,
       invoiceId: 31,
-      userId: 1,
+      userId: 2,
       amount: 100.0,
       paymentMethod: 'cash',
       status: 'draft',
     );
   }
+
+  @override
+  Future<SupplierPayment> approvePayment(
+    int paymentId, {
+    String? reviewNote,
+  }) async {
+    approvePaymentCalls++;
+    lastPaymentNote = reviewNote;
+    return const SupplierPayment(
+      id: 41,
+      supplierId: 1,
+      invoiceId: 31,
+      userId: 2,
+      amount: 100.0,
+      paymentMethod: 'cash',
+      status: 'approved',
+    );
+  }
+
+  @override
+  Future<SupplierPayment> rejectPayment(
+    int paymentId, {
+    String? reviewNote,
+  }) async {
+    rejectPaymentCalls++;
+    lastPaymentNote = reviewNote;
+    return const SupplierPayment(
+      id: 41,
+      supplierId: 1,
+      invoiceId: 31,
+      userId: 2,
+      amount: 100.0,
+      paymentMethod: 'cash',
+      status: 'rejected',
+    );
+  }
 }
 
-ProviderContainer _container() => ProviderContainer(
-  overrides: [
-    localizationControllerProvider.overrideWith(_FixedLanguageLocalization.new),
-    authControllerProvider.overrideWith(_FakeAuth.new),
-    purchasingRepositoryProvider.overrideWithValue(_FakePurchasing()),
-  ],
-);
+ProviderContainer _container({int ownerId = 1, bool isSuperuser = false}) {
+  final auth = _FakeAuth(ownerId: ownerId, isSuperuser: isSuperuser);
+  return ProviderContainer(
+    overrides: [
+      localizationControllerProvider.overrideWith(_FixedLanguageLocalization.new),
+      authControllerProvider.overrideWith(() => auth),
+      purchasingRepositoryProvider.overrideWithValue(_FakePurchasing()),
+    ],
+  );
+}
 
 Future<void> _pump(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
@@ -204,7 +352,7 @@ void main() {
     expect(find.textContaining('orders@acme.test'), findsOneWidget);
   });
 
-  testWidgets('purchase orders tab shows draft PO with status', (tester) async {
+  testWidgets('purchase orders tab shows PO with status', (tester) async {
     final container = _container();
     addTearDown(container.dispose);
     await _pump(tester, container);
@@ -212,11 +360,11 @@ void main() {
     await tester.tap(find.text('Purchase orders'));
     await tester.pumpAndSettle();
 
-    expect(find.text('PO #11 · draft'), findsOneWidget);
+    expect(find.text('PO #11 · pending_review'), findsOneWidget);
   });
 
-  testWidgets('draft PO can be submitted for review', (tester) async {
-    final container = _container();
+  testWidgets('review dialog sends review note on order approve', (tester) async {
+    final container = _container(ownerId: 1);
     addTearDown(container.dispose);
     final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
     await _pump(tester, container);
@@ -226,13 +374,55 @@ void main() {
 
     await tester.tap(find.textContaining('PO #11'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Submit for review'));
+    expect(find.text('Approve'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
+
+    await tester.tap(find.text('Approve'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Submit for review').last);
+    await tester.enterText(find.byType(TextField), 'good supplier');
+    await tester.tap(find.text('Approve').last);
     await tester.pumpAndSettle();
 
-    expect(fake.submitOrderCalls, 1);
+    expect(fake.markOrderedCalls, 1);
+    expect(fake.lastOrderNote, 'good supplier');
+  });
+
+  testWidgets('approver cannot review their own order', (tester) async {
+    final container = _container(ownerId: 2);
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Purchase orders'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('PO #11'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve'), findsNothing);
+    expect(find.text('Reject'), findsNothing);
     expect(fake.markOrderedCalls, 0);
+  });
+
+  testWidgets('superuser can approve their own order', (tester) async {
+    final container = _container(ownerId: 2, isSuperuser: true);
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Purchase orders'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('PO #11'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve'), findsOneWidget);
+    await tester.tap(find.text('Approve'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Approve').last);
+    await tester.pumpAndSettle();
+
+    expect(fake.markOrderedCalls, 1);
   });
 
   testWidgets('invoices tab shows pending review invoice', (tester) async {
@@ -244,6 +434,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('INV-001 · pending_review'), findsOneWidget);
+  });
+
+  testWidgets('review dialog sends review note on invoice approve', (tester) async {
+    final container = _container(ownerId: 1);
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Purchase invoices'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('INV-001'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Approve'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'all good');
+    await tester.tap(find.text('Approve').last);
+    await tester.pumpAndSettle();
+
+    expect(fake.approveInvoiceCalls, 1);
+    expect(fake.lastInvoiceNote, 'all good');
+  });
+
+  testWidgets('approver cannot review their own invoice', (tester) async {
+    final container = _container(ownerId: 2);
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Purchase invoices'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('INV-001'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve'), findsNothing);
+    expect(find.text('Reject'), findsNothing);
   });
 
   testWidgets('payments tab lists pending payment', (tester) async {
@@ -258,8 +485,8 @@ void main() {
     expect(find.textContaining('100.00'), findsOneWidget);
   });
 
-  testWidgets('pending payment can be submitted', (tester) async {
-    final container = _container();
+  testWidgets('review dialog sends review note on payment approve', (tester) async {
+    final container = _container(ownerId: 1);
     addTearDown(container.dispose);
     final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
     await _pump(tester, container);
@@ -273,10 +500,28 @@ void main() {
 
     await tester.tap(find.text('Approve'));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'paid in full');
     await tester.tap(find.text('Approve').last);
     await tester.pumpAndSettle();
 
+    expect(fake.approvePaymentCalls, 1);
+    expect(fake.lastPaymentNote, 'paid in full');
     expect(fake.createPaymentCalls, 0);
+  });
+
+  testWidgets('approver cannot review their own payment', (tester) async {
+    final container = _container(ownerId: 2);
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Supplier payments'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#41 · pending_review'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Approve'), findsNothing);
+    expect(find.text('Reject'), findsNothing);
   });
 
   testWidgets('create payment dialog requires approved invoice', (tester) async {

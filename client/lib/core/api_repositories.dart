@@ -924,9 +924,13 @@ class PurchasingRepository {
     return PurchaseOrder.fromJson(resp.data!);
   }
 
-  Future<PurchaseOrder> markOrdered(int purchaseOrderId) async {
+  Future<PurchaseOrder> markOrdered(
+    int purchaseOrderId, {
+    String? reviewNote,
+  }) async {
     final resp = await api.dio.post<Map<String, dynamic>>(
       '/purchasing/orders/$purchaseOrderId/mark-ordered',
+      data: {'review_note': ?reviewNote},
     );
     return PurchaseOrder.fromJson(resp.data!);
   }

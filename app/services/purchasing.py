@@ -593,6 +593,7 @@ def mark_purchase_order_ordered(
     db: Session,
     current_user: User,
     purchase_order_id: int,
+    action_in: PurchaseOrderReviewAction,
     tenant_id: int,
 ) -> PurchaseOrder:
     purchase_order = _get_purchase_order_for_user(
@@ -614,6 +615,7 @@ def mark_purchase_order_ordered(
 
     purchase_order.status = "ordered"
     purchase_order.ordered_at = datetime.now(UTC)
+    purchase_order.review_note = action_in.review_note
     db.add(purchase_order)
     db.commit()
     db.refresh(purchase_order)
@@ -801,6 +803,37 @@ def _paid_total_for_invoice(db: Session, invoice: PurchaseInvoice) -> Decimal:
         SupplierPayment.tenant_id == invoice.tenant_id,
         SupplierPayment.status == "approved",
     ).scalar() or Decimal("0")
+
+
+def _attach_outstanding_amounts(
+    db: Session, invoices: list[PurchaseInvoice], tenant_id: int
+) -> None:
+    """Set the computed outstanding_amount on each invoice in place.
+
+    Bulk variant of _paid_total_for_invoice: a single grouped SUM over the
+    approved supplier payments for all invoices at once, so list responses
+    don't run one query per invoice.
+    """
+    invoice_ids = [invoice.id for invoice in invoices]
+    if not invoice_ids:
+        return
+    paid_rows = (
+        db.query(
+            SupplierPayment.invoice_id,
+            func.coalesce(func.sum(SupplierPayment.amount), 0),
+        )
+        .filter(
+            SupplierPayment.invoice_id.in_(invoice_ids),
+            SupplierPayment.tenant_id == tenant_id,
+            SupplierPayment.status == "approved",
+        )
+        .group_by(SupplierPayment.invoice_id)
+        .all()
+    )
+    paid_by_invoice = {invoice_id: paid for invoice_id, paid in paid_rows}
+    for invoice in invoices:
+        paid = to_decimal(paid_by_invoice.get(invoice.id, Decimal("0")))
+        invoice.outstanding_amount = float(to_decimal(invoice.total_amount) - paid)
 
 
 def _get_supplier_payment_for_user(

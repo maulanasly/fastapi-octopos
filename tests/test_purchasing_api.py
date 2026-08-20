@@ -266,6 +266,24 @@ def test_purchase_order_review_and_reject_flow(
     assert "rejected" in receive.json()["detail"]
 
 
+def test_order_approval_records_review_note(
+    client, manager_headers, admin_headers, make_product
+):
+    product = make_product(manager_headers, name="Appr Note", sku="SKU-ANO", price=10.0)
+    supplier = _make_supplier(client, manager_headers)
+    po = _make_po(client, manager_headers, supplier["id"], product["id"])
+    _submit_po(client, manager_headers, po)
+
+    ordered = client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/mark-ordered",
+        headers=admin_headers,
+        json={"review_note": "costs look fine"},
+    )
+    assert ordered.status_code == 200, ordered.text
+    assert ordered.json()["status"] == "ordered"
+    assert ordered.json()["review_note"] == "costs look fine"
+
+
 def test_manager_cannot_approve_own_or_other_po(
     client, manager_headers, admin_headers, make_product
 ):
@@ -763,6 +781,55 @@ def test_concurrent_approvals_cannot_overpay(
         .scalar()
     )
     assert approved_total == 30.0
+
+
+def test_invoice_list_exposes_outstanding_amount(
+    client, manager_headers, admin_headers, make_product
+):
+    product = make_product(manager_headers, name="Out Stand", sku="SKU-OST", price=10.0)
+    supplier = _make_supplier(client, manager_headers)
+    po = _make_po(client, manager_headers, supplier["id"], product["id"])
+    _order_po(client, manager_headers, admin_headers, po)
+    _receive_all(client, manager_headers, po)
+    invoice = _make_invoice(client, manager_headers, po, invoice_number="INV-OST")
+    _submit_invoice(client, manager_headers, invoice)
+    _approve_invoice(client, admin_headers, invoice)
+
+    listed = client.get("/api/v1/purchasing/invoices", headers=manager_headers).json()
+    full = next(item for item in listed if item["id"] == invoice["id"])
+    assert full["outstanding_amount"] == 50.0
+
+    payment = client.post(
+        "/api/v1/purchasing/payments",
+        headers=manager_headers,
+        json={
+            "supplier_id": supplier["id"],
+            "invoice_id": invoice["id"],
+            "amount": 30.0,
+            "payment_method": "cash",
+        },
+    ).json()
+    client.post(
+        f"/api/v1/purchasing/payments/{payment['id']}/submit-review",
+        headers=manager_headers,
+        json={},
+    )
+    client.post(
+        f"/api/v1/purchasing/payments/{payment['id']}/approve",
+        headers=admin_headers,
+        json={},
+    )
+
+    listed_after = client.get(
+        "/api/v1/purchasing/invoices", headers=manager_headers
+    ).json()
+    partial = next(item for item in listed_after if item["id"] == invoice["id"])
+    assert partial["outstanding_amount"] == 20.0
+
+    detail = client.get(
+        f"/api/v1/purchasing/invoices/{invoice['id']}", headers=manager_headers
+    ).json()
+    assert detail["outstanding_amount"] == 20.0
 
 
 def test_supplier_payment_requires_approved_invoice(
