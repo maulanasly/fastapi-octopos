@@ -110,6 +110,7 @@ class PurchaseOrder {
   final String status;
   final double totalEstimatedAmount;
   final String? notes;
+  final String? reviewNote;
   final String? createdAt;
   final String? orderedAt;
   final String? receivedAt;
@@ -122,6 +123,7 @@ class PurchaseOrder {
     required this.status,
     required this.totalEstimatedAmount,
     this.notes,
+    this.reviewNote,
     this.createdAt,
     this.orderedAt,
     this.receivedAt,
@@ -136,6 +138,7 @@ class PurchaseOrder {
     totalEstimatedAmount:
         (json['total_estimated_amount'] as num?)?.toDouble() ?? 0,
     notes: json['notes'] as String?,
+    reviewNote: json['review_note'] as String?,
     createdAt: json['created_at'] as String?,
     orderedAt: json['ordered_at'] as String?,
     receivedAt: json['received_at'] as String?,
@@ -208,6 +211,7 @@ class PurchaseInvoice {
   final String? approvedAt;
   final String? rejectedAt;
   final String? createdAt;
+  final double outstandingAmount;
   final List<PurchaseInvoiceItem> items;
 
   const PurchaseInvoice({
@@ -229,6 +233,7 @@ class PurchaseInvoice {
     this.approvedAt,
     this.rejectedAt,
     this.createdAt,
+    this.outstandingAmount = 0,
     this.items = const [],
   });
 
@@ -252,6 +257,7 @@ class PurchaseInvoice {
         approvedAt: json['approved_at'] as String?,
         rejectedAt: json['rejected_at'] as String?,
         createdAt: json['created_at'] as String?,
+        outstandingAmount: (json['outstanding_amount'] as num?)?.toDouble() ?? 0,
         items: (json['items'] as List? ?? [])
             .map((e) => PurchaseInvoiceItem.fromJson(e as Map<String, dynamic>))
             .toList(),

@@ -169,6 +169,7 @@ class PurchaseInvoice(BaseModel):
     approved_at: datetime | None = None
     rejected_at: datetime | None = None
     created_at: datetime
+    outstanding_amount: float = 0.0
     items: list[PurchaseInvoiceItem] = []
 
     model_config = {"from_attributes": True}
