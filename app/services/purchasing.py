@@ -854,6 +854,7 @@ def create_supplier_payment(
             PurchaseInvoice.id == payment_in.invoice_id,
             PurchaseInvoice.tenant_id == tenant_id,
         )
+        .with_for_update()
         .first()
     )
     if not invoice:
@@ -959,6 +960,7 @@ def approve_supplier_payment(
             PurchaseInvoice.id == payment.invoice_id,
             PurchaseInvoice.tenant_id == tenant_id,
         )
+        .with_for_update()
         .first()
     )
     if not invoice or invoice.status != "approved":

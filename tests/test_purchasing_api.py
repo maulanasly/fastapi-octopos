@@ -641,6 +641,130 @@ def test_supplier_payment_partial_and_overpayment(
     assert remaining_over.status_code == 400
 
 
+def test_concurrent_approvals_cannot_overpay(
+    client, manager_headers, admin_headers, make_product, db, monkeypatch
+):
+    """Two payments approved concurrently must not exceed the invoice total.
+
+    Regression test for the overpayment race. The approve path locks the
+    invoice row (SELECT ... FOR UPDATE) before recomputing the outstanding
+    amount, so a second concurrent approval blocks until the first commits
+    and then sees its payment in the sum and is rejected.
+
+    To exercise the race deterministically, _paid_total_for_invoice is gated
+    so the first approver computes the sum and then pauses before committing.
+    Without the row lock the second approver computes the same (stale) sum
+    and both approve -> overpayment. With the lock the second approver blocks
+    at the invoice SELECT and is rejected once the first commits.
+    """
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    from fastapi import HTTPException
+    from sqlalchemy import func
+
+    from app.core.database import SessionLocal
+    from app.models.purchase import SupplierPayment
+    from app.models.user import User
+    from app.schemas.purchase import SupplierPaymentReviewAction
+    from app.services import purchasing as purchasing_module
+    from app.services.purchasing import approve_supplier_payment
+
+    product = make_product(manager_headers, name="Pay Race", sku="SKU-RCE", price=10.0)
+    supplier = _make_supplier(client, manager_headers)
+    po = _make_po(client, manager_headers, supplier["id"], product["id"])
+    _order_po(client, manager_headers, admin_headers, po)
+    _receive_all(client, manager_headers, po)
+    invoice = _make_invoice(client, manager_headers, po, invoice_number="INV-RCE")
+    _submit_invoice(client, manager_headers, invoice)
+    _approve_invoice(client, admin_headers, invoice)
+
+    payment_ids = []
+    for _ in range(2):
+        payment = client.post(
+            "/api/v1/purchasing/payments",
+            headers=manager_headers,
+            json={
+                "supplier_id": supplier["id"],
+                "invoice_id": invoice["id"],
+                "amount": 30.0,
+                "payment_method": "cash",
+            },
+        ).json()
+        client.post(
+            f"/api/v1/purchasing/payments/{payment['id']}/submit-review",
+            headers=manager_headers,
+            json={},
+        )
+        payment_ids.append(payment["id"])
+
+    admin = db.query(User).filter(User.email == "admin@example.com").first()
+    assert admin is not None
+    action_in = SupplierPaymentReviewAction()
+
+    original_paid_total = purchasing_module._paid_total_for_invoice
+    first_sum_computed = threading.Event()
+    release_first = threading.Event()
+    gating_lock = threading.Lock()
+    is_first_sum = True
+
+    def _gated_paid_total(db, invoice):
+        nonlocal is_first_sum
+        total = original_paid_total(db, invoice)
+        with gating_lock:
+            gate = is_first_sum
+            is_first_sum = False
+        if gate:
+            first_sum_computed.set()
+            release_first.wait(timeout=30)
+        return total
+
+    monkeypatch.setattr(purchasing_module, "_paid_total_for_invoice", _gated_paid_total)
+
+    outcomes: dict[str, str] = {}
+
+    def _approve(payment_id: int, tag: str) -> None:
+        session = SessionLocal()
+        try:
+            try:
+                approve_supplier_payment(
+                    db=session,
+                    current_user=admin,
+                    payment_id=payment_id,
+                    action_in=action_in,
+                    tenant_id=admin.tenant_id,
+                )
+                outcomes[tag] = "approved"
+            except HTTPException as exc:
+                outcomes[tag] = f"rejected:{exc.status_code}"
+        finally:
+            session.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(_approve, pid, tag)
+            for pid, tag in zip(payment_ids, ("first", "second"), strict=True)
+        ]
+        assert first_sum_computed.wait(timeout=30)
+        time.sleep(1.0)
+        release_first.set()
+        for fut in futures:
+            fut.result(timeout=30)
+
+    assert sorted(outcomes.values()) == ["approved", "rejected:400"], outcomes
+
+    approved_total = (
+        db.query(func.coalesce(func.sum(SupplierPayment.amount), 0))
+        .filter(
+            SupplierPayment.invoice_id == invoice["id"],
+            SupplierPayment.status == "approved",
+        )
+        .scalar()
+    )
+    assert approved_total == 30.0
+
+
 def test_supplier_payment_requires_approved_invoice(
     client, manager_headers, admin_headers, make_product
 ):
