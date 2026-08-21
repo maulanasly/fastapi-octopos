@@ -1,6 +1,8 @@
 /// Authenticated shell: navigation rail + section content.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -103,9 +105,14 @@ class HomeShell extends ConsumerWidget {
             child: Center(
               child: Tooltip(
                 message: auth.email ?? '',
-                child: Text(
-                  '${s.of('signedInAs')}: ${auth.displayName ?? ''}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 200),
+                  child: Text(
+                    '${s.of('signedInAs')}: ${auth.displayName ?? ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
             ),
@@ -130,18 +137,30 @@ class HomeShell extends ConsumerWidget {
       body: Row(
         children: [
           if (!narrow) ...[
-            NavigationRail(
-              selectedIndex: selected < 0 ? 0 : selected,
-              onDestinationSelected: (index) =>
-                  context.go(destinations[index].path),
-              labelType: NavigationRailLabelType.all,
-              destinations: [
-                for (final d in destinations)
-                  NavigationRailDestination(
-                    icon: Icon(d.icon),
-                    label: Text(s.of(_stringKeyForPath(d.path))),
+            // A superuser can have 14 destinations; the rail's internal
+            // column does not scroll, so short windows overflowed. Keep
+            // the stretched look on tall screens, scroll on short ones.
+            LayoutBuilder(
+              builder: (context, box) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: box.maxHeight),
+                  child: IntrinsicHeight(
+                    child: NavigationRail(
+                      selectedIndex: selected < 0 ? 0 : selected,
+                      onDestinationSelected: (index) =>
+                          context.go(destinations[index].path),
+                      labelType: NavigationRailLabelType.all,
+                      destinations: [
+                        for (final d in destinations)
+                          NavigationRailDestination(
+                            icon: Icon(d.icon),
+                            label: Text(s.of(_stringKeyForPath(d.path))),
+                          ),
+                      ],
+                    ),
                   ),
-              ],
+                ),
+              ),
             ),
             const VerticalDivider(width: 1),
           ],
@@ -149,19 +168,78 @@ class HomeShell extends ConsumerWidget {
         ],
       ),
       bottomNavigationBar: narrow
-          ? NavigationBar(
-              selectedIndex: selected < 0 ? 0 : selected,
-              onDestinationSelected: (index) =>
-                  context.go(destinations[index].path),
-              destinations: [
-                for (final d in destinations)
-                  NavigationDestination(
-                    icon: Icon(d.icon),
-                    label: s.of(_stringKeyForPath(d.path)),
-                  ),
-              ],
-            )
+          ? _bottomNav(context, s, destinations, selected)
           : null,
+    );
+  }
+
+  /// The M3 bar flexes every destination equally, so past a handful they
+  /// overflow horizontally on tablet-sized widths. Show the first few and
+  /// tuck the rest behind a "More" sheet.
+  Widget _bottomNav(
+    BuildContext context,
+    AppStrings s,
+    List<_Dest> destinations,
+    int selected,
+  ) {
+    const maxVisible = 4;
+    final current = selected < 0 ? 0 : selected;
+    if (destinations.length <= maxVisible + 1) {
+      return NavigationBar(
+        selectedIndex: current,
+        onDestinationSelected: (i) => context.go(destinations[i].path),
+        destinations: [
+          for (final d in destinations) _navDestination(d, s),
+        ],
+      );
+    }
+    return NavigationBar(
+      selectedIndex: current < maxVisible ? current : maxVisible,
+      onDestinationSelected: (i) {
+        if (i < maxVisible) {
+          context.go(destinations[i].path);
+        } else {
+          unawaited(_showMoreSheet(context, s, destinations, maxVisible));
+        }
+      },
+      destinations: [
+        for (final d in destinations.take(maxVisible)) _navDestination(d, s),
+        NavigationDestination(icon: const Icon(Icons.menu), label: s.of('more')),
+      ],
+    );
+  }
+
+  NavigationDestination _navDestination(_Dest d, AppStrings s) =>
+      NavigationDestination(icon: Icon(d.icon), label: s.of(_stringKeyForPath(d.path)));
+
+  Future<void> _showMoreSheet(
+    BuildContext context,
+    AppStrings s,
+    List<_Dest> destinations,
+    int skip,
+  ) {
+    final rest = destinations.skip(skip).toList(growable: false);
+    return showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: rest.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, i) {
+            final d = rest[i];
+            return ListTile(
+              leading: Icon(d.icon),
+              title: Text(s.of(_stringKeyForPath(d.path))),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                context.go(d.path);
+              },
+            );
+          },
+        ),
+      ),
     );
   }
 }
