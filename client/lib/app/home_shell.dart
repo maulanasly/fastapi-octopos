@@ -12,6 +12,7 @@ import '../core/auth_controller.dart';
 import '../core/localization_controller.dart';
 import '../core/route_access.dart';
 import '../core/strings.dart';
+import '../features/pos/cart_controller.dart';
 import 'theme_controller.dart';
 
 class HomeShell extends ConsumerWidget {
@@ -23,12 +24,20 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
     final auth = ref.watch(authControllerProvider);
+    final cartCount = ref.watch(
+      cartControllerProvider.select((c) => c.itemCount),
+    );
     // Destinations mirror the router's permission table (core/route_access.dart)
     // so navigation and deep-link guards can never drift apart.
     bool can(String path) => routePermitted(auth, path);
 
     final destinations = <_Dest>[
-      const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
+      _Dest(
+        icon: Icons.point_of_sale,
+        label: 'POS',
+        path: '/pos',
+        badge: cartCount,
+      ),
       if (can('/serving'))
         const _Dest(
           icon: Icons.room_service,
@@ -36,17 +45,9 @@ class HomeShell extends ConsumerWidget {
           path: '/serving',
         ),
       if (can('/tracking'))
-        const _Dest(
-          icon: Icons.route,
-          label: 'Tracking',
-          path: '/tracking',
-        ),
+        const _Dest(icon: Icons.route, label: 'Tracking', path: '/tracking'),
       if (can('/orders'))
-        const _Dest(
-          icon: Icons.receipt_long,
-          label: 'Orders',
-          path: '/orders',
-        ),
+        const _Dest(icon: Icons.receipt_long, label: 'Orders', path: '/orders'),
       if (can('/inventory'))
         const _Dest(
           icon: Icons.inventory_2,
@@ -83,7 +84,8 @@ class HomeShell extends ConsumerWidget {
         ),
       if (can('/reports'))
         const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
-      if (can('/staff')) const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
+      if (can('/staff'))
+        const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
       if (can('/admin'))
         const _Dest(
           icon: Icons.admin_panel_settings,
@@ -153,7 +155,7 @@ class HomeShell extends ConsumerWidget {
                       destinations: [
                         for (final d in destinations)
                           NavigationRailDestination(
-                            icon: Icon(d.icon),
+                            icon: _destIcon(context, d),
                             label: Text(s.of(_stringKeyForPath(d.path))),
                           ),
                       ],
@@ -189,7 +191,7 @@ class HomeShell extends ConsumerWidget {
         selectedIndex: current,
         onDestinationSelected: (i) => context.go(destinations[i].path),
         destinations: [
-          for (final d in destinations) _navDestination(d, s),
+          for (final d in destinations) _navDestination(context, d, s),
         ],
       );
     }
@@ -203,14 +205,24 @@ class HomeShell extends ConsumerWidget {
         }
       },
       destinations: [
-        for (final d in destinations.take(maxVisible)) _navDestination(d, s),
-        NavigationDestination(icon: const Icon(Icons.menu), label: s.of('more')),
+        for (final d in destinations.take(maxVisible))
+          _navDestination(context, d, s),
+        NavigationDestination(
+          icon: const Icon(Icons.menu),
+          label: s.of('more'),
+        ),
       ],
     );
   }
 
-  NavigationDestination _navDestination(_Dest d, AppStrings s) =>
-      NavigationDestination(icon: Icon(d.icon), label: s.of(_stringKeyForPath(d.path)));
+  NavigationDestination _navDestination(
+    BuildContext context,
+    _Dest d,
+    AppStrings s,
+  ) => NavigationDestination(
+    icon: _destIcon(context, d),
+    label: s.of(_stringKeyForPath(d.path)),
+  );
 
   Future<void> _showMoreSheet(
     BuildContext context,
@@ -245,11 +257,51 @@ class HomeShell extends ConsumerWidget {
 }
 
 class _Dest {
-  const _Dest({required this.icon, required this.label, required this.path});
+  const _Dest({
+    required this.icon,
+    required this.label,
+    required this.path,
+    this.badge = 0,
+  });
 
   final IconData icon;
   final String label;
   final String path;
+
+  /// Cart item count shown as a bubble on the POS destination.
+  final int badge;
+}
+
+/// Destination icon with an optional count bubble (POS cart size).
+Widget _destIcon(BuildContext context, _Dest d) {
+  if (d.badge <= 0) return Icon(d.icon);
+  return Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Icon(d.icon),
+      Positioned(
+        right: -7,
+        top: -5,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.error,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          constraints: const BoxConstraints(minWidth: 16),
+          child: Text(
+            d.badge > 99 ? '99+' : '${d.badge}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onError,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 }
 
 String _stringKeyForPath(String path) {
