@@ -4,11 +4,10 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/auth_controller.dart';
 import '../../core/local_persistence.dart';
 import '../../core/models.dart';
 import 'catalog_controller.dart';
-
-final localStoreProvider = Provider<LocalStore>((ref) => LocalStore());
 
 class CartLine {
   final Product product;
@@ -56,7 +55,18 @@ class CartController extends Notifier<CartState> {
   bool _restored = false;
 
   @override
-  CartState build() => const CartState();
+  CartState build() {
+    // The draft cart belongs to the signed-in user; the persisted copy is
+    // wiped by AuthController on sign-out, and the in-memory one here.
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      if (prev?.status == AuthStatus.signedIn &&
+          next.status == AuthStatus.signedOut) {
+        _restored = false;
+        state = const CartState();
+      }
+    });
+    return const CartState();
+  }
 
   /// Restores the persisted draft once, when the catalog is available to
   /// resolve products.
