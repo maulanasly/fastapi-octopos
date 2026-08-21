@@ -16,7 +16,7 @@ IMG_NAME ?= octopos-backend
 .PHONY: help install run dev migrate migrate-down makemigration \
 	migration-history migration-current lint lint-changes format check check-changes test pre-commit clean \
 	client client-run client-test client-analyze 	docker-build docker-up docker-down docker-logs docker-ps 	docker-migrate docker-shell \
-	loadtest
+	loadtest screenshots
 
 # Files changed on this branch (committed vs origin/main) plus any staged or
 # unstaged working-tree changes.
@@ -130,7 +130,7 @@ docker-migrate: ## Run alembic upgrade head in the backend container
 docker-shell: ## Open a shell in the backend container
 	$(DOCKER_COMPOSE) exec backend sh
 
-docker-dev: ## Start the dev stack (source mounted, uvicorn --reload)
+docker-dev: ## Start the dev stack (source mounted, granian --reload)
 	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 docker-dev-down: ## Stop the dev stack
@@ -141,3 +141,9 @@ docker-dev-logs: ## Follow backend logs (dev)
 
 loadtest: ## Run API load test against the running stack (PROFILE=dev|prod VUS=50 DURATION=2m)
 	bash loadtest/run.sh $(PROFILE)
+
+screenshots: ## Regenerate docs/images admin-panel screenshots (BASE_URL=http://localhost:8000; needs the stack up + seeded)
+	$(PYTHON) -m pip install -q -r requirements-dev.txt
+	$(PYTHON) -m playwright install chromium
+	bash scripts/seed_demo.sh
+	$(PYTHON) scripts/screenshots.py
