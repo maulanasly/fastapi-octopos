@@ -26,9 +26,12 @@ MAX=0
 while true; do
   LINE=$(docker stats --no-stream --format '{{.MemUsage}}\t{{.CPUPerc}}' "$CONTAINER" 2>/dev/null) || LINE=""
   if [[ -n "$LINE" ]]; then
-    RSS_RAW=$(echo "$LINE" | cut -f1 | awk '{print $1}')
-    CPU=$(echo "$LINE" | cut -f2 | tr -d '%')
-    UNIT=$(echo "$LINE" | cut -f1 | awk '{print $2}')
+    # docker stats may not emit a real tab; take the used-memory token
+    # ("188.9MiB") from "188.9MiB / 30.93GiB".
+    MEM=$(echo "$LINE" | awk '{print $1}')
+    CPU=$(echo "$LINE" | awk '{print $NF}' | tr -d '%')
+    RSS_RAW=$(echo "$MEM" | grep -oE '^[0-9]+(\.[0-9]+)?')
+    UNIT=$(echo "$MEM" | grep -oE '[A-Za-z]+$')
     case "$UNIT" in
       GiB) RSS=$(awk -v v="$RSS_RAW" 'BEGIN {printf "%.1f", v * 1024}') ;;
       KiB) RSS=$(awk -v v="$RSS_RAW" 'BEGIN {printf "%.1f", v / 1024}') ;;
