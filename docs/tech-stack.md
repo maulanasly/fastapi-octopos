@@ -3,6 +3,7 @@
 # Tech Stack
 
 - **Backend:** FastAPI
+- **ASGI server:** Granian (default; uvicorn fallback via `SERVER=uvicorn`)
 - **ORM:** SQLAlchemy
 - **Database:** PostgreSQL 16 + pgvector (`pgvector/pgvector:pg16` image; dev stack on `localhost:5433`)
 - **Geo:** native `point` + GiST `point_ops` KNN, `earthdistance`+`cube` for radius queries

@@ -75,8 +75,9 @@ There *is* now a serving (kitchen/prep) queue, distinct from processing:
   (`{"order_id", "serving_status"}` events, 15s keepalive); auth via
   `Authorization` header or `?token=` for EventSource clients. The Flutter
   serving screen uses SSE with a 10s polling fallback.
-- The hub is in-process: single uvicorn worker only. Multi-worker
-  deployments must swap `ServingHub.publish` for Redis pub/sub.
+- The hub is in-process: single worker only (server-agnostic — applies to
+  granian or uvicorn). Multi-worker deployments must swap
+  `ServingHub.publish` for Redis pub/sub.
 - Client: "Serving" nav screen with queue cards and Start/Ready/Served
   actions; serving chips on the orders list.
 

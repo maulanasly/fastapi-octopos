@@ -120,12 +120,16 @@
 
 - Supplier management for replenishment workflow
 - Purchase order creation with itemized quantity and unit cost
-- Purchase order lifecycle: `draft`, `ordered`, `partially_received`, `received`, `cancelled`
+- Purchase order lifecycle: `draft`, `pending_review`, `rejected`, `ordered`, `partially_received`, `received`, `cancelled`
+- Requester/approver separation: submit for review, approve (mark ordered), or reject with note
+- Consolidated PO detail endpoint with per-item cost vs invoice variance
 - Receiving endpoint updates product stock and records `purchase_receipt` movements
-- Purchase order auto-generation from replenishment suggestions
+- Purchase order auto-generation from replenishment suggestions (manual or scheduled via `REPLENISHMENT_*` settings)
 - Supplier invoice capture with PO item linkage
 - 3-way matching-lite variance checks (`ordered` vs `received` vs `billed`)
 - Invoice status workflow: `draft`, `pending_review`, `approved`, `rejected`
+- Supplier payment tracking with review pipeline (`draft`, `pending_review`, `approved`, `rejected`)
+- Supplier ledger (`/purchasing/suppliers/{id}/ledger`) tying orders, invoices, and payments together
 
 ## Drawer Sessions
 
@@ -154,12 +158,15 @@ Superuser-only APIs for:
 - Category sales
 - Low stock products
 - Purchase invoice summary (counts, totals, variance, review pipeline)
+- Supplier payment and supplier spend reports
+- Purchase variance report (ordered vs received vs billed)
+- Shift and daily-close reports
 - Tax liability summary by tax name/rate with period filtering
 - Optional date-range filtering on sales analytics endpoints
 
 ## Admin Dashboard
 
-- SQLAdmin panel at `/admin`
+- SQLAdmin panel at `/admin` — screenshots of the main views live in [`../README.md`](../README.md) and regenerate via `make screenshots` (Playwright against a seeded dev stack)
 - Admin login authenticates against real app users: only active superusers may sign in (sessions expire after `ADMIN_SESSION_HOURS`, default 12h). In non-production environments the legacy `ADMIN_USERNAME`/`ADMIN_PASSWORD` credentials still work, to bootstrap the first admin account.
 - To promote your first user to superuser in production: `UPDATE users SET is_superuser = 1 WHERE email = '...'` (or promote via the admin UI once another superuser exists)
 - Admin views for Users, Roles, Permissions, Customers, Loyalty Transactions, Categories, Products, Suppliers, Purchase Orders, Purchase Order Items, Purchase Invoices, Purchase Invoice Items, Orders, Order Items, Drawer Sessions, Shift Reconciliations, Stock Movements, Sync Event Logs
