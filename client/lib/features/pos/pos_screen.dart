@@ -1,7 +1,9 @@
 /// Cashier POS screen: catalog grid + cart + checkout + receipt.
 library;
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -9,9 +11,10 @@ import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/colors.dart';
-import '../../core/strings.dart';
+import '../../core/errors.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../core/strings.dart';
 import '../drawer/drawer_controller.dart';
 import 'product_tile.dart';
 import 'cart_controller.dart';
@@ -29,6 +32,24 @@ class PosScreen extends ConsumerStatefulWidget {
 class _PosScreenState extends ConsumerState<PosScreen> {
   int? _selectedCategoryId;
   String _search = '';
+  final _searchFocus = FocusNode();
+
+  /// Soft keyboards should not cover half the grid on touch devices just
+  /// because the screen opened; hardware-keyboard platforms (and the
+  /// barcode scanners attached to them) get the autofocus.
+  bool get _hardwareKeyboard =>
+      !kIsWeb &&
+      const {
+        TargetPlatform.linux,
+        TargetPlatform.windows,
+        TargetPlatform.macOS,
+      }.contains(defaultTargetPlatform);
+
+  @override
+  void dispose() {
+    _searchFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,9 +67,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       children: [
         if (drawer.session == null && !drawer.loading)
           MaterialBanner(
-            content: const Text(
-              'No open drawer. Open one before taking orders.',
-            ),
+            content: Text(s.of('noOpenDrawerBanner')),
             leading: const Icon(Icons.info_outline),
             actions: [
               TextButton(
@@ -80,7 +99,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
               const Spacer(),
               IconButton(
-                tooltip: 'Refresh catalog',
+                tooltip: s.of('refreshCatalog'),
                 icon: const Icon(Icons.refresh),
                 onPressed: () =>
                     ref.read(catalogControllerProvider.notifier).refresh(),
@@ -97,7 +116,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 child: _catalogPane(context, catalog, products),
               ),
               VerticalDivider(width: 1),
-              Expanded(flex: 2, child: _cartPane(context, cart)),
+              Expanded(flex: 2, child: _cartPane(context, cart, drawer)),
             ],
           ),
         ),
@@ -135,24 +154,39 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: TextField(
-            autofocus: true,
+            focusNode: _searchFocus,
+            autofocus: _hardwareKeyboard,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: s.of('searchProducts'),
               prefixIcon: const Icon(Icons.search),
+              // Touch devices: explicit focus button so the soft keyboard
+              // only appears when the cashier asks for it.
+              suffixIcon: _hardwareKeyboard
+                  ? null
+                  : IconButton(
+                      tooltip: s.of('searchProducts'),
+                      icon: const Icon(Icons.keyboard),
+                      onPressed: () => _searchFocus.requestFocus(),
+                    ),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: (v) => setState(() => _search = v),
             // Barcode scanners type into the focused field and send Enter:
-            // add the best match to the cart.
+            // add the best match to the cart, with audible/haptic feedback.
             onSubmitted: (_) {
               final matches = _filtered(catalog.products);
-              if (matches.isNotEmpty) {
-                ref
-                    .read(cartControllerProvider.notifier)
-                    .addProduct(matches.first);
+              if (matches.isEmpty) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(s.of('scanNoMatch'))));
+                return;
               }
+              HapticFeedback.selectionClick();
+              ref
+                  .read(cartControllerProvider.notifier)
+                  .addProduct(matches.first);
+              _searchFocus.requestFocus();
             },
           ),
         ),
@@ -189,9 +223,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               : catalog.error != null
               ? ErrorStateView(
                   message: s.of('genericError'),
-                  onRetry: () => ref
-                      .read(catalogControllerProvider.notifier)
-                      .refresh(),
+                  onRetry: () =>
+                      ref.read(catalogControllerProvider.notifier).refresh(),
                 )
               : RefreshIndicator(
                   onRefresh: () =>
@@ -220,10 +253,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
   }
 
-  Widget _cartPane(BuildContext context, CartState cart) {
+  Widget _cartPane(BuildContext context, CartState cart, DrawerState drawer) {
     final s = ref.watch(stringsProvider);
-    final canCheckout =
-        cart.isEmpty || ref.read(drawerControllerProvider).session == null;
+    final noDrawer = drawer.session == null;
+    final canCheckout = cart.isEmpty || noDrawer;
     return Column(
       children: [
         Padding(
@@ -257,7 +290,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ),
         Expanded(
           child: cart.isEmpty
-              ? Center(child: Text(s.of('cartEmpty')))
+              ? EmptyStateView(
+                  message: s.of('cartEmpty'),
+                  icon: Icons.shopping_cart_outlined,
+                )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: cart.lines.length,
@@ -267,13 +303,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     return ListTile(
                       dense: true,
                       title: Text(line.product.name),
+                      // Unit × qty = line total, so the trailing row only
+                      // carries controls and can never overflow.
                       subtitle: Text(
-                        '${formatCents(line.product.priceCents)} × ${line.quantity}',
+                        '${formatCents(line.product.priceCents)} × '
+                        '${line.quantity} = ${formatCents(line.lineTotalCents)}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
+                            tooltip: s.of('decreaseQty'),
                             icon: const Icon(Icons.remove_circle_outline),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
@@ -282,8 +322,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                   line.quantity - 1,
                                 ),
                           ),
-                          Text('${line.quantity}'),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(minWidth: 28),
+                            child: Text(
+                              '${line.quantity}',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                           IconButton(
+                            tooltip: s.of('increaseQty'),
                             icon: const Icon(Icons.add_circle_outline),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
@@ -292,8 +339,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                   line.quantity + 1,
                                 ),
                           ),
-                          Text(formatCents(line.lineTotalCents)),
                           IconButton(
+                            tooltip: s.of('removeLine'),
                             icon: const Icon(Icons.close),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
@@ -322,7 +369,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: canCheckout ? null : () => _checkout(context),
-                child: Text(s.of('checkout')),
+                // Say WHY the button is disabled instead of leaving a
+                // mysteriously dead button on the busiest screen.
+                child: Text(
+                  noDrawer && !cart.isEmpty
+                      ? s.of('needDrawer')
+                      : s.of('checkout'),
+                ),
               ),
             ],
           ),
@@ -342,13 +395,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   }
 
   Future<void> _openDrawer(BuildContext context) async {
-    final opened = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (_) => const _OpenDrawerDialog(),
     );
-    if (opened == true) {
-      ref.read(cartControllerProvider.notifier).clear();
-    }
+    // NOTE: intentionally no cart.clear() here — the draft belongs to the
+    // cashier, not the drawer session; wiping it on open destroyed work.
   }
 
   Future<void> _checkout(BuildContext context) async {
@@ -394,52 +446,13 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
   }
 
   Future<void> _register() async {
-    final s = ref.read(stringsProvider);
-    final name = TextEditingController();
-    final email = TextEditingController();
-    final phone = TextEditingController();
-    final ok = await showDialog<bool>(
+    final customer = await showDialog<Customer>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.of('registerCustomer')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: InputDecoration(labelText: s.of('name')),
-            ),
-            TextField(
-              controller: email,
-              decoration: InputDecoration(labelText: s.of('email')),
-            ),
-            TextField(
-              controller: phone,
-              decoration: InputDecoration(labelText: s.of('phone')),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(s.of('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(s.of('create')),
-          ),
-        ],
-      ),
+      builder: (_) => const _CustomerRegisterDialog(),
     );
-    if (ok != true) return;
-    final customer = await ref
-        .read(customerRepositoryProvider)
-        .create(
-          name: name.text.trim(),
-          email: email.text.trim().isEmpty ? null : email.text.trim(),
-          phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
-        );
-    if (mounted) Navigator.of(context).pop(_CustomerPickResult(customer));
+    if (customer != null && mounted) {
+      Navigator.of(context).pop(_CustomerPickResult(customer));
+    }
   }
 
   @override
@@ -473,7 +486,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
               padding: const EdgeInsets.all(12),
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: s.of('searchProducts'),
+                  hintText: s.of('searchCustomers'),
                   prefixIcon: const Icon(Icons.search),
                   isDense: true,
                 ),
@@ -514,7 +527,9 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
                         dense: true,
                         title: Text(c.name),
                         subtitle: Text(c.email ?? ''),
-                        trailing: Text('${c.pointsBalance} pts'),
+                        trailing: Text(
+                          '${c.pointsBalance} ${s.of('pointsUnit')}',
+                        ),
                         onTap: () =>
                             Navigator.of(context).pop(_CustomerPickResult(c)),
                       );
@@ -534,6 +549,103 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Register-customer dialog. Owns its controllers in State so they are
+/// disposed exactly when the dialog leaves the tree (a plain helper method
+/// would dispose them while the exit transition still reads them).
+class _CustomerRegisterDialog extends ConsumerStatefulWidget {
+  const _CustomerRegisterDialog();
+
+  @override
+  ConsumerState<_CustomerRegisterDialog> createState() =>
+      _CustomerRegisterDialogState();
+}
+
+class _CustomerRegisterDialogState
+    extends ConsumerState<_CustomerRegisterDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    try {
+      final customer = await ref
+          .read(customerRepositoryProvider)
+          .create(
+            name: _name.text.trim(),
+            email: _email.text.trim().isEmpty ? null : _email.text.trim(),
+            phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+          );
+      if (mounted) Navigator.of(context).pop(customer);
+    } catch (_) {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
+    return AlertDialog(
+      title: Text(s.of('registerCustomer')),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _name,
+              autofocus: true,
+              decoration: InputDecoration(labelText: s.of('name')),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? s.of('required') : null,
+            ),
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              decoration: InputDecoration(labelText: s.of('email')),
+              validator: (v) => (v != null && v.isNotEmpty && !v.contains('@'))
+                  ? s.of('invalidEmail')
+                  : null,
+            ),
+            TextFormField(
+              controller: _phone,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(labelText: s.of('phone')),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(s.of('cancel')),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(s.of('create')),
+        ),
+      ],
     );
   }
 }
@@ -558,18 +670,19 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return AlertDialog(
-      title: const Text('Open drawer'),
+      title: Text(s.of('openDrawer')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _controller,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Starting cash',
-              prefixText: r'$ ',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              labelText: s.of('startingCash'),
+              prefixText: currencySymbol(currentCurrency),
+              border: const OutlineInputBorder(),
             ),
           ),
           if (_error != null)
@@ -585,7 +698,7 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(ref.read(stringsProvider).of('cancel')),
+          child: Text(s.of('cancel')),
         ),
         FilledButton(
           onPressed: _submitting
@@ -595,21 +708,24 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
                     _submitting = true;
                     _error = null;
                   });
-                  final cents = (double.tryParse(_controller.text) ?? 0) * 100;
                   try {
                     await ref
                         .read(drawerControllerProvider.notifier)
-                        .open(startingCashCents: cents.round());
+                        .open(
+                          startingCashCents: centsFromInput(_controller.text),
+                        );
                     if (mounted && context.mounted) {
                       Navigator.of(context).pop(true);
                     }
                   } catch (e) {
-                    if (mounted) setState(() => _error = e.toString());
+                    if (mounted) {
+                      setState(() => _error = friendlyError(e, s));
+                    }
                   } finally {
                     if (mounted) setState(() => _submitting = false);
                   }
                 },
-          child: Text(ref.read(stringsProvider).of('openDrawer')),
+          child: Text(s.of('openDrawer')),
         ),
       ],
     );

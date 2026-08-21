@@ -12,6 +12,7 @@ import '../../core/config.dart';
 import '../../core/models.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
+import 'cart_controller.dart';
 
 class ProductTile extends ConsumerWidget {
   const ProductTile({super.key, required this.product, this.onTap});
@@ -31,66 +32,90 @@ class ProductTile extends ConsumerWidget {
         ? textColorOn(barColor)
         : Theme.of(context).colorScheme.onSurface;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: outOfStock
-          ? Theme.of(context).colorScheme.surfaceContainerHighest
-          : null,
-      child: InkWell(
-        onTap: outOfStock ? null : onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              height: 4,
-              color:
-                  categoryColor ??
-                  (outOfStock
-                      ? Theme.of(context).colorScheme.surfaceContainerHighest
-                      : Theme.of(context).colorScheme.outlineVariant),
-            ),
-            // Flexible image: fills whatever remains above the fixed bar,
-            // so the tile never overflows no matter the label length.
-            // Thumbnail is preferred for grid payloads; falls back to the
-            // full image, then to a monogram, and is cached on device.
-            Expanded(
-              child: _ProductImage(product: product),
-            ),
-            // Fixed bottom label bar: product name always visible.
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-              color: barColor,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleSmall?.copyWith(color: nameColor),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatCents(product.priceCents),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    s.of('inStock', args: {'count': product.stockQuantity}),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: outOfStock
-                          ? Theme.of(context).colorScheme.error
-                          : Colors.grey,
-                    ),
-                  ),
-                ],
+    // Flash when THIS tile was the one just added (tap or barcode scan).
+    // The tick keys the animation so every add restarts it; tiles that
+    // were not added get a static zero tween and never animate.
+    final addTick = ref.watch(
+      cartControllerProvider.select(
+        (c) => c.lastAddedId == product.id ? c.addTick : 0,
+      ),
+    );
+
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(addTick),
+      tween: Tween(begin: addTick == 0 ? 0.0 : 1.0, end: 0.0),
+      duration: const Duration(milliseconds: 600),
+      builder: (context, t, child) => Stack(
+        children: [
+          child!,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ColoredBox(
+                color: Theme.of(context).colorScheme.primary
+                    .withValues(alpha: 0.30 * t),
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        color: outOfStock
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : null,
+        child: InkWell(
+          onTap: outOfStock ? null : onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                height: 4,
+                color:
+                    categoryColor ??
+                    (outOfStock
+                        ? Theme.of(context).colorScheme.surfaceContainerHighest
+                        : Theme.of(context).colorScheme.outlineVariant),
+              ),
+              // Flexible image: fills whatever remains above the fixed bar,
+              // so the tile never overflows no matter the label length.
+              // Thumbnail is preferred for grid payloads; falls back to the
+              // full image, then to a monogram, and is cached on device.
+              Expanded(child: _ProductImage(product: product)),
+              // Fixed bottom label bar: product name always visible.
+              Container(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+                color: barColor,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(color: nameColor),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formatCents(product.priceCents),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      s.of('inStock', args: {'count': product.stockQuantity}),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: outOfStock
+                            ? Theme.of(context).colorScheme.error
+                            : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
