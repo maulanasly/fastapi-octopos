@@ -26,25 +26,47 @@ from app.services.purchasing import (
 def auto_generate_purchase_orders(
     db: Session,
     lookback_days: int = 30,
+    tenant_id: int | None = None,
+    min_stock_trigger: int = 0,
+    actor: User | None = None,
 ) -> dict:
-    """Create draft POs for products past reorder point. Idempotent per run."""
-    pending_products = _products_already_in_pending_po(db)
-    candidates = (
-        db.query(Product)
-        .filter(Product.stock_quantity <= Product.reorder_point)
-        .order_by(Product.id.asc())
-        .all()
-    )
+    """Create draft POs for products past reorder point. Idempotent per run.
+
+    When ``tenant_id`` is given, only that tenant's products/suppliers are
+    considered and ``actor`` should be a user of the same tenant. The
+    effective reorder line is ``max(reorder_point, min_stock_trigger)``.
+    """
+    pending_products = _products_already_in_pending_po(db, tenant_id=tenant_id)
+    query = db.query(Product)
+    if tenant_id is not None:
+        query = query.filter(Product.tenant_id == tenant_id)
+    if min_stock_trigger > 0:
+        from sqlalchemy import or_
+
+        query = query.filter(
+            or_(
+                Product.stock_quantity <= Product.reorder_point,
+                Product.stock_quantity <= min_stock_trigger,
+            )
+        )
+    else:
+        query = query.filter(Product.stock_quantity <= Product.reorder_point)
+    candidates = [
+        p
+        for p in query.order_by(Product.id.asc()).all()
+        if p.stock_quantity <= max(p.reorder_point, min_stock_trigger)
+    ]
     candidates = [p for p in candidates if p.id not in pending_products]
     if not candidates:
         return {"generated": 0, "skipped_products": [], "po_ids": [], "suppliers": []}
 
-    actor = (
-        db.query(User)
-        .filter(User.is_superuser.is_(True), User.is_active.is_(True))
-        .order_by(User.id.asc())
-        .first()
-    )
+    if actor is None:
+        actor_query = db.query(User).filter(
+            User.is_superuser.is_(True), User.is_active.is_(True)
+        )
+        if tenant_id is not None:
+            actor_query = actor_query.filter(User.tenant_id == tenant_id)
+        actor = actor_query.order_by(User.id.asc()).first()
     if not actor:
         return {
             "generated": 0,
@@ -57,7 +79,10 @@ def auto_generate_purchase_orders(
         }
 
     suggestions = build_replenishment_suggestions(
-        db=db, products=candidates, lookback_days=lookback_days
+        db=db,
+        products=candidates,
+        lookback_days=lookback_days,
+        min_stock_trigger=min_stock_trigger,
     )
     reorder_items = [
         item
@@ -68,7 +93,7 @@ def auto_generate_purchase_orders(
         return {"generated": 0, "skipped_products": [], "po_ids": [], "suppliers": []}
 
     product_ids = [item.product_id for item in reorder_items]
-    supplier_map = _supplier_for_products(db, product_ids)
+    supplier_map = _supplier_for_products(db, product_ids, tenant_id=tenant_id)
 
     by_supplier: dict[int, list[int]] = defaultdict(list)
     skipped: list[dict] = []
@@ -105,6 +130,7 @@ def auto_generate_purchase_orders(
                     f"(lookback_days={lookback_days})"
                 ),
             ),
+            min_stock_trigger=min_stock_trigger,
         )
         po_ids.append(purchase_order.id)
         generated_suppliers.append(supplier.name)

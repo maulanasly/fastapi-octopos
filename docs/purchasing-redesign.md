@@ -138,7 +138,26 @@ reject`, `supplier_payment.create/submit/approve/reject`. Viewable via
   dialog); Reports gains **Supplier spend** and **Purchase variance
   trend** cards.
 
+## Purchasing automation (Phase 6)
+
+The scheduled auto-PO task (`app/services/auto_po.py`, driven by the
+`REPLENISHMENT_AUTO_PO_ENABLED` loop in `app/main.py`) is now configurable
+per tenant:
+
+- `PurchasingSetting` model (singleton per tenant, migration `0019`) with
+  `auto_po_enabled` (default off), `auto_po_lookback_days` (default 30) and
+  `auto_po_min_stock_trigger` (default 0). The env flag remains the master
+  gate for the background loop; the per-tenant flag decides whether that
+  tenant gets drafts.
+- The effective reorder line is `max(reorder_point, min_stock_trigger)`;
+  the trigger also raises the suggested target stock so generated POs have
+  a positive order quantity.
+- `GET/PUT /purchasing/settings` expose the settings to signed-in users;
+  the admin panel gains a "Purchasing Automation" view with singleton
+  enforcement.
+- The purchasing screen's app-bar gear opens an automation settings dialog
+  (enable switch, lookback days, min stock trigger).
+
 ## Remaining spec (not implemented)
 
-- **Phase 4 — automation**: settings for the scheduled auto-PO task
-  (`REPLENISHMENT_*`): enable flag, lookback days, min stock trigger.
+- None — all planned phases are implemented.

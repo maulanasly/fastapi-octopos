@@ -56,14 +56,25 @@ async def _reservation_expiry_loop() -> None:
 
 def _auto_po_sync() -> None:
     from app.core.database import SessionLocal
+    from app.models.tenant import Tenant
     from app.services.auto_po import auto_generate_purchase_orders
+    from app.services.purchasing import get_or_create_purchasing_setting
 
     db = SessionLocal()
     try:
-        auto_generate_purchase_orders(
-            db=db, lookback_days=settings.REPLENISHMENT_LOOKBACK_DAYS
-        )
-        db.commit()
+        # Per-tenant automation settings (Phase 4): only tenants that turned
+        # the task on are processed; lookback/min-stock come from their row.
+        for tenant in db.query(Tenant).order_by(Tenant.id.asc()).all():
+            setting = get_or_create_purchasing_setting(db, tenant.id)
+            if not setting.auto_po_enabled:
+                continue
+            auto_generate_purchase_orders(
+                db=db,
+                lookback_days=setting.auto_po_lookback_days,
+                tenant_id=tenant.id,
+                min_stock_trigger=setting.auto_po_min_stock_trigger,
+            )
+            db.commit()
     finally:
         db.close()
 

@@ -57,6 +57,85 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     await Future.wait<void>([_orders, _invoices, _payments]);
   }
 
+  Future<void> _editSettings() async {
+    final s = ref.read(stringsProvider);
+    final repo = ref.read(purchasingRepositoryProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final current = await repo.settings();
+      if (!mounted) return;
+      final lookback = TextEditingController(
+        text: current.autoPoLookbackDays.toString(),
+      );
+      final trigger = TextEditingController(
+        text: current.autoPoMinStockTrigger.toString(),
+      );
+      var autoPoEnabled = current.autoPoEnabled;
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setDialogState) => AlertDialog(
+            title: Text(s.of('automationSettings')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(s.of('autoPoEnabled')),
+                  value: autoPoEnabled,
+                  onChanged: (v) =>
+                      setDialogState(() => autoPoEnabled = v),
+                ),
+                TextField(
+                  controller: lookback,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: s.of('autoPoLookbackDays'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: trigger,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: s.of('autoPoMinStockTrigger'),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(s.of('cancel')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(s.of('save')),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (saved != true) {
+        return;
+      }
+      await repo.updateSettings(
+        PurchasingSettings(
+          autoPoEnabled: autoPoEnabled,
+          autoPoLookbackDays: int.tryParse(lookback.text) ?? 30,
+          autoPoMinStockTrigger: int.tryParse(trigger.text) ?? 0,
+        ),
+      );
+      messenger.showSnackBar(
+        SnackBar(content: Text(s.of('autoPoSettingsSaved'))),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(friendlyError(e, s))),
+      );
+    }
+  }
+
   /// True when the signed-in user may review (approve/reject) a document.
   ///
   /// Mirrors the backend rule: approvers can review any document except one
@@ -1418,6 +1497,12 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       appBar: AppBar(
         title: Text(s.of('purchasing')),
         actions: [
+          if (canManage)
+            IconButton(
+              tooltip: s.of('automationSettings'),
+              icon: const Icon(Icons.settings_outlined),
+              onPressed: () => _editSettings(),
+            ),
           IconButton(
             tooltip: s.of('inventory'),
             icon: const Icon(Icons.refresh),

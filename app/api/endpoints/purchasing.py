@@ -32,6 +32,10 @@ from app.schemas.purchase import PurchaseOrderDetail as PurchaseOrderDetailSchem
 from app.schemas.purchase import Supplier as SupplierSchema
 from app.schemas.purchase import SupplierLedger as SupplierLedgerSchema
 from app.schemas.purchase import SupplierPayment as SupplierPaymentSchema
+from app.schemas.purchasing_setting import (
+    PurchasingSettingRead,
+    PurchasingSettingUpdate,
+)
 from app.schemas.replenishment import (
     PurchaseOrderBatchFromSuggestionsCreate,
     PurchaseOrderBatchFromSuggestionsResponse,
@@ -40,8 +44,10 @@ from app.schemas.replenishment import (
 from app.services.purchasing import (
     _attach_outstanding_amounts,
     _get_purchase_invoice_for_user,
+    get_or_create_purchasing_setting,
     get_purchase_order_detail_data,
     get_supplier_ledger_data,
+    update_purchasing_setting,
 )
 from app.services.purchasing import (
     approve_purchase_invoice as approve_purchase_invoice_service,
@@ -422,6 +428,27 @@ def get_supplier_ledger(
         db=db,
         tenant_id=current_user.tenant_id,
         supplier_id=supplier_id,
+    )
+
+
+@router.get("/settings", response_model=PurchasingSettingRead)
+def get_purchasing_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    return get_or_create_purchasing_setting(db, current_user.tenant_id)
+
+
+@router.put("/settings", response_model=PurchasingSettingRead)
+def update_purchasing_settings(
+    settings_in: PurchasingSettingUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    return update_purchasing_setting(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        data=settings_in,
     )
 
 

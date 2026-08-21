@@ -14,6 +14,7 @@ def build_replenishment_suggestions(
     products: list[Product],
     lookback_days: int,
     supplier_map: dict[int, tuple[int, str]] | None = None,
+    min_stock_trigger: int = 0,
 ) -> list[ReplenishmentSuggestion]:
     if not products:
         return []
@@ -56,12 +57,15 @@ def build_replenishment_suggestions(
             (
                 product.stock_quantity <= reorder_point,
                 product.stock_quantity <= min_stock,
+                min_stock_trigger > 0 and product.stock_quantity <= min_stock_trigger,
                 projected_stock_at_lead_time <= reorder_point,
                 projected_stock_at_lead_time <= min_stock,
             )
         )
 
         suggested_target_stock = max(min_stock, reorder_point + lead_time_demand)
+        if min_stock_trigger > 0:
+            suggested_target_stock = max(suggested_target_stock, min_stock_trigger)
         if max_stock is not None and max_stock > 0:
             suggested_target_stock = min(suggested_target_stock, max_stock)
 

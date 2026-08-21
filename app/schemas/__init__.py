@@ -61,6 +61,10 @@ from app.schemas.purchase import (
     SupplierLedgerEntry,
     SupplierUpdate,
 )
+from app.schemas.purchasing_setting import (
+    PurchasingSettingRead,
+    PurchasingSettingUpdate,
+)
 from app.schemas.rbac import (
     Permission,
     Role,

@@ -7,6 +7,7 @@ from app.models.payment import Payment
 from app.models.product import Category, Product
 from app.models.promotion import Promotion
 from app.models.purchase import PurchaseOrder, PurchaseOrderItem, Supplier
+from app.models.purchasing_setting import PurchasingSetting
 from app.models.rbac import Permission, Role, RolePermission, UserRole
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
