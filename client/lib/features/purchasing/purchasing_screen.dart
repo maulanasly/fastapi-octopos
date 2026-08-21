@@ -15,6 +15,7 @@ import '../../core/models.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../pos/catalog_controller.dart';
+import 'purchasing_controller.dart';
 
 class PurchasingScreen extends ConsumerStatefulWidget {
   const PurchasingScreen({super.key});
@@ -25,37 +26,11 @@ class PurchasingScreen extends ConsumerStatefulWidget {
 
 class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   int _tab = 0;
-  late Future<List<Supplier>> _suppliers;
-  late Future<List<PurchaseOrder>> _orders;
-  late Future<List<PurchaseInvoice>> _invoices;
-  late Future<List<SupplierPayment>> _payments;
-  String? _orderStatus;
-  String? _invoiceStatus;
-  String? _paymentStatus;
 
-  @override
-  void initState() {
-    super.initState();
-    _reload();
-  }
+  PurchasingController get _controller =>
+      ref.read(purchasingControllerProvider.notifier);
 
-  void _reload() {
-    _suppliers = ref.read(purchasingRepositoryProvider).suppliers();
-    _orders = ref
-        .read(purchasingRepositoryProvider)
-        .orders(status: _orderStatus);
-    _invoices = ref
-        .read(purchasingRepositoryProvider)
-        .invoices(status: _invoiceStatus);
-    _payments = ref
-        .read(purchasingRepositoryProvider)
-        .payments(status: _paymentStatus);
-  }
-
-  Future<void> _refresh() async {
-    _reload();
-    await Future.wait<void>([_orders, _invoices, _payments]);
-  }
+  void _reload() => _controller.reload();
 
   Future<void> _editSettings() async {
     final s = ref.read(stringsProvider);
@@ -239,7 +214,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       } else {
         await repo.updateSupplier(supplier.id, body);
       }
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -391,7 +366,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       );
       await ref.read(catalogControllerProvider.notifier).refresh();
       if (mounted) {
-        setState(_reload);
+        _reload();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(s.of('purchaseOrders'))),
         );
@@ -673,7 +648,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         default:
           await repo.submitOrder(order.id, reviewNote: reviewNote);
       }
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -705,7 +680,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     if (ok != true) return;
     try {
       await ref.read(purchasingRepositoryProvider).cancelOrder(order.id);
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -797,7 +772,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     try {
       await ref.read(purchasingRepositoryProvider).receiveItems(order.id, items);
       await ref.read(catalogControllerProvider.notifier).refresh();
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -961,7 +936,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         if (dueDate != null) 'due_date': dueDate!.toUtc().toIso8601String(),
         'items': items,
       });
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1154,7 +1129,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         default:
           await repo.submitInvoice(invoice.id, reviewNote: reviewNote);
       }
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1308,7 +1283,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           'reference': reference.text.trim(),
       });
       if (mounted) {
-        setState(_reload);
+        _reload();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(s.of('supplierPayments'))),
         );
@@ -1478,7 +1453,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         default:
           await repo.submitPayment(payment.id, reviewNote: reviewNote);
       }
-      if (mounted) setState(_reload);
+      if (mounted) { _reload(); }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1506,7 +1481,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           IconButton(
             tooltip: s.of('inventory'),
             icon: const Icon(Icons.refresh),
-            onPressed: () => setState(_reload),
+            onPressed: _reload,
           ),
         ],
       ),
@@ -1578,33 +1553,29 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   }
 
   Widget _ledgerView(BuildContext context, AppStrings s) {
-    return FutureBuilder<List<Supplier>>(
-      future: _suppliers,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text(friendlyError(snapshot.error!, s)));
-        }
-        final suppliers = snapshot.data ?? [];
-        if (suppliers.isEmpty) {
-          return Center(child: Text(s.of('noSuppliers')));
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: suppliers.length,
-          separatorBuilder: (_, _) => const Divider(height: 8),
-          itemBuilder: (context, i) {
-            final supplier = suppliers[i];
-            return ListTile(
-              leading: const Icon(Icons.menu_book_outlined),
-              title: Text(supplier.name),
-              subtitle: Text(supplier.contactEmail ?? supplier.phone ?? '—'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _supplierLedger(supplier),
-            );
-          },
+    final st = ref.watch(purchasingControllerProvider);
+    if (st.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (st.error != null) {
+      return Center(child: Text(st.error!));
+    }
+    final suppliers = st.suppliers;
+    if (suppliers.isEmpty) {
+      return Center(child: Text(s.of('noSuppliers')));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: suppliers.length,
+      separatorBuilder: (_, _) => const Divider(height: 8),
+      itemBuilder: (context, i) {
+        final supplier = suppliers[i];
+        return ListTile(
+          leading: const Icon(Icons.menu_book_outlined),
+          title: Text(supplier.name),
+          subtitle: Text(supplier.contactEmail ?? supplier.phone ?? '—'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _supplierLedger(supplier),
         );
       },
     );
@@ -1706,44 +1677,40 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   }
 
   Widget _suppliersView(BuildContext context, AppStrings s) {
-    return FutureBuilder<List<Supplier>>(
-      future: _suppliers,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text(friendlyError(snapshot.error!, s)));
-        }
-        final suppliers = snapshot.data ?? [];
-        if (suppliers.isEmpty) {
-          return Center(child: Text(s.of('noSuppliers')));
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: suppliers.length,
-          separatorBuilder: (_, _) => const Divider(height: 8),
-          itemBuilder: (context, i) {
-            final supplier = suppliers[i];
-            return ListTile(
-              leading: const Icon(Icons.factory_outlined),
-              title: Text(
-                '${supplier.name}${supplier.isActive ? '' : ' (${s.of('staffInactive')})'}',
-              ),
-              subtitle: Text(
-                [
-                  if (supplier.contactEmail != null) supplier.contactEmail!,
-                  if (supplier.phone != null) supplier.phone!,
-                ].join(' · '),
-              ),
-              trailing: IconButton(
-                tooltip: s.of('editSupplier', args: {'name': supplier.name}),
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () => _editSupplier(supplier: supplier),
-              ),
-              onTap: () => _editSupplier(supplier: supplier),
-            );
-          },
+    final st = ref.watch(purchasingControllerProvider);
+    if (st.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (st.error != null) {
+      return Center(child: Text(st.error!));
+    }
+    final suppliers = st.suppliers;
+    if (suppliers.isEmpty) {
+      return Center(child: Text(s.of('noSuppliers')));
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: suppliers.length,
+      separatorBuilder: (_, _) => const Divider(height: 8),
+      itemBuilder: (context, i) {
+        final supplier = suppliers[i];
+        return ListTile(
+          leading: const Icon(Icons.factory_outlined),
+          title: Text(
+            '${supplier.name}${supplier.isActive ? '' : ' (${s.of('staffInactive')})'}',
+          ),
+          subtitle: Text(
+            [
+              if (supplier.contactEmail != null) supplier.contactEmail!,
+              if (supplier.phone != null) supplier.phone!,
+            ].join(' · '),
+          ),
+          trailing: IconButton(
+            tooltip: s.of('editSupplier', args: {'name': supplier.name}),
+            icon: const Icon(Icons.edit_outlined),
+            onPressed: () => _editSupplier(supplier: supplier),
+          ),
+          onTap: () => _editSupplier(supplier: supplier),
         );
       },
     );
@@ -1775,10 +1742,11 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   }
 
   Widget _ordersView(BuildContext context, AppStrings s, bool canManage) {
+    final st = ref.watch(purchasingControllerProvider);
     return Column(
       children: [
         _statusChips(
-          current: _orderStatus,
+          current: st.orderStatus,
           statuses: const [
             'draft',
             'pending_review',
@@ -1788,55 +1756,31 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
             'rejected',
             'cancelled',
           ],
-          onChanged: (v) => setState(() {
-            _orderStatus = v;
-            _reload();
-          }),
+          onChanged: (v) => _controller.setOrderStatus(v),
         ),
         Expanded(
-          child: FutureBuilder<List<PurchaseOrder>>(
-            future: _orders,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return ErrorStateView(
-                  message: friendlyError(snapshot.error!, s),
-                  onRetry: _reload,
-                );
-              }
-              final orders = snapshot.data ?? [];
-              if (orders.isEmpty) {
-                return EmptyStateView(message: s.of('noPurchaseOrders'));
-              }
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: orders.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
-                  itemBuilder: (context, i) {
-                    final order = orders[i];
-                    return Card(
-                      margin: EdgeInsets.zero,
-                      child: ListTile(
-                        title: Text('PO #${order.id} · ${order.status}'),
-                        subtitle: Text(
-                          '${order.items.length} ${s.of('itemsCount', args: {'count': order.items.length})} · '
-                          '${formatCents(centsFromApi(order.totalEstimatedAmount))}'
-                          '${order.createdAt != null ? ' · ${formatDateTimeIso(order.createdAt)}' : ''}',
-                        ),
-                        trailing: IconButton(
-                          tooltip: s.of('purchaseOrders'),
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () => _orderDetail(order),
-                        ),
-                        onTap: () => _orderDetail(order),
-                      ),
-                    );
-                  },
+          child: _purchasingList(
+            st: st,
+            s: s,
+            emptyKey: 'noPurchaseOrders',
+            itemCount: st.orders.length,
+            itemBuilder: (context, i) {
+              final order = st.orders[i];
+              return Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  title: Text('PO #${order.id} · ${order.status}'),
+                  subtitle: Text(
+                    '${order.items.length} ${s.of('itemsCount', args: {'count': order.items.length})} · '
+                    '${formatCents(centsFromApi(order.totalEstimatedAmount))}'
+                    '${order.createdAt != null ? ' · ${formatDateTimeIso(order.createdAt)}' : ''}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: s.of('purchaseOrders'),
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () => _orderDetail(order),
+                  ),
+                  onTap: () => _orderDetail(order),
                 ),
               );
             },
@@ -1846,63 +1790,70 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     );
   }
 
+  /// Shared list scaffold for the filtered purchasing tabs: loading /
+  /// error-with-retry / empty / pull-to-refresh list.
+  Widget _purchasingList({
+    required PurchasingState st,
+    required AppStrings s,
+    required String emptyKey,
+    required int itemCount,
+    required IndexedWidgetBuilder itemBuilder,
+  }) {
+    if (st.loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (st.error != null) {
+      return ErrorStateView(message: st.error!, onRetry: _reload);
+    }
+    if (itemCount == 0) {
+      return EmptyStateView(message: s.of(emptyKey));
+    }
+    return RefreshIndicator(
+      onRefresh: () => _controller.reload(),
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: itemCount,
+        separatorBuilder: (_, _) => const Divider(height: 8),
+        itemBuilder: itemBuilder,
+      ),
+    );
+  }
+
   Widget _invoicesView(BuildContext context, AppStrings s) {
+    final st = ref.watch(purchasingControllerProvider);
     return Column(
       children: [
         _statusChips(
-          current: _invoiceStatus,
+          current: st.invoiceStatus,
           statuses: const ['draft', 'pending_review', 'approved', 'rejected'],
-          onChanged: (v) => setState(() {
-            _invoiceStatus = v;
-            _reload();
-          }),
+          onChanged: (v) => _controller.setInvoiceStatus(v),
         ),
         Expanded(
-          child: FutureBuilder<List<PurchaseInvoice>>(
-            future: _invoices,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return ErrorStateView(
-                  message: friendlyError(snapshot.error!, s),
-                  onRetry: _reload,
-                );
-              }
-              final invoices = snapshot.data ?? [];
-              if (invoices.isEmpty) {
-                return EmptyStateView(message: s.of('noInvoices'));
-              }
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: invoices.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
-                  itemBuilder: (context, i) {
-                    final invoice = invoices[i];
-                    return Card(
-                      margin: EdgeInsets.zero,
-                      child: ListTile(
-                        title: Text(
-                          '${invoice.invoiceNumber} · ${invoice.status}',
-                        ),
-                        subtitle: Text(
-                          'PO #${invoice.purchaseOrderId} · '
-                          '${formatCents(centsFromApi(invoice.totalAmount))}'
-                          '${(invoice.hasQuantityVariance || invoice.hasPriceVariance) ? ' · ${s.of('variance')}' : ''}',
-                        ),
-                        trailing: IconButton(
-                          tooltip: s.of('purchaseInvoices'),
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () => _invoiceDetail(invoice),
-                        ),
-                        onTap: () => _invoiceDetail(invoice),
-                      ),
-                    );
-                  },
+          child: _purchasingList(
+            st: st,
+            s: s,
+            emptyKey: 'noInvoices',
+            itemCount: st.invoices.length,
+            itemBuilder: (context, i) {
+              final invoice = st.invoices[i];
+              return Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  title: Text(
+                    '${invoice.invoiceNumber} · ${invoice.status}',
+                  ),
+                  subtitle: Text(
+                    'PO #${invoice.purchaseOrderId} · '
+                    '${formatCents(centsFromApi(invoice.totalAmount))}'
+                    '${(invoice.hasQuantityVariance || invoice.hasPriceVariance) ? ' · ${s.of('variance')}' : ''}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: s.of('purchaseInvoices'),
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () => _invoiceDetail(invoice),
+                  ),
+                  onTap: () => _invoiceDetail(invoice),
                 ),
               );
             },
@@ -1913,61 +1864,38 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   }
 
   Widget _paymentsView(BuildContext context, AppStrings s) {
+    final st = ref.watch(purchasingControllerProvider);
     return Column(
       children: [
         _statusChips(
-          current: _paymentStatus,
+          current: st.paymentStatus,
           statuses: const ['draft', 'pending_review', 'approved', 'rejected'],
-          onChanged: (v) => setState(() {
-            _paymentStatus = v;
-            _reload();
-          }),
+          onChanged: (v) => _controller.setPaymentStatus(v),
         ),
         Expanded(
-          child: FutureBuilder<List<SupplierPayment>>(
-            future: _payments,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return ErrorStateView(
-                  message: friendlyError(snapshot.error!, s),
-                  onRetry: _reload,
-                );
-              }
-              final payments = snapshot.data ?? [];
-              if (payments.isEmpty) {
-                return EmptyStateView(message: s.of('noPayments'));
-              }
-              return RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: payments.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
-                  itemBuilder: (context, i) {
-                    final payment = payments[i];
-                    return Card(
-                      margin: EdgeInsets.zero,
-                      child: ListTile(
-                        title: Text('#${payment.id} · ${payment.status}'),
-                        subtitle: Text(
-                          '${s.of('invoiceNumber')} #${payment.invoiceId} · '
-                          '${formatCents(centsFromApi(payment.amount))} · '
-                          '${paymentMethodLabel(s, payment.paymentMethod)}'
-                          '${payment.reference != null ? ' · ${payment.reference}' : ''}',
-                        ),
-                        trailing: IconButton(
-                          tooltip: s.of('supplierPayments'),
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () => _paymentDetail(payment),
-                        ),
-                        onTap: () => _paymentDetail(payment),
-                      ),
-                    );
-                  },
+          child: _purchasingList(
+            st: st,
+            s: s,
+            emptyKey: 'noPayments',
+            itemCount: st.payments.length,
+            itemBuilder: (context, i) {
+              final payment = st.payments[i];
+              return Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  title: Text('#${payment.id} · ${payment.status}'),
+                  subtitle: Text(
+                    '${s.of('invoiceNumber')} #${payment.invoiceId} · '
+                    '${formatCents(centsFromApi(payment.amount))} · '
+                    '${paymentMethodLabel(s, payment.paymentMethod)}'
+                    '${payment.reference != null ? ' · ${payment.reference}' : ''}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: s.of('supplierPayments'),
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () => _paymentDetail(payment),
+                  ),
+                  onTap: () => _paymentDetail(payment),
                 ),
               );
             },

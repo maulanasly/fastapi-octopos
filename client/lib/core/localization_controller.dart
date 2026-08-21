@@ -7,8 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_client.dart';
 import 'api_repositories.dart';
 import 'auth_controller.dart';
+import 'errors.dart';
 import 'models.dart';
 import 'money.dart';
+import 'strings.dart';
 
 class LocalizationState {
   final LocalizationSetting? setting;
@@ -40,7 +42,9 @@ class LocalizationController extends Notifier<LocalizationState> {
       _apply(setting);
       state = LocalizationState(setting: setting);
     } catch (e) {
-      state = LocalizationState(error: e.toString());
+      state = LocalizationState(
+        error: friendlyError(e, ref.read(stringsProvider)),
+      );
     }
   }
 
@@ -53,7 +57,9 @@ class LocalizationController extends Notifier<LocalizationState> {
       _apply(setting);
       state = LocalizationState(setting: setting);
     } catch (e) {
-      state = LocalizationState(error: e.toString());
+      state = LocalizationState(
+        error: friendlyError(e, ref.read(stringsProvider)),
+      );
       rethrow;
     }
   }

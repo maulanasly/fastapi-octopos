@@ -140,6 +140,10 @@ class ApiClient {
   Future<void> _storeTokens(TokenResponse tokens) async {
     session.accessToken = tokens.accessToken;
     session.refreshToken = tokens.refreshToken;
+    // A fresh sign-in re-arms the expiry callback: without this reset the
+    // first expired session would permanently disable the "session
+    // expired" redirect for every later sign-in in the same app run.
+    _disposed = false;
     await store.saveTokens(
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

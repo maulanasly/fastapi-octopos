@@ -1,5 +1,5 @@
-/// Tracking controller: active service trips, live positions via SSE
-/// (shared stream with the serving queue) and a polling fallback.
+/// Tracking controller: active service trips, live positions via the
+/// shared SSE event bus and a polling fallback.
 library;
 
 import 'dart:async';
@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/auth_controller.dart';
 import '../../core/models.dart';
 
 final trackingControllerProvider =
@@ -33,30 +34,52 @@ class TrackingController extends Notifier<TrackingState> {
   @override
   TrackingState build() {
     ref.onDispose(() {
-      _sseSub?.cancel();
-      _pollTimer?.cancel();
+      _teardown();
+    });
+    // The SSE subscription and poll timer must not outlive the session:
+    // sign-out tears them down, sign-in brings them back.
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      if (prev?.status == AuthStatus.signedIn &&
+          next.status == AuthStatus.signedOut) {
+        _teardown();
+        state = const TrackingState();
+      } else if (next.status == AuthStatus.signedIn &&
+          prev?.status != AuthStatus.signedIn) {
+        _subscribe();
+      }
     });
     if (!_subscribed) {
-      _subscribed = true;
       _subscribe();
     }
     return const TrackingState();
   }
 
   void _subscribe() {
-    final repo = ref.read(orderRepositoryProvider);
-    _sseSub = repo.servingEvents().listen(
+    if (_subscribed && _sseSub != null) return;
+    _subscribed = true;
+    _sseSub = ref.read(servingEventBusProvider).listen(
       (event) {
         if (event['event'] == 'tracking') refresh();
       },
       onError: (_) => _startPolling(),
-      onDone: _startPolling,
+      onDone: () {
+        _sseSub = null;
+        _startPolling();
+      },
     );
     refresh();
   }
 
   void _startPolling() {
     _pollTimer ??= Timer.periodic(const Duration(seconds: 10), (_) => refresh());
+  }
+
+  void _teardown() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    unawaited(_sseSub?.cancel());
+    _sseSub = null;
+    _subscribed = false;
   }
 
   Future<void> refresh() async {

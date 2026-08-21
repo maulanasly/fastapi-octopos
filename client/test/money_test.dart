@@ -10,6 +10,25 @@ void main() {
       expect(centsFromApi(null), 0);
       expect(centsFromApi(0.01), 1);
     });
+
+    test('rounds binary-float values that sit just below the cent', () {
+      // 58.3 * 100 == 5829.999... in IEEE-754; truncation lost a cent.
+      expect(centsFromApi(58.30), 5830);
+      expect(centsFromApi(0.29), 29);
+      expect(centsFromApi(4.10), 410);
+      expect(centsFromApi(8.675), 868);
+    });
+  });
+
+  group('centsFromInput', () {
+    test('parses user-typed amounts to cents consistently', () {
+      expect(centsFromInput('4.5'), 450);
+      expect(centsFromInput('4.50'), 450);
+      expect(centsFromInput('4500.00'), 450000);
+      expect(centsFromInput('0.29'), 29);
+      expect(centsFromInput(''), 0);
+      expect(centsFromInput('abc'), 0);
+    });
   });
 
   group('formatCents', () {

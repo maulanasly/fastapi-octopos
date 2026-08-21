@@ -309,11 +309,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Text(
-                '${s.of('total')}: ${formatCents(cart.subtotalCents)}',
-                style: Theme.of(context).textTheme.titleLarge,
+              // Flexible: long totals must shrink, not push the checkout
+              // button off-pane on narrower windows.
+              Expanded(
+                child: Text(
+                  '${s.of('total')}: ${formatCents(cart.subtotalCents)}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               FilledButton(
                 onPressed: canCheckout ? null : () => _checkout(context),
                 child: Text(s.of('checkout')),

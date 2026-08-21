@@ -365,28 +365,36 @@ class OrderRepository {
       '/orders/serving/stream',
       options: Options(responseType: ResponseType.stream),
     );
-    final body = resp.data!;
-    final stream = body.stream;
-    final buffer = StringBuffer();
+    // Decode bytes and split into complete lines before parsing: TCP
+    // chunks (and multi-byte UTF-8 characters) can split anywhere, so a
+    // naive per-chunk parse corrupts frames that span chunk boundaries.
+    var pending = '';
     var currentEvent = '';
-    await for (final chunk in stream) {
-      final text = String.fromCharCodes(chunk);
-      for (final line in text.split('\n')) {
+    final data = StringBuffer();
+    await for (final chunk in resp.data!.stream) {
+      pending += utf8.decode(chunk, allowMalformed: true);
+      while (true) {
+        final nl = pending.indexOf('\n');
+        if (nl < 0) break;
+        final line = pending.substring(0, nl).replaceAll('\r', '');
+        pending = pending.substring(nl + 1);
         if (line.startsWith('event: ')) {
           currentEvent = line.substring(7).trim();
         } else if (line.startsWith('data: ')) {
           if (currentEvent == 'serving' || currentEvent == 'tracking') {
-            buffer.write(line.substring(6));
+            data.write(line.substring(6));
           }
-        } else if (line.trim().isEmpty) {
-          if (buffer.isNotEmpty) {
-            final payload = buffer.toString();
-            buffer.clear();
+        } else if (line.isEmpty) {
+          if (data.isNotEmpty) {
+            final payload = data.toString();
+            data.clear();
             final emittedEvent = currentEvent;
             currentEvent = '';
             try {
-              final decoded = jsonDecode(payload) as Map<String, dynamic>;
-              yield {...decoded, 'event': emittedEvent};
+              yield {
+                ...jsonDecode(payload) as Map<String, dynamic>,
+                'event': emittedEvent,
+              };
             } on FormatException {
               // ignore malformed frames
             }
@@ -462,6 +470,38 @@ class OrderRepository {
     return Refund.fromJson(resp.data!);
   }
 }
+
+/// One shared SSE connection for every consumer (serving queue + tracking
+/// map previously each opened their own stream to the same endpoint).
+/// The upstream connects while at least one listener is subscribed and
+/// disconnects when the last one leaves.
+final servingEventBusProvider = Provider<Stream<Map<String, dynamic>>>((ref) {
+  final repo = ref.watch(orderRepositoryProvider);
+  late final StreamController<Map<String, dynamic>> controller;
+  StreamSubscription<Map<String, dynamic>>? upstream;
+  var listeners = 0;
+  controller = StreamController<Map<String, dynamic>>.broadcast(
+    onListen: () {
+      listeners++;
+      upstream ??= repo.servingEvents().listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: () => upstream = null,
+        cancelOnError: false,
+      );
+    },
+    onCancel: () {
+      listeners--;
+      if (listeners <= 0) {
+        listeners = 0;
+        unawaited(upstream?.cancel());
+        upstream = null;
+      }
+    },
+  );
+  ref.onDispose(controller.close);
+  return controller.stream;
+});
 
 class DrawerRepository {
   final ApiClient api;

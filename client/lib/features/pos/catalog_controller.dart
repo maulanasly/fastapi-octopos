@@ -8,8 +8,11 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/auth_controller.dart';
+import '../../core/errors.dart';
+import '../../core/local_persistence.dart';
 import '../../core/models.dart';
-import 'cart_controller.dart' show localStoreProvider;
+import '../../core/strings.dart';
 
 class CatalogState {
   final List<Category> categories;
@@ -28,14 +31,34 @@ class CatalogState {
 class CatalogController extends Notifier<CatalogState> {
   @override
   CatalogState build() {
-    _load();
+    // Sign-out drops the in-memory cache and the stored watermark so the
+    // next session starts from a clean full pull (no cross-user leakage).
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      if (prev?.status == AuthStatus.signedIn &&
+          next.status == AuthStatus.signedOut) {
+        ref.read(localStoreProvider).clearWatermark();
+        state = const CatalogState();
+      } else if (next.status == AuthStatus.signedIn &&
+          prev?.status != AuthStatus.signedIn) {
+        // Fresh session: repopulate (freshSession forces a full pull
+        // because the cache was just reset).
+        _load(freshSession: true);
+      }
+    });
+    // Defer past the synchronous build phase: `_load` reads and writes
+    // `state`, which is illegal while the notifier is still building.
+    Future.microtask(() => _load(freshSession: true));
     return const CatalogState();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool freshSession = false}) async {
     try {
       final store = ref.read(localStoreProvider);
-      final since = await store.readWatermark();
+      // A stored watermark is only meaningful on top of a populated
+      // cache: with an empty base (fresh sign-in) it must be ignored,
+      // otherwise the delta pull returns just the changed rows and most
+      // of the catalog would be missing from the POS grid.
+      final since = freshSession ? null : await store.readWatermark();
       final delta = await _fetchDelta(since);
 
       if (delta != null) {
@@ -59,7 +82,10 @@ class CatalogController extends Notifier<CatalogState> {
         loading: false,
       );
     } catch (e) {
-      state = CatalogState(loading: false, error: e.toString());
+      state = CatalogState(
+        loading: false,
+        error: friendlyError(e, ref.read(stringsProvider)),
+      );
     }
   }
 

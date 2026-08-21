@@ -6,11 +6,13 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _cartKey = 'octopos_cart';
 const _watermarkKey = 'octopos_sync_watermark';
 
+final localStoreProvider = Provider<LocalStore>((ref) => LocalStore());
 class PersistedCart {
   final Map<int, int> quantities; // productId -> quantity
   final int? customerId;
@@ -83,5 +85,17 @@ class LocalStore {
   Future<void> writeWatermark(String iso) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_watermarkKey, iso);
+  }
+
+  Future<void> clearWatermark() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_watermarkKey);
+  }
+
+  /// Wipes per-user local state on sign-out: a draft cart or catalog
+  /// watermark must never leak into the next user's session.
+  Future<void> clearSessionData() async {
+    await clearCart();
+    await clearWatermark();
   }
 }
