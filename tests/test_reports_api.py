@@ -305,3 +305,68 @@ def test_purchase_variance_trend_buckets_by_month(
     assert current["variance_total"] == 5.0
     periods = [month["period"] for month in summary["months"]]
     assert periods == sorted(periods)
+
+
+def test_sales_summary_margin_uses_cost_snapshot_net_of_refunds(
+    client, manager_headers, make_product, open_drawer
+):
+    """COGS = Σ(sold qty × snapshot cost) − refunds, over known-cost lines
+    only; margin is net_revenue − COGS and coverage flags unknown costs."""
+    from test_refunds_api import _refund
+
+    # Costed product (cost 10, price 30) and an uncosted one (price 50).
+    costed = make_product(
+        manager_headers,
+        name="Margin Costed",
+        sku="SKU-MGN-C",
+        price=30.0,
+        unit_cost=10.0,
+        stock=20,
+    )
+    uncosted = make_product(
+        manager_headers,
+        name="Margin Uncosted",
+        sku="SKU-MGN-U",
+        price=50.0,
+        stock=20,
+    )
+    open_drawer(manager_headers)
+
+    def _buy_and_pay(product, quantity):
+        order = client.post(
+            "/api/v1/orders/",
+            headers=manager_headers,
+            json={"items": [{"product_id": product["id"], "quantity": quantity}]},
+        )
+        assert order.status_code == 200, order.text
+        paid = client.post(
+            f"/api/v1/orders/{order.json()['id']}/payments",
+            headers=manager_headers,
+            json={
+                "payment_method": "cash",
+                "amount": float(product["price"]) * quantity,
+            },
+        )
+        assert paid.status_code == 200, paid.text
+        return order.json()
+
+    order_a = _buy_and_pay(costed, 2)  # revenue 60, gross cogs 20
+    _buy_and_pay(uncosted, 1)  # revenue 50, no known cost
+
+    # Refund one unit of the costed line: reverses 10 of COGS.
+    resp = _refund(
+        client,
+        manager_headers,
+        order_a,
+        order_a["items"][0]["id"],
+        quantity=1,
+    )
+    assert resp.status_code == 200, resp.text
+
+    summary = client.get("/api/v1/reports/sales", headers=manager_headers).json()
+
+    assert summary["net_revenue"] == 80.0  # (60 + 50) - 30 refunded
+    assert summary["cogs_total"] == 10.0  # 20 sold - 10 refunded
+    assert summary["gross_margin_amount"] == 70.0
+    assert summary["gross_margin_percent"] == 87.5
+    assert summary["cogs_known_ratio"] == round(2 / 3, 4)

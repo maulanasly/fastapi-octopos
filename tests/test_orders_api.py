@@ -387,3 +387,49 @@ def test_receipt_includes_cashier_name(
     assert (
         body["cashier_name"].endswith("example.com") or "@" not in body["cashier_name"]
     )
+
+
+def test_create_order_snapshots_product_unit_cost(
+    client, db, cashier_headers, make_product, open_drawer, manager_headers
+):
+    """The sold line stores the product's current cost for COGS reporting."""
+    from app.models.order import OrderItem
+
+    product = make_product(
+        manager_headers,
+        name="Costed Item",
+        sku="SKU-COSTED",
+        price=30.0,
+        unit_cost=12.5,
+        stock=10,
+    )
+    open_drawer(cashier_headers)
+
+    order = _create_checked_out_order(
+        client, cashier_headers, product["id"], quantity=2
+    )
+
+    item = db.get(OrderItem, order["items"][0]["id"])
+    assert item is not None
+    assert float(item.unit_cost) == 12.5
+
+
+def test_create_order_unit_cost_stays_null_when_unknown(
+    client, db, cashier_headers, make_product, open_drawer, manager_headers
+):
+    """Products without a cost yet produce NULL snapshots (excluded from
+    margin math instead of being counted as free)."""
+    from app.models.order import OrderItem
+
+    product = make_product(
+        manager_headers, name="Uncosted Item", sku="SKU-UNCOSTED", price=20.0
+    )
+    open_drawer(cashier_headers)
+
+    order = _create_checked_out_order(
+        client, cashier_headers, product["id"], quantity=1
+    )
+
+    item = db.get(OrderItem, order["items"][0]["id"])
+    assert item is not None
+    assert item.unit_cost is None

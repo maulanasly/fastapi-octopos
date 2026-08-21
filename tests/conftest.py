@@ -326,6 +326,7 @@ def make_product(client):
         max_stock=None,
         reorder_point=0,
         lead_time_days=0,
+        unit_cost=None,
     ):
         cat_resp = client.post(
             "/api/v1/products/categories",
@@ -345,6 +346,7 @@ def make_product(client):
                 "max_stock": max_stock,
                 "reorder_point": reorder_point,
                 "lead_time_days": lead_time_days,
+                "unit_cost": unit_cost,
                 "category_id": cat_resp.json()["id"],
             },
         )
