@@ -132,6 +132,89 @@ class _FakePurchasing extends PurchasingRepository {
     ];
   }
 
+  int orderDetailCalls = 0;
+  int supplierLedgerCalls = 0;
+
+  @override
+  Future<PurchaseOrderDetail> orderDetail(int purchaseOrderId) async {
+    orderDetailCalls++;
+    return PurchaseOrderDetail(
+      id: purchaseOrderId,
+      supplierId: 1,
+      userId: 2,
+      status: 'partially_received',
+      totalEstimatedAmount: 150.0,
+      createdAt: '2026-08-17T10:00:00',
+      orderedAt: '2026-08-17T11:00:00',
+      items: [
+        PurchaseOrderItemDetail(
+          id: 21,
+          purchaseOrderId: purchaseOrderId,
+          productId: 3,
+          quantityOrdered: 10,
+          quantityReceived: 6,
+          unitCost: 15.0,
+          quantityInvoiced: 6,
+          billedTotal: 90.0,
+        ),
+      ],
+      timeline: [
+        PurchaseOrderTimelineEvent(event: 'created', at: '2026-08-17T10:00:00'),
+        PurchaseOrderTimelineEvent(event: 'ordered', at: '2026-08-17T11:00:00'),
+        PurchaseOrderTimelineEvent(
+          event: 'received',
+          at: '2026-08-17T12:00:00',
+          note: '+6 units',
+        ),
+      ],
+      totalReceivedAmount: 90.0,
+      totalBilledAmount: 90.0,
+      outstandingPayable: 90.0,
+    );
+  }
+
+  @override
+  Future<SupplierLedger> supplierLedger(int supplierId) async {
+    supplierLedgerCalls++;
+    return SupplierLedger(
+      supplierId: supplierId,
+      supplierName: 'Acme Supply',
+      openPurchaseOrders: 1,
+      openPoAmount: 150.0,
+      pendingInvoiceCount: 1,
+      pendingInvoiceAmount: 150.0,
+      approvedInvoiceTotal: 240.0,
+      approvedPaymentTotal: 100.0,
+      outstandingPayable: 140.0,
+      entries: [
+        SupplierLedgerEntry(
+          kind: 'purchase_order',
+          id: 11,
+          status: 'pending_review',
+          amount: 150.0,
+          date: '2026-08-17T10:00:00',
+          reference: 'PO-11',
+        ),
+        SupplierLedgerEntry(
+          kind: 'invoice',
+          id: 31,
+          status: 'pending_review',
+          amount: 150.0,
+          date: '2026-08-18T10:00:00',
+          reference: 'INV-001',
+        ),
+        SupplierLedgerEntry(
+          kind: 'payment',
+          id: 41,
+          status: 'approved',
+          amount: 100.0,
+          date: '2026-08-19T10:00:00',
+          reference: 'TRX-1',
+        ),
+      ],
+    );
+  }
+
   @override
   Future<PurchaseOrder> submitOrder(
     int purchaseOrderId, {
@@ -538,5 +621,48 @@ void main() {
     expect(find.text('Create payment'), findsWidgets);
     expect(find.text('Amount'), findsOneWidget);
     expect(fake.createPaymentCalls, 0);
+  });
+
+  testWidgets('order detail shows timeline and invoiced totals', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Purchase orders'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('PO #11'));
+    await tester.pumpAndSettle();
+
+    expect(fake.orderDetailCalls, 1);
+    expect(find.text('Timeline'), findsOneWidget);
+    expect(find.textContaining('Invoiced: 6'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.textContaining('Outstanding payable'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.textContaining('+6 units'), findsOneWidget);
+    expect(find.textContaining('Received amount'), findsOneWidget);
+    expect(find.textContaining('Outstanding payable'), findsOneWidget);
+  });
+
+  testWidgets('ledger tab opens supplier ledger with entries', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Ledger'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Acme Supply'));
+    await tester.pumpAndSettle();
+
+    expect(fake.supplierLedgerCalls, 1);
+    expect(find.textContaining('Open POs'), findsOneWidget);
+    expect(find.textContaining('Outstanding payable'), findsOneWidget);
+    expect(find.text('PO-11'), findsOneWidget);
+    expect(find.text('INV-001'), findsOneWidget);
+    expect(find.text('TRX-1'), findsOneWidget);
   });
 }

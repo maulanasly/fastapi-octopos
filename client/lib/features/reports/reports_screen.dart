@@ -26,6 +26,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   late Future<List<DailyShiftItem>> _shiftsFuture;
   late Future<List<TopProductItem>> _topProductsFuture;
   late Future<List<CategorySalesItem>> _categorySalesFuture;
+  late Future<SupplierSpendSummary> _supplierSpendFuture;
+  late Future<VarianceTrendSummary> _varianceTrendFuture;
 
   @override
   void initState() {
@@ -69,6 +71,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
       endDate: endDate,
     );
     _categorySalesFuture = repo.categorySales(
+      startDate: startDate,
+      endDate: endDate,
+    );
+    _supplierSpendFuture = repo.supplierSpend(
+      startDate: startDate,
+      endDate: endDate,
+    );
+    _varianceTrendFuture = repo.purchaseVariance(
       startDate: startDate,
       endDate: endDate,
     );
@@ -441,6 +451,112 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                               formatCents(centsFromApi(shift.netSalesTotal)),
                             ),
                             onTap: () => _showShiftReport(shift),
+                          ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<SupplierSpendSummary>(
+            future: _supplierSpendFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasError) {
+                return ErrorStateView(
+                  message: strings.of('genericError'),
+                  onRetry: () => setState(_load),
+                );
+              }
+              final spend = snapshot.data!;
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        strings.of('supplierSpend'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      _metric(
+                        context,
+                        strings.of('cogsEstimate'),
+                        formatCents(centsFromApi(spend.cogsEstimate)),
+                      ),
+                      const SizedBox(height: 8),
+                      if (spend.items.isEmpty)
+                        Text(strings.of('noInvoices'))
+                      else
+                        for (final item in spend.items)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(item.supplierName),
+                            subtitle: Text(
+                              '${item.poCount} PO · ${item.invoiceCount} inv',
+                            ),
+                            trailing: Text(
+                              '${formatCents(centsFromApi(item.approvedTotal))}'
+                              '${item.varianceTotal != 0 ? ' (±${formatCents(centsFromApi(item.varianceTotal.abs()))})' : ''}',
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<VarianceTrendSummary>(
+            future: _varianceTrendFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasError) {
+                return ErrorStateView(
+                  message: strings.of('genericError'),
+                  onRetry: () => setState(_load),
+                );
+              }
+              final trend = snapshot.data!;
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        strings.of('purchaseVarianceTrend'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      if (trend.months.isEmpty)
+                        Text(strings.of('noInvoices'))
+                      else
+                        for (final month in trend.months)
+                          ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(month.period),
+                            subtitle: Text(
+                              '${month.invoiceCount} inv · '
+                              'approved ${formatCents(centsFromApi(month.approvedTotal))}',
+                            ),
+                            trailing: Text(
+                              '±${formatCents(centsFromApi(month.varianceTotal.abs()))}',
+                            ),
                           ),
                     ],
                   ),

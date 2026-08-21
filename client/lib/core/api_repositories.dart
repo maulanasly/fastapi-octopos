@@ -655,6 +655,28 @@ class ReportRepository {
     );
     return ShiftReport.fromJson(resp.data!);
   }
+
+  Future<SupplierSpendSummary> supplierSpend({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/reports/supplier-spend',
+      queryParameters: {'start_date': ?startDate, 'end_date': ?endDate},
+    );
+    return SupplierSpendSummary.fromJson(resp.data!);
+  }
+
+  Future<VarianceTrendSummary> purchaseVariance({
+    String? startDate,
+    String? endDate,
+  }) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/reports/purchase-variance',
+      queryParameters: {'start_date': ?startDate, 'end_date': ?endDate},
+    );
+    return VarianceTrendSummary.fromJson(resp.data!);
+  }
 }
 
 class AuditRepository {
@@ -997,6 +1019,20 @@ class PurchasingRepository {
       data: {'items': items},
     );
     return PurchaseOrder.fromJson(resp.data!);
+  }
+
+  Future<PurchaseOrderDetail> orderDetail(int purchaseOrderId) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/purchasing/orders/$purchaseOrderId/detail',
+    );
+    return PurchaseOrderDetail.fromJson(resp.data!);
+  }
+
+  Future<SupplierLedger> supplierLedger(int supplierId) async {
+    final resp = await api.dio.get<Map<String, dynamic>>(
+      '/purchasing/suppliers/$supplierId/ledger',
+    );
+    return SupplierLedger.fromJson(resp.data!);
   }
 
   // ---- Purchase invoices ----

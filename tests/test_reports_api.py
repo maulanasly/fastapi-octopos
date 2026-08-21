@@ -170,3 +170,138 @@ def test_tax_liability_empty_when_no_tax_rules(
 def test_reports_require_reports_permission(client, cashier_headers):
     resp = client.get("/api/v1/reports/sales", headers=cashier_headers)
     assert resp.status_code == 403
+
+
+def _purchasing_setup(client, manager_headers, admin_headers, make_product, name, sku):
+    product = make_product(manager_headers, name=name, sku=sku, price=15.0)
+    supplier_resp = client.post(
+        "/api/v1/purchasing/suppliers",
+        headers=manager_headers,
+        json={"name": name},
+    )
+    assert supplier_resp.status_code == 200, supplier_resp.text
+    supplier = supplier_resp.json()
+    po_resp = client.post(
+        "/api/v1/purchasing/orders",
+        headers=manager_headers,
+        json={
+            "supplier_id": supplier["id"],
+            "items": [
+                {
+                    "product_id": product["id"],
+                    "quantity_ordered": 10,
+                    "unit_cost": 4.0,
+                }
+            ],
+        },
+    )
+    assert po_resp.status_code == 200, po_resp.text
+    po = po_resp.json()
+    client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/submit-review",
+        headers=manager_headers,
+        json={},
+    )
+    client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/mark-ordered", headers=admin_headers
+    )
+    client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/receive",
+        headers=manager_headers,
+        json={
+            "items": [
+                {
+                    "purchase_order_item_id": po["items"][0]["id"],
+                    "quantity_received": 10,
+                }
+            ]
+        },
+    )
+    invoice_resp = client.post(
+        "/api/v1/purchasing/invoices",
+        headers=manager_headers,
+        json={
+            "purchase_order_id": po["id"],
+            "invoice_number": f"INV-{sku}",
+            "items": [
+                {
+                    "purchase_order_item_id": po["items"][0]["id"],
+                    "billed_quantity": 10,
+                    "billed_unit_cost": 4.5,
+                }
+            ],
+        },
+    )
+    assert invoice_resp.status_code == 200, invoice_resp.text
+    invoice = invoice_resp.json()
+    client.post(
+        f"/api/v1/purchasing/invoices/{invoice['id']}/submit-review",
+        headers=manager_headers,
+        json={},
+    )
+    client.post(
+        f"/api/v1/purchasing/invoices/{invoice['id']}/approve",
+        headers=admin_headers,
+        json={},
+    )
+    return supplier
+
+
+def test_supplier_spend_report_ranks_and_estimates_cogs(
+    client, manager_headers, admin_headers, make_product
+):
+    supplier_a = _purchasing_setup(
+        client,
+        manager_headers,
+        admin_headers,
+        make_product,
+        name="Spend Supplier A",
+        sku="SKU-SPA",
+    )
+    _purchasing_setup(
+        client,
+        manager_headers,
+        admin_headers,
+        make_product,
+        name="Spend Supplier B",
+        sku="SKU-SPB",
+    )
+
+    resp = client.get("/api/v1/reports/supplier-spend", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    summary = resp.json()
+
+    assert summary["cogs_estimate"] == 90.0
+    items = {item["supplier_id"]: item for item in summary["items"]}
+    assert items[supplier_a["id"]]["supplier_name"] == "Spend Supplier A"
+    assert items[supplier_a["id"]]["approved_total"] == 45.0
+    assert items[supplier_a["id"]]["variance_total"] == 5.0
+    assert items[supplier_a["id"]]["po_count"] == 1
+    assert items[supplier_a["id"]]["invoice_count"] == 1
+    totals = [item["approved_total"] for item in summary["items"]]
+    assert totals == sorted(totals, reverse=True)
+
+
+def test_purchase_variance_trend_buckets_by_month(
+    client, manager_headers, admin_headers, make_product
+):
+    _purchasing_setup(
+        client,
+        manager_headers,
+        admin_headers,
+        make_product,
+        name="Trend Supplier",
+        sku="SKU-TRD",
+    )
+
+    resp = client.get("/api/v1/reports/purchase-variance", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    summary = resp.json()
+
+    assert len(summary["months"]) >= 1
+    current = summary["months"][-1]
+    assert current["invoice_count"] >= 1
+    assert current["approved_total"] == 45.0
+    assert current["variance_total"] == 5.0
+    periods = [month["period"] for month in summary["months"]]
+    assert periods == sorted(periods)

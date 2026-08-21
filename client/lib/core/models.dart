@@ -148,6 +148,282 @@ class PurchaseOrder {
   );
 }
 
+class PurchaseOrderItemDetail {
+  final int id;
+  final int purchaseOrderId;
+  final int productId;
+  final int quantityOrdered;
+  final int quantityReceived;
+  final double unitCost;
+  final int quantityInvoiced;
+  final double billedTotal;
+
+  const PurchaseOrderItemDetail({
+    required this.id,
+    required this.purchaseOrderId,
+    required this.productId,
+    required this.quantityOrdered,
+    required this.quantityReceived,
+    required this.unitCost,
+    this.quantityInvoiced = 0,
+    this.billedTotal = 0,
+  });
+
+  factory PurchaseOrderItemDetail.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderItemDetail(
+        id: json['id'] as int,
+        purchaseOrderId: json['purchase_order_id'] as int,
+        productId: json['product_id'] as int,
+        quantityOrdered: json['quantity_ordered'] as int,
+        quantityReceived: json['quantity_received'] as int? ?? 0,
+        unitCost: (json['unit_cost'] as num?)?.toDouble() ?? 0,
+        quantityInvoiced: json['quantity_invoiced'] as int? ?? 0,
+        billedTotal: (json['billed_total'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class PurchaseOrderTimelineEvent {
+  final String event;
+  final String? at;
+  final String? note;
+
+  const PurchaseOrderTimelineEvent({
+    required this.event,
+    this.at,
+    this.note,
+  });
+
+  factory PurchaseOrderTimelineEvent.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderTimelineEvent(
+        event: json['event'] as String,
+        at: json['at'] as String?,
+        note: json['note'] as String?,
+      );
+}
+
+class PurchaseOrderDetail {
+  final int id;
+  final int supplierId;
+  final int userId;
+  final String status;
+  final double totalEstimatedAmount;
+  final String? notes;
+  final String? reviewNote;
+  final String? createdAt;
+  final String? orderedAt;
+  final String? receivedAt;
+  final List<PurchaseOrderItemDetail> items;
+  final List<PurchaseOrderTimelineEvent> timeline;
+  final double totalReceivedAmount;
+  final double totalBilledAmount;
+  final double outstandingPayable;
+
+  const PurchaseOrderDetail({
+    required this.id,
+    required this.supplierId,
+    required this.userId,
+    required this.status,
+    required this.totalEstimatedAmount,
+    this.notes,
+    this.reviewNote,
+    this.createdAt,
+    this.orderedAt,
+    this.receivedAt,
+    this.items = const [],
+    this.timeline = const [],
+    this.totalReceivedAmount = 0,
+    this.totalBilledAmount = 0,
+    this.outstandingPayable = 0,
+  });
+
+  factory PurchaseOrderDetail.fromJson(Map<String, dynamic> json) =>
+      PurchaseOrderDetail(
+        id: json['id'] as int,
+        supplierId: json['supplier_id'] as int,
+        userId: json['user_id'] as int,
+        status: json['status'] as String,
+        totalEstimatedAmount:
+            (json['total_estimated_amount'] as num?)?.toDouble() ?? 0,
+        notes: json['notes'] as String?,
+        reviewNote: json['review_note'] as String?,
+        createdAt: json['created_at'] as String?,
+        orderedAt: json['ordered_at'] as String?,
+        receivedAt: json['received_at'] as String?,
+        items: (json['items'] as List? ?? [])
+            .map(
+              (e) =>
+                  PurchaseOrderItemDetail.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+        timeline: (json['timeline'] as List? ?? [])
+            .map(
+              (e) =>
+                  PurchaseOrderTimelineEvent.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+        totalReceivedAmount:
+            (json['total_received_amount'] as num?)?.toDouble() ?? 0,
+        totalBilledAmount:
+            (json['total_billed_amount'] as num?)?.toDouble() ?? 0,
+        outstandingPayable:
+            (json['outstanding_payable'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class SupplierLedgerEntry {
+  final String kind; // purchase_order | invoice | payment
+  final int id;
+  final String status;
+  final double amount;
+  final String? date;
+  final String? reference;
+
+  const SupplierLedgerEntry({
+    required this.kind,
+    required this.id,
+    required this.status,
+    required this.amount,
+    this.date,
+    this.reference,
+  });
+
+  factory SupplierLedgerEntry.fromJson(Map<String, dynamic> json) =>
+      SupplierLedgerEntry(
+        kind: json['kind'] as String,
+        id: json['id'] as int,
+        status: json['status'] as String,
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        date: json['date'] as String?,
+        reference: json['reference'] as String?,
+      );
+}
+
+class SupplierLedger {
+  final int supplierId;
+  final String supplierName;
+  final int openPurchaseOrders;
+  final double openPoAmount;
+  final int pendingInvoiceCount;
+  final double pendingInvoiceAmount;
+  final double approvedInvoiceTotal;
+  final double approvedPaymentTotal;
+  final double outstandingPayable;
+  final List<SupplierLedgerEntry> entries;
+
+  const SupplierLedger({
+    required this.supplierId,
+    required this.supplierName,
+    this.openPurchaseOrders = 0,
+    this.openPoAmount = 0,
+    this.pendingInvoiceCount = 0,
+    this.pendingInvoiceAmount = 0,
+    this.approvedInvoiceTotal = 0,
+    this.approvedPaymentTotal = 0,
+    this.outstandingPayable = 0,
+    this.entries = const [],
+  });
+
+  factory SupplierLedger.fromJson(Map<String, dynamic> json) => SupplierLedger(
+    supplierId: json['supplier_id'] as int,
+    supplierName: json['supplier_name'] as String,
+    openPurchaseOrders: json['open_purchase_orders'] as int? ?? 0,
+    openPoAmount: (json['open_po_amount'] as num?)?.toDouble() ?? 0,
+    pendingInvoiceCount: json['pending_invoice_count'] as int? ?? 0,
+    pendingInvoiceAmount:
+        (json['pending_invoice_amount'] as num?)?.toDouble() ?? 0,
+    approvedInvoiceTotal:
+        (json['approved_invoice_total'] as num?)?.toDouble() ?? 0,
+    approvedPaymentTotal:
+        (json['approved_payment_total'] as num?)?.toDouble() ?? 0,
+    outstandingPayable:
+        (json['outstanding_payable'] as num?)?.toDouble() ?? 0,
+    entries: (json['entries'] as List? ?? [])
+        .map((e) => SupplierLedgerEntry.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
+}
+
+class SupplierSpendItem {
+  final int supplierId;
+  final String supplierName;
+  final int poCount;
+  final int invoiceCount;
+  final double approvedTotal;
+  final double varianceTotal;
+
+  const SupplierSpendItem({
+    required this.supplierId,
+    required this.supplierName,
+    this.poCount = 0,
+    this.invoiceCount = 0,
+    this.approvedTotal = 0,
+    this.varianceTotal = 0,
+  });
+
+  factory SupplierSpendItem.fromJson(Map<String, dynamic> json) =>
+      SupplierSpendItem(
+        supplierId: json['supplier_id'] as int,
+        supplierName: json['supplier_name'] as String,
+        poCount: json['po_count'] as int? ?? 0,
+        invoiceCount: json['invoice_count'] as int? ?? 0,
+        approvedTotal: (json['approved_total'] as num?)?.toDouble() ?? 0,
+        varianceTotal: (json['variance_total'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class SupplierSpendSummary {
+  final double cogsEstimate;
+  final List<SupplierSpendItem> items;
+
+  const SupplierSpendSummary({this.cogsEstimate = 0, this.items = const []});
+
+  factory SupplierSpendSummary.fromJson(Map<String, dynamic> json) =>
+      SupplierSpendSummary(
+        cogsEstimate: (json['cogs_estimate'] as num?)?.toDouble() ?? 0,
+        items: (json['items'] as List? ?? [])
+            .map((e) => SupplierSpendItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class VarianceTrendItem {
+  final String period;
+  final int invoiceCount;
+  final double billedTotal;
+  final double approvedTotal;
+  final double varianceTotal;
+
+  const VarianceTrendItem({
+    required this.period,
+    this.invoiceCount = 0,
+    this.billedTotal = 0,
+    this.approvedTotal = 0,
+    this.varianceTotal = 0,
+  });
+
+  factory VarianceTrendItem.fromJson(Map<String, dynamic> json) =>
+      VarianceTrendItem(
+        period: json['period'] as String,
+        invoiceCount: json['invoice_count'] as int? ?? 0,
+        billedTotal: (json['billed_total'] as num?)?.toDouble() ?? 0,
+        approvedTotal: (json['approved_total'] as num?)?.toDouble() ?? 0,
+        varianceTotal: (json['variance_total'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class VarianceTrendSummary {
+  final List<VarianceTrendItem> months;
+
+  const VarianceTrendSummary({this.months = const []});
+
+  factory VarianceTrendSummary.fromJson(Map<String, dynamic> json) =>
+      VarianceTrendSummary(
+        months: (json['months'] as List? ?? [])
+            .map((e) => VarianceTrendItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class PurchaseInvoiceItem {
   final int id;
   final int invoiceId;

@@ -12,6 +12,7 @@ from app.models.purchase import (
     PurchaseInvoice,
     PurchaseOrder,
     PurchaseOrderItem,
+    Supplier,
     SupplierPayment,
 )
 from app.models.refund import Refund
@@ -648,3 +649,143 @@ def get_shift_list_data(
             }
         )
     return items
+
+
+def get_supplier_spend_data(
+    db: Session,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    tenant_id: int | None = None,
+) -> dict:
+    """Spend by supplier over a window + COGS estimate (approved invoices)."""
+    invoice_query = db.query(
+        PurchaseInvoice.supplier_id,
+        func.count(PurchaseInvoice.id),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        PurchaseInvoice.status == "approved",
+                        PurchaseInvoice.total_amount,
+                    ),
+                    else_=0.0,
+                )
+            ),
+            0.0,
+        ),
+        func.coalesce(func.sum(PurchaseInvoice.variance_amount), 0.0),
+    )
+    if tenant_id is not None:
+        invoice_query = invoice_query.filter(PurchaseInvoice.tenant_id == tenant_id)
+    if start_date:
+        invoice_query = invoice_query.filter(PurchaseInvoice.created_at >= start_date)
+    if end_date:
+        invoice_query = invoice_query.filter(PurchaseInvoice.created_at <= end_date)
+    invoice_rows = invoice_query.group_by(PurchaseInvoice.supplier_id).all()
+
+    po_query = db.query(PurchaseOrder.supplier_id, func.count(PurchaseOrder.id)).filter(
+        PurchaseOrder.status != "cancelled"
+    )
+    if tenant_id is not None:
+        po_query = po_query.filter(PurchaseOrder.tenant_id == tenant_id)
+    if start_date:
+        po_query = po_query.filter(PurchaseOrder.created_at >= start_date)
+    if end_date:
+        po_query = po_query.filter(PurchaseOrder.created_at <= end_date)
+    po_counts = {
+        supplier_id: count
+        for supplier_id, count in po_query.group_by(PurchaseOrder.supplier_id).all()
+    }
+
+    supplier_ids = {row[0] for row in invoice_rows} | set(po_counts)
+    names: dict[int, str] = {}
+    if supplier_ids:
+        names = dict(
+            db.query(Supplier.id, Supplier.name)
+            .filter(Supplier.id.in_(supplier_ids))
+            .all()
+        )
+
+    items = []
+    cogs_estimate = 0.0
+    for supplier_id, invoice_count, approved_total, variance_total in invoice_rows:
+        approved_total = float(approved_total or 0.0)
+        cogs_estimate += approved_total
+        items.append(
+            {
+                "supplier_id": supplier_id,
+                "supplier_name": names.get(supplier_id, f"Supplier {supplier_id}"),
+                "po_count": int(po_counts.get(supplier_id, 0)),
+                "invoice_count": int(invoice_count or 0),
+                "approved_total": approved_total,
+                "variance_total": float(variance_total or 0.0),
+            }
+        )
+    item_supplier_ids = {item["supplier_id"] for item in items}
+    for supplier_id, po_count in po_counts.items():
+        if supplier_id in item_supplier_ids:
+            continue
+        items.append(
+            {
+                "supplier_id": supplier_id,
+                "supplier_name": names.get(supplier_id, f"Supplier {supplier_id}"),
+                "po_count": int(po_count),
+                "invoice_count": 0,
+                "approved_total": 0.0,
+                "variance_total": 0.0,
+            }
+        )
+    items.sort(key=lambda item: item["approved_total"], reverse=True)
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "cogs_estimate": round(cogs_estimate, 2),
+        "items": items,
+    }
+
+
+def get_variance_trend_data(
+    db: Session,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    tenant_id: int | None = None,
+) -> dict:
+    """Monthly purchase-invoice variance trend (dialect-safe Python grouping)."""
+    query = db.query(
+        PurchaseInvoice.created_at,
+        PurchaseInvoice.total_amount,
+        PurchaseInvoice.variance_amount,
+        PurchaseInvoice.status,
+    )
+    if tenant_id is not None:
+        query = query.filter(PurchaseInvoice.tenant_id == tenant_id)
+    if start_date:
+        query = query.filter(PurchaseInvoice.created_at >= start_date)
+    if end_date:
+        query = query.filter(PurchaseInvoice.created_at <= end_date)
+
+    months: dict[str, dict] = {}
+    for created_at, total_amount, variance_amount, status in query.all():
+        period = created_at.strftime("%Y-%m")
+        bucket = months.setdefault(
+            period,
+            {
+                "period": period,
+                "invoice_count": 0,
+                "billed_total": 0.0,
+                "approved_total": 0.0,
+                "variance_total": 0.0,
+            },
+        )
+        bucket["invoice_count"] += 1
+        bucket["billed_total"] += float(total_amount or 0)
+        bucket["variance_total"] += float(variance_amount or 0)
+        if status == "approved":
+            bucket["approved_total"] += float(total_amount or 0)
+
+    return {
+        "start_date": start_date,
+        "end_date": end_date,
+        "months": [months[key] for key in sorted(months)],
+    }

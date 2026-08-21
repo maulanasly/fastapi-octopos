@@ -78,6 +78,25 @@ class PurchaseOrder(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PurchaseOrderItemDetail(PurchaseOrderItem):
+    quantity_invoiced: int = 0
+    billed_total: float = 0.0
+
+
+class PurchaseOrderTimelineEvent(BaseModel):
+    event: str
+    at: datetime
+    note: str | None = None
+
+
+class PurchaseOrderDetail(PurchaseOrder):
+    items: list[PurchaseOrderItemDetail] = []
+    timeline: list[PurchaseOrderTimelineEvent] = []
+    total_received_amount: float = 0.0
+    total_billed_amount: float = 0.0
+    outstanding_payable: float = 0.0
+
+
 class PurchaseInvoiceItemCreate(BaseModel):
     purchase_order_item_id: int
     billed_quantity: int = Field(ge=1)
@@ -194,3 +213,25 @@ class SupplierPaymentSummary(BaseModel):
     draft_count: int
     approved_total: float
     outstanding_payable: float
+
+
+class SupplierLedgerEntry(BaseModel):
+    kind: str  # purchase_order | invoice | payment
+    id: int
+    status: str
+    amount: float
+    date: datetime
+    reference: str | None = None
+
+
+class SupplierLedger(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    open_purchase_orders: int = 0
+    open_po_amount: float = 0.0
+    pending_invoice_count: int = 0
+    pending_invoice_amount: float = 0.0
+    approved_invoice_total: float = 0.0
+    approved_payment_total: float = 0.0
+    outstanding_payable: float = 0.0
+    entries: list[SupplierLedgerEntry] = []

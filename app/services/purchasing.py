@@ -1327,3 +1327,290 @@ def reject_supplier_payment(
     db.commit()
     db.refresh(payment)
     return payment
+
+
+def get_purchase_order_detail_data(
+    db: Session, tenant_id: int, purchase_order_id: int
+) -> dict:
+    """Consolidated PO detail: per-item invoiced totals + lifecycle timeline."""
+    purchase_order = (
+        db.query(PurchaseOrder)
+        .options(joinedload(PurchaseOrder.items), joinedload(PurchaseOrder.invoices))
+        .filter(
+            PurchaseOrder.id == purchase_order_id,
+            PurchaseOrder.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not purchase_order:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+
+    item_ids = [item.id for item in purchase_order.items]
+    invoiced_by_item: dict[int, tuple[int, float]] = {}
+    if item_ids:
+        rows = (
+            db.query(
+                PurchaseInvoiceItem.purchase_order_item_id,
+                func.coalesce(func.sum(PurchaseInvoiceItem.billed_quantity), 0),
+                func.coalesce(func.sum(PurchaseInvoiceItem.line_total), 0.0),
+            )
+            .join(PurchaseInvoice, PurchaseInvoiceItem.invoice_id == PurchaseInvoice.id)
+            .filter(
+                PurchaseInvoiceItem.purchase_order_item_id.in_(item_ids),
+                PurchaseInvoiceItem.tenant_id == tenant_id,
+                PurchaseInvoice.status != "rejected",
+            )
+            .group_by(PurchaseInvoiceItem.purchase_order_item_id)
+            .all()
+        )
+        invoiced_by_item = {row[0]: (int(row[1]), float(row[2])) for row in rows}
+
+    timeline = [
+        {"event": "created", "at": purchase_order.created_at},
+    ]
+    if purchase_order.ordered_at:
+        timeline.append({"event": "ordered", "at": purchase_order.ordered_at})
+    receipts = (
+        db.query(StockMovement)
+        .filter(
+            StockMovement.purchase_order_id == purchase_order.id,
+            StockMovement.tenant_id == tenant_id,
+            StockMovement.movement_type == "purchase_receipt",
+        )
+        .order_by(StockMovement.created_at.asc())
+        .all()
+    )
+    for movement in receipts:
+        timeline.append(
+            {
+                "event": "received",
+                "at": movement.created_at,
+                "note": f"+{movement.quantity_delta} units",
+            }
+        )
+    for invoice in purchase_order.invoices:
+        timeline.append(
+            {
+                "event": "invoice_created",
+                "at": invoice.created_at,
+                "note": f"{invoice.invoice_number} ({invoice.status})",
+            }
+        )
+        if invoice.approved_at:
+            timeline.append(
+                {
+                    "event": "invoice_approved",
+                    "at": invoice.approved_at,
+                    "note": invoice.invoice_number,
+                }
+            )
+        if invoice.rejected_at:
+            timeline.append(
+                {
+                    "event": "invoice_rejected",
+                    "at": invoice.rejected_at,
+                    "note": invoice.invoice_number,
+                }
+            )
+    timeline.sort(key=lambda event: event["at"])
+
+    total_received_amount = sum(
+        float(item.quantity_received * item.unit_cost) for item in purchase_order.items
+    )
+    total_billed_amount = sum(billed for _, billed in invoiced_by_item.values())
+
+    approved_invoice_total = sum(
+        float(invoice.total_amount or 0)
+        for invoice in purchase_order.invoices
+        if invoice.status == "approved"
+    )
+    invoice_ids = [invoice.id for invoice in purchase_order.invoices]
+    approved_payment_total = 0.0
+    if invoice_ids:
+        approved_payment_total = float(
+            db.query(func.coalesce(func.sum(SupplierPayment.amount), 0.0))
+            .filter(
+                SupplierPayment.invoice_id.in_(invoice_ids),
+                SupplierPayment.tenant_id == tenant_id,
+                SupplierPayment.status == "approved",
+            )
+            .scalar()
+            or 0.0
+        )
+
+    return {
+        **{
+            column: getattr(purchase_order, column)
+            for column in (
+                "id",
+                "supplier_id",
+                "user_id",
+                "status",
+                "total_estimated_amount",
+                "notes",
+                "review_note",
+                "created_at",
+                "ordered_at",
+                "received_at",
+            )
+        },
+        "items": [
+            {
+                "id": item.id,
+                "purchase_order_id": item.purchase_order_id,
+                "product_id": item.product_id,
+                "quantity_ordered": item.quantity_ordered,
+                "quantity_received": item.quantity_received,
+                "unit_cost": float(item.unit_cost),
+                "quantity_invoiced": invoiced_by_item.get(item.id, (0, 0.0))[0],
+                "billed_total": invoiced_by_item.get(item.id, (0, 0.0))[1],
+            }
+            for item in purchase_order.items
+        ],
+        "timeline": timeline,
+        "total_received_amount": total_received_amount,
+        "total_billed_amount": total_billed_amount,
+        "outstanding_payable": quantize_money(
+            to_decimal(approved_invoice_total - approved_payment_total)
+        ),
+    }
+
+
+def get_supplier_ledger_data(db: Session, tenant_id: int, supplier_id: int) -> dict:
+    """Supplier ledger: open POs, pending invoices, payable totals, recent entries."""
+    supplier = (
+        db.query(Supplier)
+        .filter(Supplier.id == supplier_id, Supplier.tenant_id == tenant_id)
+        .first()
+    )
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    open_statuses = ("draft", "pending_review", "ordered", "partially_received")
+    open_po_count, open_po_amount = (
+        db.query(
+            func.count(PurchaseOrder.id),
+            func.coalesce(func.sum(PurchaseOrder.total_estimated_amount), 0.0),
+        )
+        .filter(
+            PurchaseOrder.tenant_id == tenant_id,
+            PurchaseOrder.supplier_id == supplier_id,
+            PurchaseOrder.status.in_(open_statuses),
+        )
+        .first()
+    )
+
+    pending_invoice_count, pending_invoice_amount = (
+        db.query(
+            func.count(PurchaseInvoice.id),
+            func.coalesce(func.sum(PurchaseInvoice.total_amount), 0.0),
+        )
+        .filter(
+            PurchaseInvoice.tenant_id == tenant_id,
+            PurchaseInvoice.supplier_id == supplier_id,
+            PurchaseInvoice.status == "pending_review",
+        )
+        .first()
+    )
+
+    approved_invoice_total = float(
+        db.query(func.coalesce(func.sum(PurchaseInvoice.total_amount), 0.0))
+        .filter(
+            PurchaseInvoice.tenant_id == tenant_id,
+            PurchaseInvoice.supplier_id == supplier_id,
+            PurchaseInvoice.status == "approved",
+        )
+        .scalar()
+        or 0.0
+    )
+    approved_payment_total = float(
+        db.query(func.coalesce(func.sum(SupplierPayment.amount), 0.0))
+        .filter(
+            SupplierPayment.tenant_id == tenant_id,
+            SupplierPayment.supplier_id == supplier_id,
+            SupplierPayment.status == "approved",
+        )
+        .scalar()
+        or 0.0
+    )
+
+    entries: list[dict] = []
+    open_orders = (
+        db.query(PurchaseOrder)
+        .filter(
+            PurchaseOrder.tenant_id == tenant_id,
+            PurchaseOrder.supplier_id == supplier_id,
+        )
+        .order_by(PurchaseOrder.id.desc())
+        .limit(20)
+        .all()
+    )
+    for order in open_orders:
+        entries.append(
+            {
+                "kind": "purchase_order",
+                "id": order.id,
+                "status": order.status,
+                "amount": float(order.total_estimated_amount or 0),
+                "date": order.created_at,
+                "reference": f"PO-{order.id}",
+            }
+        )
+    invoices = (
+        db.query(PurchaseInvoice)
+        .filter(
+            PurchaseInvoice.tenant_id == tenant_id,
+            PurchaseInvoice.supplier_id == supplier_id,
+        )
+        .order_by(PurchaseInvoice.id.desc())
+        .limit(20)
+        .all()
+    )
+    for invoice in invoices:
+        entries.append(
+            {
+                "kind": "invoice",
+                "id": invoice.id,
+                "status": invoice.status,
+                "amount": float(invoice.total_amount or 0),
+                "date": invoice.created_at,
+                "reference": invoice.invoice_number,
+            }
+        )
+    payments = (
+        db.query(SupplierPayment)
+        .filter(
+            SupplierPayment.tenant_id == tenant_id,
+            SupplierPayment.supplier_id == supplier_id,
+        )
+        .order_by(SupplierPayment.id.desc())
+        .limit(20)
+        .all()
+    )
+    for payment in payments:
+        entries.append(
+            {
+                "kind": "payment",
+                "id": payment.id,
+                "status": payment.status,
+                "amount": float(payment.amount or 0),
+                "date": payment.created_at,
+                "reference": payment.reference or payment.payment_method,
+            }
+        )
+    entries.sort(key=lambda entry: entry["date"], reverse=True)
+
+    return {
+        "supplier_id": supplier.id,
+        "supplier_name": supplier.name,
+        "open_purchase_orders": int(open_po_count or 0),
+        "open_po_amount": float(open_po_amount or 0.0),
+        "pending_invoice_count": int(pending_invoice_count or 0),
+        "pending_invoice_amount": float(pending_invoice_amount or 0.0),
+        "approved_invoice_total": approved_invoice_total,
+        "approved_payment_total": approved_payment_total,
+        "outstanding_payable": quantize_money(
+            to_decimal(approved_invoice_total - approved_payment_total)
+        ),
+        "entries": entries[:50],
+    }
