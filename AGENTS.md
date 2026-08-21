@@ -8,12 +8,15 @@ and pgvector semantic search.
 
 - **Dev stack**: `make docker-dev` runs postgres (`pgvector/pgvector:pg16`,
   host port `5433`, db `octopos`), redis (`6380`), and the backend container
-  (`octopos-backend`, uvicorn `--reload`, source mounted). `make docker-dev-down`
+  (`octopos-backend`, granian `--reload` by default, source mounted; switch
+  with `SERVER=uvicorn`). `make docker-dev-down`
   to stop. For production-like stack: `make docker-up` / `make docker-down`.
-- **Local Python**: pyenv env `octopos` (Python 3.12.8) has the project deps,
-  `pytest`, and `alembic`; env `project-1` (Python 3.11) has `ruff` and
+- **Local Python**: pyenv env `octopos-313` (Python 3.13.1) has the project
+  deps, `pytest`, and `alembic`; env `project-1` (Python 3.11) has `ruff` and
   `pre-commit`. pyenv has no global version set, so prefix PATH, e.g.
-  `PATH="$HOME/.pyenv/versions/3.12.8/envs/octopos/bin:$PATH" pytest -q`.
+  `PATH="$HOME/.pyenv/versions/3.13.1/envs/octopos-313/bin:$PATH" pytest -q`.
+  Python 3.13 matches the VPS (Debian 13 system python), CI, and the Docker
+  image — keep all four in sync when bumping.
 - **Flutter**: `~/.yusufm/development/flutter/bin/flutter` (see `client/`).
 
 ## Verification (run before any PR — mirrors CI)
