@@ -15,7 +15,8 @@ IMG_NAME ?= octopos-backend
 
 .PHONY: help install run dev migrate migrate-down makemigration \
 	migration-history migration-current lint lint-changes format check check-changes test pre-commit clean \
-	client client-run client-test client-analyze 	docker-build docker-up docker-down docker-logs docker-ps 	docker-migrate docker-shell
+	client client-run client-test client-analyze 	docker-build docker-up docker-down docker-logs docker-ps 	docker-migrate docker-shell \
+	loadtest
 
 # Files changed on this branch (committed vs origin/main) plus any staged or
 # unstaged working-tree changes.
@@ -137,3 +138,6 @@ docker-dev-down: ## Stop the dev stack
 
 docker-dev-logs: ## Follow backend logs (dev)
 	$(DOCKER_COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml logs -f backend
+
+loadtest: ## Run API load test against the running stack (PROFILE=dev|prod VUS=50 DURATION=2m)
+	bash loadtest/run.sh $(PROFILE)

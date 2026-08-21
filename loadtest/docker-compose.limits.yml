@@ -1,0 +1,20 @@
+# Resource caps simulating the target deployment: 2 CPUs / 2 GB RAM shared
+# between the API and PostgreSQL. Use with the prod-like stack:
+#
+#   SERVER=granian WEB_CONCURRENCY=2 docker compose -f docker-compose.yml -f loadtest/docker-compose.limits.yml up -d --force-recreate backend
+#
+services:
+  postgres:
+    cpus: 0.5
+    mem_limit: 768m
+
+  redis:
+    cpus: 0.1
+    mem_limit: 64m
+
+  backend:
+    cpus: 1.5
+    mem_limit: 1g
+    environment:
+      SERVER: ${SERVER:-uvicorn}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}

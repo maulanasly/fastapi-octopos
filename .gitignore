@@ -153,3 +153,6 @@ media/
 
 # sqladmin export artifacts
 tabular/
+
+# Load test results
+loadtest/results/
