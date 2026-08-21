@@ -24,6 +24,7 @@ class TripMapScreen extends ConsumerStatefulWidget {
 class _TripMapScreenState extends ConsumerState<TripMapScreen> {
   final MapController _mapController = MapController();
   bool _locating = false;
+  bool _didInitialFit = false;
 
   @override
   Widget build(BuildContext context) {
@@ -34,13 +35,23 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       orElse: () => widget.trip,
     );
 
-    final destination = (live.destinationLat != null && live.destinationLng != null)
+    final destination =
+        (live.destinationLat != null && live.destinationLng != null)
         ? LatLng(live.destinationLat!, live.destinationLng!)
         : null;
     final provider = (live.latestLocation != null)
         ? LatLng(live.latestLocation!.lat, live.latestLocation!.lng)
         : null;
     final center = provider ?? destination ?? const LatLng(-6.2, 106.8);
+
+    // Fit once, when the first live position arrives (or immediately via
+    // onMapReady if both points are already known).
+    if (!_didInitialFit && provider != null && destination != null) {
+      _didInitialFit = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fit(provider, destination);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -103,6 +114,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
+                IconButton(
+                  tooltip: s.of('recenter'),
+                  icon: const Icon(Icons.center_focus_strong),
+                  onPressed: (provider != null && destination != null)
+                      ? () => _fit(provider, destination)
+                      : null,
+                ),
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _locating ? null : _reportCurrentPosition,
@@ -120,11 +138,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 if (live.trackingStatus == 'assigned')
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ref.read(trackingControllerProvider.notifier).transition(
-                        live.orderId,
-                        'en_route',
-                      ),
+                      onPressed: () => ref
+                          .read(trackingControllerProvider.notifier)
+                          .transition(live.orderId, 'en_route'),
                       icon: const Icon(Icons.directions_car),
                       label: Text(s.of('startTrip')),
                     ),
@@ -132,11 +148,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 else if (live.trackingStatus == 'en_route')
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ref.read(trackingControllerProvider.notifier).transition(
-                        live.orderId,
-                        'on_site',
-                      ),
+                      onPressed: () => ref
+                          .read(trackingControllerProvider.notifier)
+                          .transition(live.orderId, 'on_site'),
                       icon: const Icon(Icons.location_on),
                       label: Text(s.of('arrivedOnSite')),
                     ),
@@ -180,7 +194,9 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               child: Text(
                 steps[i].$2,
                 style: TextStyle(
-                  fontWeight: i == current ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: i == current
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
               ),
             ),
@@ -195,11 +211,13 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     setState(() => _locating = true);
     try {
       final position = await Geolocator.getCurrentPosition();
-      await ref.read(trackingControllerProvider.notifier).reportPosition(
-        orderId: widget.trip.orderId,
-        lat: position.latitude,
-        lng: position.longitude,
-      );
+      await ref
+          .read(trackingControllerProvider.notifier)
+          .reportPosition(
+            orderId: widget.trip.orderId,
+            lat: position.latitude,
+            lng: position.longitude,
+          );
     } catch (_) {
       if (mounted) {
         final strings = ref.read(stringsProvider);
@@ -214,6 +232,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
   void _fit(LatLng a, LatLng b) {
     final bounds = LatLngBounds.fromPoints([a, b]);
-    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
+    _mapController.fitCamera(
+      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)),
+    );
   }
 }
