@@ -1,10 +1,13 @@
 /// Auth session state + login/register/logout orchestration.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api_client.dart';
 import 'api_repositories.dart';
+import 'local_persistence.dart';
 import 'money.dart';
 
 enum AuthStatus { unknown, signedOut, signedIn }
@@ -61,7 +64,17 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _bootstrap() async {
     final api = ref.read(apiClientProvider);
-    await api.restore();
+    try {
+      await api.restore();
+    } catch (_) {
+      // Storage backends can be unavailable (e.g. tests, web privacy
+      // modes); treat as signed out rather than crashing startup.
+      if (ref.mounted) {
+        state = const AuthState(status: AuthStatus.signedOut);
+      }
+      return;
+    }
+    if (!ref.mounted) return;
     final token = api.session.accessToken;
     if (token == null || token.isEmpty) {
       state = const AuthState(status: AuthStatus.signedOut);
@@ -71,9 +84,12 @@ class AuthController extends Notifier<AuthState> {
     // failure, onSessionExpired -> invalidate(this) -> signedOut.
     try {
       await _applyProfile();
+      if (!ref.mounted) return;
       await _applyLocalization();
     } catch (_) {
-      state = const AuthState(status: AuthStatus.signedOut);
+      if (ref.mounted) {
+        state = const AuthState(status: AuthStatus.signedOut);
+      }
     }
   }
 
@@ -81,6 +97,7 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _applyProfile() async {
     final profile = await ref.read(authRepositoryProvider).me();
     final perms = await ref.read(rbacRepositoryProvider).myPermissions();
+    if (!ref.mounted) return;
     state = AuthState(
       status: AuthStatus.signedIn,
       userId: profile.id,
@@ -95,6 +112,7 @@ class AuthController extends Notifier<AuthState> {
     final api = ref.read(apiClientProvider);
     await api.login(email, password);
     await _applyProfile();
+    if (!ref.mounted) return;
     await _applyLocalization();
   }
 
@@ -102,21 +120,30 @@ class AuthController extends Notifier<AuthState> {
     final api = ref.read(apiClientProvider);
     await api.register(email, password, fullName);
     await _applyProfile();
+    if (!ref.mounted) return;
     await _applyLocalization();
   }
 
   Future<void> logout() async {
     final api = ref.read(apiClientProvider);
     await api.logout();
-    configureMoney(currency: 'USD', numberFormat: 'en_US');
+    if (!ref.mounted) return;
+    _resetLocalSession();
     state = const AuthState(status: AuthStatus.signedOut);
   }
 
   /// Called when a refresh attempt fails: the session is over and the user
   /// should be told, not silently dumped to the login screen.
   void forceSignOut() {
-    configureMoney(currency: 'USD', numberFormat: 'en_US');
+    _resetLocalSession();
     state = const AuthState(status: AuthStatus.signedOut, sessionExpired: true);
+  }
+
+  /// Clears per-user local state (draft cart, sync watermark) so nothing
+  /// leaks into the next session. Money formatting resets to defaults.
+  void _resetLocalSession() {
+    configureMoney(currency: 'USD', numberFormat: 'en_US');
+    unawaited(ref.read(localStoreProvider).clearSessionData());
   }
 
   /// Applies the backend display settings (currency, number format) to the
