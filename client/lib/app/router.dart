@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/auth_controller.dart';
 import '../core/models.dart';
+import '../core/route_access.dart';
 import '../features/admin/admin_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/catalog/products_screen.dart';
@@ -29,48 +30,6 @@ import 'home_shell.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
-
-/// Permission gate for deep links; the auth redirect falls back to POS
-/// when the signed-in user lacks the route's required permission.
-bool _permitted(AuthState auth, String path) {
-  if (auth.isSuperuser) return true;
-  final segment = path.split('/').where((p) => p.isNotEmpty).firstOrNull ?? '';
-  switch (segment) {
-    case 'pos':
-      return true;
-    case 'serving':
-    case 'orders':
-      return auth.has('orders:manage');
-    case 'tracking':
-      return auth.has('orders:track');
-    case 'inventory':
-      return auth.has('inventory:view');
-    case 'purchasing':
-      return auth.has('purchasing:manage');
-    case 'products':
-      return auth.has('products:manage');
-    case 'customers':
-      return auth.has('customers:create') || auth.has('customers:manage');
-    case 'promotions':
-      return auth.has('promotions:manage');
-    case 'taxes':
-      return auth.has('taxes:manage');
-    case 'settings':
-      return auth.has('settings:manage');
-    case 'staff':
-      return auth.has('users:manage');
-    case 'reports':
-      return auth.has('reports:view');
-    case 'admin':
-      return auth.isSuperuser;
-    case 'refunds':
-      return auth.has('refunds:create');
-    case 'reconcile':
-      return true;
-    default:
-      return true;
-  }
-}
 
 class _AuthListenable extends Listenable {
   _AuthListenable(this._ref) {
@@ -102,7 +61,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final onLogin = state.uri.path == '/login';
       if (!signedIn && !onLogin) return '/login';
       if (signedIn && onLogin) return '/pos';
-      if (!_permitted(auth, state.uri.path)) return '/pos';
+      // Permission gate for deep links; falls back to POS when the
+      // signed-in user lacks the route's required permission.
+      if (!routePermitted(auth, state.uri.path)) return '/pos';
       return null;
     },
     routes: [
@@ -143,15 +104,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: ':orderId',
                 builder: (context, state) {
                   final orderId = int.parse(state.pathParameters['orderId']!);
-                  final trip = state.extra as TrackedOrder?;
-                  return TripMapScreen(
-                    trip: trip ??
-                        TrackedOrder(
+                  // `extra` is a convenience hand-off from in-app taps;
+                  // deep links arrive without it (and never with an
+                  // unexpected type), so treat it as best-effort.
+                  final extra = state.extra;
+                  final trip = extra is TrackedOrder
+                      ? extra
+                      : TrackedOrder(
                           orderId: orderId,
                           status: '',
                           trackingStatus: 'none',
-                        ),
-                  );
+                        );
+                  return TripMapScreen(trip: trip);
                 },
               ),
             ],

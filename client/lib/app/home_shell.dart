@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../core/api_repositories.dart';
 import '../core/auth_controller.dart';
 import '../core/localization_controller.dart';
+import '../core/route_access.dart';
 import '../core/strings.dart';
 import 'theme_controller.dart';
 
@@ -20,78 +21,68 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
     final auth = ref.watch(authControllerProvider);
-    final canManageProducts = auth.has('products:manage');
-    final canViewReports = auth.has('reports:view');
-    final canViewInventory = auth.has('inventory:view');
-    final canManagePromotions = auth.has('promotions:manage');
-    final canManageOrders = auth.has('orders:manage');
-    final canTrackOrders = auth.has('orders:track');
-    final canManageStaff = auth.has('users:manage');
-    final canManagePurchasing = auth.has('purchasing:manage');
-    final canManageTaxes = auth.has('taxes:manage');
-    final canManageSettings = auth.has('settings:manage');
-    final canViewCustomers =
-        auth.has('customers:create') || auth.has('customers:manage');
+    // Destinations mirror the router's permission table (core/route_access.dart)
+    // so navigation and deep-link guards can never drift apart.
+    bool can(String path) => routePermitted(auth, path);
 
     final destinations = <_Dest>[
       const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
-      if (canManageOrders)
+      if (can('/serving'))
         const _Dest(
           icon: Icons.room_service,
           label: 'Serving',
           path: '/serving',
         ),
-      if (canTrackOrders)
+      if (can('/tracking'))
         const _Dest(
           icon: Icons.route,
           label: 'Tracking',
           path: '/tracking',
         ),
-      if (canManageOrders)
+      if (can('/orders'))
         const _Dest(
           icon: Icons.receipt_long,
           label: 'Orders',
           path: '/orders',
         ),
-      if (canViewInventory)
+      if (can('/inventory'))
         const _Dest(
           icon: Icons.inventory_2,
           label: 'Inventory',
           path: '/inventory',
         ),
-      if (canManagePurchasing)
+      if (can('/purchasing'))
         const _Dest(
           icon: Icons.shopping_cart_outlined,
           label: 'Purchasing',
           path: '/purchasing',
         ),
-      if (canManageProducts)
+      if (can('/products'))
         const _Dest(icon: Icons.edit, label: 'Products', path: '/products'),
-      if (canViewCustomers)
+      if (can('/customers'))
         const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
-      if (canManagePromotions)
+      if (can('/promotions'))
         const _Dest(
           icon: Icons.percent,
           label: 'Promotions',
           path: '/promotions',
         ),
-      if (canManageTaxes)
+      if (can('/taxes'))
         const _Dest(
           icon: Icons.receipt_long_outlined,
           label: 'Tax rules',
           path: '/taxes',
         ),
-      if (canManageSettings)
+      if (can('/settings'))
         const _Dest(
           icon: Icons.settings_outlined,
           label: 'Settings',
           path: '/settings',
         ),
-      if (canViewReports)
+      if (can('/reports'))
         const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
-      if (canManageStaff)
-        const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
-      if (auth.isSuperuser)
+      if (can('/staff')) const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
+      if (can('/admin'))
         const _Dest(
           icon: Icons.admin_panel_settings,
           label: 'Admin',
