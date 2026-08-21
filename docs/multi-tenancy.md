@@ -1,6 +1,6 @@
 # Multi-tenancy Design
 
-Status: implemented on `feat/multi-tenant` (stacked on `feat/scale-hardening`).
+Status: implemented and merged (migrations `0011`/`0012` and later).
 
 ## Model: shared schema, one row per tenant
 
@@ -16,7 +16,7 @@ per-database isolation — right-sized for a POS SaaS at this scale).
 | Category | Tables |
 |---|---|
 | Global (no tenant_id) | `tenants`, `roles`, `permissions`, `role_permissions`, `alembic_version` |
-| Tenant-scoped | `users` (nullable — platform superuser has none), `categories`, `products`, `customers`, `promotions`, `tax_rules`, `orders`, `order_items`, `order_tax_lines`, `payments`, `refunds`, `refund_items`, `drawer_sessions`, `shift_reconciliations`, `stock_movements`, `loyalty_transactions`, `purchase_orders`, `purchase_order_items`, `purchase_invoices`, `purchase_invoice_items`, `sync_event_logs`, `audit_logs`, `localization_settings`, `refresh_tokens`, `order_location_updates` |
+| Tenant-scoped | `users` (nullable — platform superuser has none), `categories`, `products`, `customers`, `promotions`, `tax_rules`, `orders`, `order_items`, `order_tax_lines`, `payments`, `refunds`, `refund_items`, `drawer_sessions`, `shift_reconciliations`, `stock_movements`, `loyalty_transactions`, `purchase_orders`, `purchase_order_items`, `purchase_invoices`, `purchase_invoice_items`, `supplier_payments`, `sync_event_logs`, `audit_logs`, `localization_settings`, `purchasing_settings`, `refresh_tokens`, `order_location_updates` |
 
 Child rows (order items, refund items, PO lines, tax lines, payments, stock
 movements, loyalty transactions) denormalize `tenant_id` so every lookup is a
@@ -69,8 +69,8 @@ as well.
   user row already carries the tenant).
 ## Implementation status (commit e89522d + follow-ups)
 
-Implemented and verified (249 tests on PostgreSQL, incl. 9 cross-tenant
-isolation tests in `tests/test_tenant_isolation.py`):
+Implemented and verified on PostgreSQL (incl. 9 cross-tenant isolation tests
+in `tests/test_tenant_isolation.py`):
 
 - Models: `Tenant` (id, name, slug unique, is_active, timestamps); `tenant_id`
   on all 25 tenant-scoped tables (`users` nullable = superuser).
