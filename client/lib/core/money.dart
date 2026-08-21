@@ -13,7 +13,16 @@ library;
 import 'package:intl/intl.dart';
 
 /// Backend float (e.g. `4.50`) -> integer cents (450).
-int centsFromApi(num? value) => (value ?? 0) * 100 ~/ 1;
+///
+/// Rounds instead of truncating: binary floats like 58.30 sit just below
+/// 5830 (5829.999...), and truncation silently loses the cent.
+int centsFromApi(num? value) => ((value ?? 0) * 100).round();
+
+/// User-typed amount string (e.g. `"4.50"`) -> integer cents (450).
+///
+/// Single conversion path for every money input field so display-time
+/// validation and submit-time payload always agree.
+int centsFromInput(String input) => ((double.tryParse(input) ?? 0) * 100).round();
 
 String _currency = 'USD';
 String _numberFormat = 'en_US';
