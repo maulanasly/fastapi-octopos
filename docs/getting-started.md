@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.13+
 - Make (optional, for convenience commands)
 
 ## 1. Clone repository
