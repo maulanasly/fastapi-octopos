@@ -107,10 +107,44 @@ Overall: 15,472 req, 90.9 req/s, p95 1061.6ms, p99 1357.2ms — RSS avg 150.9 Mi
 - Semantic search (`products/search`) is *not* heavier than the plain list
   endpoint at this data size (embeddings fallback path vs. indexed KNN).
 
+## Granian vs uvicorn (2026-08-21, resource-constrained)
+
+Target deployment simulated via `docker-compose.limits.yml`: backend capped at
+**1.5 CPUs / 1 GiB**, postgres **0.5 CPUs / 768 MiB** (2 CPU / 2 GB box shared
+between API and DB). Prod-like stack, seeded DB.
+
+| config | VUs | RPS | p50 | p95 | p99 | RSS avg/max |
+|---|---|---|---|---|---|---|
+| uvicorn 1w | 10 | 75.3 | — | 366ms | 575ms | 119 / 125 MiB |
+| granian 1w | 10 | **99.5** (+32%) | — | **235ms** (-36%) | **280ms** | 139 / 144 MiB |
+| uvicorn 1w | 50 | 58.6 | — | 1793ms | 2376ms | 150 / 158 MiB |
+| granian 1w | 50 | **94.7** (+62%) | — | **1080ms** (-40%) | **1462ms** | 174 / 181 MiB |
+| granian 2w | 10 | **141.2** | — | **186ms** | **262ms** | 227 / 234 MiB |
+| granian 2w | 50 | **127.3** (+2.7% vs uv) | — | 802ms | 1066ms | 276 / 286 MiB |
+| uvicorn 2w | 50 | 123.9 | — | **762ms** (-5%) | **972ms** (-9%) | 295 / 307 MiB |
+
+**Decision: granian is now the default server** (`SERVER` env in
+`docker/entrypoint.sh`, `granian==2.8.1` in requirements.txt; uvicorn stays
+installed as fallback).
+
+Rationale:
+- At the memory-tight 1-worker setting granian is dramatically better
+  (+32–62% RPS, -36–40% tail latency).
+- At 2 workers throughput is a wash (+2.7% granian) and tails are within
+  ~5–9% in uvicorn's favor — effectively noise once postgres (0.5 CPU)
+  becomes the bottleneck.
+- Granian's RSS is lower in the multi-worker configs that fit the 2 GB budget.
+
+Operational notes:
+- Scale with `WEB_CONCURRENCY` (default 1). For the 2 CPU / 2 GB target,
+  `WEB_CONCURRENCY=2` fits comfortably (~286 MiB max + 768 MiB postgres).
+- SSE (`/orders/serving/stream`) and slowapi rate limiting verified working
+  under granian before benchmarking.
+- Dev mode (`UVICORN_RELOAD=1`, despite the legacy name) passes `--reload`
+  to either server.
+
 ## Follow-ups
 
-- Re-run with multiple uvicorn workers (`WEB_CONCURRENCY`) to quantify the
-  horizontal-scaling win on this 16-CPU host.
 - Add write-path scenarios (POST orders with payment) once targets are set.
 - Convert observations into SLO thresholds in `k6-load.js` (e.g. p95 < 500ms
   at 20 VUs) so regressions fail CI-style runs.

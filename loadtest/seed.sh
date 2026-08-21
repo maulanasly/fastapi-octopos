@@ -33,9 +33,21 @@ if [[ -z "$TOKEN" ]]; then
   REG=$(curl -sS -X POST "${BASE_URL}/api/v1/auth/register" \
     -H "Content-Type: application/json" \
     -d "{\"email\": \"${EMAIL}\", \"password\": \"${PASSWORD}\", \"full_name\": \"Load Test\"}")
-  echo "$REG" | jq -e '.id' >/dev/null || { echo "register failed: $REG" >&2; exit 1; }
-  TOKEN=$(login | jq -r '.access_token // empty')
-  [[ -n "$TOKEN" ]] || { echo "login after register failed" >&2; exit 1; }
+  if echo "$REG" | jq -e '.id' >/dev/null; then
+    TOKEN=$(login | jq -r '.access_token // empty')
+  elif echo "$REG" | grep -q "Email already registered"; then
+    # User exists but login failed (lockout / rate limit). Wait out the
+    # limiter window and retry once.
+    echo "user exists; waiting 20s for lockout/rate-limit window..."
+    sleep 20
+    TOKEN=$(login | jq -r '.access_token // empty')
+  fi
+  if [[ -z "$TOKEN" ]]; then
+    echo "$REG" | grep -q "Multiple accounts" \
+      && echo "ERROR: duplicate users for ${EMAIL}; clean the DB or pick another EMAIL." >&2
+    [[ -n "$REG" ]] && echo "register/login failed: $REG" >&2
+    exit 1
+  fi
 fi
 AUTH="Authorization: Bearer ${TOKEN}"
 
