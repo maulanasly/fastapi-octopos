@@ -1,0 +1,29 @@
+[Unit]
+Description=FastAPI OctoPOS API (granian)
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=octopos
+Group=octopos
+WorkingDirectory=/opt/octopos/current
+EnvironmentFile=/etc/octopos/octopos.env
+ExecStart=/opt/octopos/venv/bin/granian --interface asgi app.main:app \
+  --host 127.0.0.1 --port 8000 --workers ${WEB_CONCURRENCY}
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+
+# Hardening: read-only filesystem except media uploads and /tmp.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/octopos/media /opt/octopos
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
