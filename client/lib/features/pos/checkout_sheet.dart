@@ -34,6 +34,15 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   double? _pinLng;
   String? _error;
 
+  /// Stable per-sheet idempotency keys: reused across retries so a
+  /// network timeout after the server accepted the request never
+  /// duplicates the order or payment on a second tap of Pay.
+  String? _orderKey;
+  String? _payKey;
+
+  String get _orderKeyOnce => _orderKey ??= newIdempotencyKey();
+  String get _payKeyOnce => _payKey ??= newIdempotencyKey();
+
   @override
   void dispose() {
     _promo.dispose();
@@ -241,8 +250,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
     );
   }
 
-  int get _splitCents =>
-      ((double.tryParse(_splitCash.text) ?? 0) * 100).round();
+  int get _splitCents => centsFromInput(_splitCash.text);
 
   /// Captures the device position as the service pin (optional).
   Future<void> _setPin() async {
@@ -279,7 +287,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
 
   String? _cashError(int total) {
     final s = ref.read(stringsProvider);
-    final received = (double.tryParse(_cashReceived.text) ?? 0) * 100;
+    final received = centsFromInput(_cashReceived.text);
     if (received <= 0) return null;
     if (received < total) return s.of('insufficientCash');
     return null;
@@ -312,6 +320,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             : _destination.text.trim(),
         destinationLat: _pinLat,
         destinationLng: _pinLng,
+        idempotencyKey: _orderKeyOnce,
       );
 
       // 2. Settle it (single or split). The payments endpoint returns the
@@ -332,27 +341,30 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             orderId: order.id,
             method: 'cash',
             amountCents: cash,
+            idempotencyKey: _payKeyOnce,
           );
         } else {
           await orders.addPayment(
             orderId: order.id,
             method: 'card',
             amountCents: card,
+            idempotencyKey: _payKeyOnce,
           );
         }
       } else if (_method == _PayMethod.cash) {
-        final received =
-            (double.tryParse(_cashReceived.text) ?? 0).round() * 100;
+        final received = centsFromInput(_cashReceived.text);
         await orders.addPayment(
           orderId: order.id,
           method: 'cash',
           amountCents: received > 0 ? received : total,
+          idempotencyKey: _payKeyOnce,
         );
       } else {
         await orders.addPayment(
           orderId: order.id,
           method: 'card',
           amountCents: total,
+          idempotencyKey: _payKeyOnce,
         );
       }
       if (mounted && context.mounted) Navigator.of(context).pop(order);
