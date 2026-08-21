@@ -199,3 +199,65 @@ def test_replenishment_only_reorder_flag(
         headers=cashier_headers,
     ).json()
     assert any(r["should_reorder"] is False for r in rows)
+
+
+def test_replenishment_suggestion_includes_cost_and_supplier(
+    client, cashier_headers, manager_headers, make_product
+):
+    # two active suppliers, so the sole-supplier fallback does not kick in
+    supplier_a_id = None
+    for name in ("Suggest Supplier A", "Suggest Supplier B"):
+        supplier_resp = client.post(
+            "/api/v1/purchasing/suppliers",
+            headers=manager_headers,
+            json={"name": name, "is_active": True},
+        )
+        assert supplier_resp.status_code == 200, supplier_resp.text
+        if supplier_a_id is None:
+            supplier_a_id = supplier_resp.json()["id"]
+
+    make_product(
+        manager_headers,
+        name="Costed Replenish",
+        sku="SKU-COST",
+        price=12.5,
+        stock=2,
+        min_stock=5,
+        reorder_point=10,
+    )
+
+    rows = client.get(
+        "/api/v1/inventory/replenishment-suggestions",
+        headers=cashier_headers,
+    ).json()
+    row = next(r for r in rows if r["sku"] == "SKU-COST")
+    assert row["unit_cost"] == 12.5
+    assert row["suggested_supplier_id"] is None
+
+    # supplier history via a closed purchase order from supplier A
+    po = client.post(
+        "/api/v1/purchasing/orders",
+        headers=manager_headers,
+        json={
+            "supplier_id": supplier_a_id,
+            "items": [
+                {
+                    "product_id": row["product_id"],
+                    "quantity_ordered": 5,
+                    "unit_cost": 12.5,
+                }
+            ],
+        },
+    ).json()
+    cancelled = client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/cancel", headers=manager_headers
+    )
+    assert cancelled.status_code == 200, cancelled.text
+
+    rows = client.get(
+        "/api/v1/inventory/replenishment-suggestions",
+        headers=cashier_headers,
+    ).json()
+    row = next(r for r in rows if r["sku"] == "SKU-COST")
+    assert row["suggested_supplier_id"] == supplier_a_id
+    assert row["suggested_supplier_name"] == "Suggest Supplier A"

@@ -1013,3 +1013,189 @@ def test_purchasing_actions_are_audited(
         "supplier_payment.approve",
     ):
         assert expected in actions, f"missing audit action {expected}"
+
+
+def _close_po(client, manager_headers, po):
+    resp = client.post(
+        f"/api/v1/purchasing/orders/{po['id']}/cancel", headers=manager_headers
+    )
+    assert resp.status_code == 200, resp.text
+
+
+def test_batch_replenishment_groups_by_supplier_and_honors_overrides(
+    client, manager_headers, make_product
+):
+    supplier_a = _make_supplier(client, manager_headers, name="Batch Supplier A")
+    supplier_b = _make_supplier(client, manager_headers, name="Batch Supplier B")
+
+    p1 = make_product(
+        manager_headers,
+        name="Batch Item A",
+        sku="SKU-BA",
+        price=4.0,
+        stock=2,
+        min_stock=5,
+        reorder_point=10,
+    )
+    p2 = make_product(
+        manager_headers,
+        name="Batch Item B",
+        sku="SKU-BB",
+        price=6.0,
+        stock=1,
+        min_stock=4,
+        reorder_point=8,
+    )
+
+    # supplier history via closed POs (link remains, PO is not pending)
+    _close_po(
+        client,
+        manager_headers,
+        _make_po(client, manager_headers, supplier_a["id"], p1["id"]),
+    )
+    _close_po(
+        client,
+        manager_headers,
+        _make_po(client, manager_headers, supplier_b["id"], p2["id"]),
+    )
+
+    resp = client.post(
+        "/api/v1/purchasing/orders/batch-from-replenishment",
+        headers=manager_headers,
+        json={
+            "items": [
+                {"product_id": p1["id"], "quantity_ordered": 7, "unit_cost": 3.5},
+                {"product_id": p2["id"]},
+            ],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert len(body["purchase_orders"]) == 2, body
+    assert body["skipped_products"] == []
+
+    by_supplier = {po["supplier_id"]: po for po in body["purchase_orders"]}
+    assert set(by_supplier) == {supplier_a["id"], supplier_b["id"]}
+    assert all(po["status"] == "draft" for po in body["purchase_orders"])
+
+    item_a = next(
+        i for i in by_supplier[supplier_a["id"]]["items"] if i["product_id"] == p1["id"]
+    )
+    assert item_a["quantity_ordered"] == 7
+    assert item_a["unit_cost"] == 3.5
+
+    # no override: suggested quantity from the engine, cost defaults to product price
+    item_b = next(
+        i for i in by_supplier[supplier_b["id"]]["items"] if i["product_id"] == p2["id"]
+    )
+    assert item_b["quantity_ordered"] > 0
+    assert item_b["unit_cost"] == 6.0
+
+
+def test_batch_replenishment_surfaces_skip_reasons(
+    client, manager_headers, make_product
+):
+    supplier_a = _make_supplier(client, manager_headers, name="Skip Supplier A")
+    # second active supplier, so the sole-supplier fallback does not kick in
+    _make_supplier(client, manager_headers, name="Skip Supplier B")
+    supplier_c = _make_supplier(client, manager_headers, name="Skip Supplier C")
+
+    p_pending = make_product(
+        manager_headers,
+        name="Pending Prod",
+        sku="SKU-SKIP-P",
+        price=5.0,
+        stock=1,
+        reorder_point=10,
+    )
+    p_nohist = make_product(
+        manager_headers,
+        name="NoHist Prod",
+        sku="SKU-SKIP-N",
+        price=5.0,
+        stock=1,
+        reorder_point=10,
+    )
+    p_inactive = make_product(
+        manager_headers,
+        name="InactiveSup Prod",
+        sku="SKU-SKIP-I",
+        price=5.0,
+        stock=1,
+        reorder_point=10,
+    )
+
+    # p_pending stays inside a draft (pending) PO
+    _make_po(client, manager_headers, supplier_a["id"], p_pending["id"])
+    # p_inactive gets history from supplier C, which is then deactivated
+    _close_po(
+        client,
+        manager_headers,
+        _make_po(client, manager_headers, supplier_c["id"], p_inactive["id"]),
+    )
+    deactivated = client.put(
+        f"/api/v1/purchasing/suppliers/{supplier_c['id']}",
+        headers=manager_headers,
+        json={"is_active": False},
+    )
+    assert deactivated.status_code == 200, deactivated.text
+
+    resp = client.post(
+        "/api/v1/purchasing/orders/batch-from-replenishment",
+        headers=manager_headers,
+        json={
+            "items": [
+                {"product_id": p_pending["id"], "quantity_ordered": 3},
+                {"product_id": p_nohist["id"], "quantity_ordered": 3},
+                {"product_id": p_inactive["id"], "quantity_ordered": 3},
+            ],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["purchase_orders"] == []
+    skips = {s["product_id"]: s["reason"] for s in body["skipped_products"]}
+    assert skips[p_pending["id"]] == "already covered by a pending purchase order"
+    assert skips[p_nohist["id"]] == "no supplier history"
+    assert skips[p_inactive["id"]] == "supplier inactive"
+
+
+def test_batch_replenishment_unknown_supplier_skipped(
+    client, manager_headers, make_product
+):
+    product = make_product(
+        manager_headers,
+        name="BadSup Prod",
+        sku="SKU-SKIP-X",
+        price=5.0,
+        stock=1,
+        reorder_point=10,
+    )
+    resp = client.post(
+        "/api/v1/purchasing/orders/batch-from-replenishment",
+        headers=manager_headers,
+        json={
+            "items": [
+                {
+                    "product_id": product["id"],
+                    "quantity_ordered": 3,
+                    "supplier_id": 999999,
+                },
+            ],
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["purchase_orders"] == []
+    assert body["skipped_products"] == [
+        {"product_id": product["id"], "reason": "supplier not found"}
+    ]
+
+
+def test_batch_replenishment_unknown_product_404(client, manager_headers):
+    resp = client.post(
+        "/api/v1/purchasing/orders/batch-from-replenishment",
+        headers=manager_headers,
+        json={"items": [{"product_id": 424242, "quantity_ordered": 1}]},
+    )
+    assert resp.status_code == 404, resp.text

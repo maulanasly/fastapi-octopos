@@ -924,6 +924,30 @@ class PurchasingRepository {
     return PurchaseOrder.fromJson(resp.data!);
   }
 
+  Future<BatchReplenishmentResult> batchGenerateFromSuggestions({
+    int lookbackDays = 30,
+    List<Map<String, dynamic>> items = const [],
+  }) async {
+    final resp = await api.dio.post<Map<String, dynamic>>(
+      '/purchasing/orders/batch-from-replenishment',
+      data: {
+        'lookback_days': lookbackDays,
+        'items': items,
+      },
+    );
+    final data = resp.data!;
+    return BatchReplenishmentResult(
+      purchaseOrders: (data['purchase_orders'] as List<dynamic>? ?? [])
+          .map((e) => PurchaseOrder.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      skipped: (data['skipped_products'] as List<dynamic>? ?? [])
+          .map(
+            (e) => SkippedProduct.fromJson(e as Map<String, dynamic>),
+          )
+          .toList(),
+    );
+  }
+
   Future<PurchaseOrder> markOrdered(
     int purchaseOrderId, {
     String? reviewNote,

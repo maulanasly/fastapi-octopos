@@ -361,6 +361,9 @@ class ReplenishmentSuggestion {
   final int projectedStockAtLeadTime;
   final int recommendedOrderQuantity;
   final bool shouldReorder;
+  final double unitCost;
+  final int? suggestedSupplierId;
+  final String? suggestedSupplierName;
 
   const ReplenishmentSuggestion({
     required this.productId,
@@ -374,6 +377,9 @@ class ReplenishmentSuggestion {
     required this.projectedStockAtLeadTime,
     required this.recommendedOrderQuantity,
     required this.shouldReorder,
+    this.unitCost = 0,
+    this.suggestedSupplierId,
+    this.suggestedSupplierName,
   });
 
   factory ReplenishmentSuggestion.fromJson(
@@ -390,7 +396,32 @@ class ReplenishmentSuggestion {
     projectedStockAtLeadTime: json['projected_stock_at_lead_time'] as int? ?? 0,
     recommendedOrderQuantity: json['recommended_order_quantity'] as int? ?? 0,
     shouldReorder: json['should_reorder'] as bool? ?? false,
+    unitCost: (json['unit_cost'] as num?)?.toDouble() ?? 0,
+    suggestedSupplierId: json['suggested_supplier_id'] as int?,
+    suggestedSupplierName: json['suggested_supplier_name'] as String?,
   );
+}
+
+class SkippedProduct {
+  final int productId;
+  final String reason;
+
+  const SkippedProduct({required this.productId, required this.reason});
+
+  factory SkippedProduct.fromJson(Map<String, dynamic> json) => SkippedProduct(
+    productId: json['product_id'] as int,
+    reason: json['reason'] as String? ?? '',
+  );
+}
+
+class BatchReplenishmentResult {
+  final List<PurchaseOrder> purchaseOrders;
+  final List<SkippedProduct> skipped;
+
+  const BatchReplenishmentResult({
+    required this.purchaseOrders,
+    required this.skipped,
+  });
 }
 
 class Promotion {

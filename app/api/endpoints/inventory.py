@@ -11,6 +11,7 @@ from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.replenishment import ReplenishmentSuggestion
 from app.schemas.stock_movement import StockMovement as StockMovementSchema
+from app.services.purchasing import supplier_map_with_names
 
 router = APIRouter()
 
@@ -74,6 +75,7 @@ def get_replenishment_suggestions(
         db=db,
         products=products,
         lookback_days=lookback_days,
+        supplier_map=supplier_map_with_names(db, [product.id for product in products]),
     )
 
     if only_reorder_needed:
