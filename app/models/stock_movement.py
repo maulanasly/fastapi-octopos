@@ -30,6 +30,7 @@ class StockMovement(Base):
     note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
+    tenant = relationship("Tenant")
     product = relationship("Product", back_populates="stock_movements")
     user = relationship("User")
     order = relationship("Order")

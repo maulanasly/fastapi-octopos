@@ -35,6 +35,7 @@ class Order(Base):
         Integer, ForeignKey("drawer_sessions.id"), nullable=True, index=True
     )
     drawer_session = relationship("DrawerSession", back_populates="orders")
+    tenant = relationship("Tenant")
     idempotency_key = Column(String, nullable=True, index=True)
     subtotal_amount = Column(Numeric(12, 2), nullable=True)
     discount_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
@@ -106,6 +107,7 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
 
+    tenant = relationship("Tenant")
     order = relationship("Order", back_populates="items")
     product = relationship("Product")
     refund_items = relationship("RefundItem", back_populates="order_item")

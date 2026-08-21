@@ -34,6 +34,7 @@ class Refund(Base):
     total_amount = Column(Numeric(12, 2), nullable=False, default=0.0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     order = relationship("Order", back_populates="refunds")
     user = relationship("User")
     items = relationship("RefundItem", back_populates="refund")
@@ -52,6 +53,7 @@ class RefundItem(Base):
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
 
+    tenant = relationship("Tenant")
     refund = relationship("Refund", back_populates="items")
     order_item = relationship("OrderItem", back_populates="refund_items")
     product = relationship("Product")

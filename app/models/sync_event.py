@@ -35,4 +35,5 @@ class SyncEventLog(Base):
     processed_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     user = relationship("User")

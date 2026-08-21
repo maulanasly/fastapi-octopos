@@ -17,6 +17,7 @@ class Customer(Base):
     points_balance = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     orders = relationship("Order", back_populates="customer")
     loyalty_transactions = relationship("LoyaltyTransaction", back_populates="customer")
 
@@ -38,5 +39,6 @@ class LoyaltyTransaction(Base):
     note = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     customer = relationship("Customer", back_populates="loyalty_transactions")
     order = relationship("Order")

@@ -10,5 +10,8 @@
 - Review Queue at `/admin/workflows/review`: resolve purchase invoices and supplier
   payments stuck in `pending_review` with inline approve/reject (superuser path,
   bypasses the self-approval guard)
+- Every tenant-scoped list view (categories, products, orders, payments, ...) shows
+  the row's tenant name as a column (right after `id`) and provides a tenant filter
+  dropdown, so cross-tenant rows are easy to tell apart and scope down.
 
 See [Features → Admin Dashboard](features.md#admin-dashboard) for the full list of admin views and behaviors.

@@ -38,6 +38,7 @@ class TaxRule(Base):
         onupdate=func.now(),
     )
 
+    tenant = relationship("Tenant")
     category = relationship("Category")
     product = relationship("Product")
     order_tax_lines = relationship("OrderTaxLine", back_populates="tax_rule")
@@ -61,5 +62,6 @@ class OrderTaxLine(Base):
     )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     order = relationship("Order", back_populates="tax_lines")
     tax_rule = relationship("TaxRule", back_populates="order_tax_lines")

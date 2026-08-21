@@ -26,6 +26,7 @@ class Supplier(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
 
 
@@ -48,6 +49,7 @@ class PurchaseOrder(Base):
     ordered_at = Column(DateTime(timezone=True), nullable=True)
     received_at = Column(DateTime(timezone=True), nullable=True)
 
+    tenant = relationship("Tenant")
     supplier = relationship("Supplier", back_populates="purchase_orders")
     user = relationship("User")
     items = relationship("PurchaseOrderItem", back_populates="purchase_order")
@@ -67,6 +69,7 @@ class PurchaseOrderItem(Base):
     quantity_received = Column(Integer, nullable=False, default=0)
     unit_cost = Column(Numeric(12, 2), nullable=False)
 
+    tenant = relationship("Tenant")
     purchase_order = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product")
     invoice_items = relationship(
@@ -103,6 +106,7 @@ class PurchaseInvoice(Base):
     rejected_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     supplier = relationship("Supplier")
     purchase_order = relationship("PurchaseOrder", back_populates="invoices")
     user = relationship("User")
@@ -129,6 +133,7 @@ class PurchaseInvoiceItem(Base):
     price_variance = Column(Numeric(12, 2), nullable=False, default=0.0)
     line_total = Column(Numeric(12, 2), nullable=False, default=0.0)
 
+    tenant = relationship("Tenant")
     invoice = relationship("PurchaseInvoice", back_populates="items")
     purchase_order_item = relationship(
         "PurchaseOrderItem", back_populates="invoice_items"
@@ -161,6 +166,7 @@ class SupplierPayment(Base):
     rejected_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    tenant = relationship("Tenant")
     supplier = relationship("Supplier")
     invoice = relationship("PurchaseInvoice")
     user = relationship("User")
