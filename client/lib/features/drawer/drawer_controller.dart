@@ -4,7 +4,10 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/auth_controller.dart';
+import '../../core/errors.dart';
 import '../../core/models.dart';
+import '../../core/strings.dart';
 
 class DrawerState {
   final DrawerSession? session;
@@ -27,6 +30,13 @@ class DrawerState {
 class DrawerController extends Notifier<DrawerState> {
   @override
   DrawerState build() {
+    // A drawer session belongs to the signed-in user; sign-out drops it.
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      if (prev?.status == AuthStatus.signedIn &&
+          next.status == AuthStatus.signedOut) {
+        state = const DrawerState();
+      }
+    });
     _load();
     return const DrawerState(loading: true);
   }
@@ -36,7 +46,9 @@ class DrawerController extends Notifier<DrawerState> {
       final session = await ref.read(drawerRepositoryProvider).active();
       state = DrawerState(session: session);
     } catch (e) {
-      state = DrawerState(error: e.toString());
+      state = DrawerState(
+        error: friendlyError(e, ref.read(stringsProvider)),
+      );
     }
   }
 
@@ -48,7 +60,9 @@ class DrawerController extends Notifier<DrawerState> {
           .open(startingCashCents: startingCashCents);
       state = DrawerState(session: session);
     } catch (e) {
-      state = DrawerState(error: e.toString());
+      state = DrawerState(
+        error: friendlyError(e, ref.read(stringsProvider)),
+      );
       rethrow;
     }
   }
