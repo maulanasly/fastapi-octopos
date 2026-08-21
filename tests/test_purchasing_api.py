@@ -1199,3 +1199,170 @@ def test_batch_replenishment_unknown_product_404(client, manager_headers):
         json={"items": [{"product_id": 424242, "quantity_ordered": 1}]},
     )
     assert resp.status_code == 404, resp.text
+
+
+def test_purchase_order_detail_timeline_and_item_totals(
+    client, manager_headers, admin_headers, make_product
+):
+    product = make_product(
+        manager_headers, name="Detail Item", sku="SKU-DTL", price=12.0
+    )
+    supplier = _make_supplier(client, manager_headers, name="Detail Supplier")
+    po = _make_po(client, manager_headers, supplier["id"], product["id"])
+    _order_po(client, manager_headers, admin_headers, po)
+    _receive_all(client, manager_headers, po, quantity=6)
+    invoice = _make_invoice(
+        client,
+        manager_headers,
+        po,
+        invoice_number="INV-DTL",
+        quantity=6,
+        unit_cost=5.5,
+    )
+    _submit_invoice(client, manager_headers, invoice)
+    _approve_invoice(client, admin_headers, invoice)
+
+    resp = client.get(
+        f"/api/v1/purchasing/orders/{po['id']}/detail", headers=manager_headers
+    )
+    assert resp.status_code == 200, resp.text
+    detail = resp.json()
+
+    assert detail["id"] == po["id"]
+    assert detail["status"] == "partially_received"
+    item = detail["items"][0]
+    assert item["quantity_ordered"] == 10
+    assert item["quantity_received"] == 6
+    assert item["quantity_invoiced"] == 6
+    assert item["billed_total"] == 33.0
+
+    events = [event["event"] for event in detail["timeline"]]
+    assert events[0] == "created"
+    assert "ordered" in events
+    assert "received" in events
+    assert "invoice_created" in events
+    assert "invoice_approved" in events
+    timestamps = [event["at"] for event in detail["timeline"]]
+    assert timestamps == sorted(timestamps)
+
+    assert detail["total_received_amount"] == 30.0
+    assert detail["total_billed_amount"] == 33.0
+    assert detail["outstanding_payable"] == 33.0
+
+
+def test_purchase_order_detail_404(client, manager_headers):
+    resp = client.get("/api/v1/purchasing/orders/99999/detail", headers=manager_headers)
+    assert resp.status_code == 404
+
+
+def test_supplier_ledger_totals_and_entries(
+    client, manager_headers, admin_headers, make_product
+):
+    product = make_product(
+        manager_headers, name="Ledger Item", sku="SKU-LDG", price=8.0
+    )
+    supplier = _make_supplier(client, manager_headers, name="Ledger Supplier")
+
+    open_po = _make_po(client, manager_headers, supplier["id"], product["id"])
+    assert open_po["status"] == "draft"
+
+    paid_po = _make_po(
+        client,
+        manager_headers,
+        supplier["id"],
+        product["id"],
+        quantity=6,
+        unit_cost=5.0,
+    )
+    _order_po(client, manager_headers, admin_headers, paid_po)
+    _receive_all(client, manager_headers, paid_po, quantity=6)
+    invoice = _make_invoice(
+        client,
+        manager_headers,
+        paid_po,
+        invoice_number="INV-LDG",
+        quantity=6,
+        unit_cost=5.5,
+    )
+    _submit_invoice(client, manager_headers, invoice)
+    _approve_invoice(client, admin_headers, invoice)
+
+    payment = client.post(
+        "/api/v1/purchasing/payments",
+        headers=manager_headers,
+        json={
+            "supplier_id": supplier["id"],
+            "invoice_id": invoice["id"],
+            "amount": 20.0,
+            "payment_method": "transfer",
+            "reference": "TRX-LDG",
+        },
+    )
+    assert payment.status_code == 200, payment.text
+    client.post(
+        f"/api/v1/purchasing/payments/{payment.json()['id']}/submit-review",
+        headers=manager_headers,
+        json={},
+    )
+    client.post(
+        f"/api/v1/purchasing/payments/{payment.json()['id']}/approve",
+        headers=admin_headers,
+        json={},
+    )
+
+    ledger_resp = client.get(
+        f"/api/v1/purchasing/suppliers/{supplier['id']}/ledger",
+        headers=manager_headers,
+    )
+    assert ledger_resp.status_code == 200, ledger_resp.text
+    ledger = ledger_resp.json()
+
+    assert ledger["supplier_id"] == supplier["id"]
+    assert ledger["supplier_name"] == "Ledger Supplier"
+    assert ledger["open_purchase_orders"] == 1
+    assert ledger["open_po_amount"] == 50.0
+    assert ledger["pending_invoice_count"] == 0
+    assert ledger["approved_invoice_total"] == 33.0
+    assert ledger["approved_payment_total"] == 20.0
+    assert ledger["outstanding_payable"] == 13.0
+
+    kinds = {entry["kind"] for entry in ledger["entries"]}
+    assert kinds == {"purchase_order", "invoice", "payment"}
+    by_kind = {entry["kind"]: entry for entry in ledger["entries"]}
+    assert by_kind["purchase_order"]["reference"].startswith("PO-")
+    assert by_kind["invoice"]["reference"] == "INV-LDG"
+    assert by_kind["payment"]["reference"] == "TRX-LDG"
+
+
+def test_supplier_ledger_surfaces_pending_review_invoices(
+    client, manager_headers, admin_headers, make_product
+):
+    product = make_product(manager_headers, name="Pend Item", sku="SKU-PND", price=9.0)
+    supplier = _make_supplier(client, manager_headers, name="Pending Supplier")
+    po = _make_po(client, manager_headers, supplier["id"], product["id"], quantity=4)
+    _order_po(client, manager_headers, admin_headers, po)
+    _receive_all(client, manager_headers, po, quantity=4)
+    invoice = _make_invoice(
+        client,
+        manager_headers,
+        po,
+        invoice_number="INV-PND",
+        quantity=4,
+        unit_cost=5.0,
+    )
+    _submit_invoice(client, manager_headers, invoice)
+
+    ledger = client.get(
+        f"/api/v1/purchasing/suppliers/{supplier['id']}/ledger",
+        headers=manager_headers,
+    ).json()
+    assert ledger["pending_invoice_count"] == 1
+    assert ledger["pending_invoice_amount"] == 20.0
+    assert ledger["approved_invoice_total"] == 0.0
+
+
+def test_supplier_ledger_unknown_supplier_404(client, manager_headers):
+    resp = client.get(
+        "/api/v1/purchasing/suppliers/99999/ledger", headers=manager_headers
+    )
+    assert resp.status_code == 404

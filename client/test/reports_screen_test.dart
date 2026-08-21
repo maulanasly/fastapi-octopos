@@ -117,6 +117,40 @@ class _FakeReports extends ReportRepository {
         netSalesTotal: 75,
         completedOrderCount: 4,
       );
+
+  @override
+  Future<SupplierSpendSummary> supplierSpend({
+    String? startDate,
+    String? endDate,
+  }) async => const SupplierSpendSummary(
+    cogsEstimate: 90,
+    items: [
+      SupplierSpendItem(
+        supplierId: 1,
+        supplierName: 'Acme Supply',
+        poCount: 1,
+        invoiceCount: 1,
+        approvedTotal: 45,
+        varianceTotal: 5,
+      ),
+    ],
+  );
+
+  @override
+  Future<VarianceTrendSummary> purchaseVariance({
+    String? startDate,
+    String? endDate,
+  }) async => const VarianceTrendSummary(
+    months: [
+      VarianceTrendItem(
+        period: '2026-08',
+        invoiceCount: 2,
+        billedTotal: 90,
+        approvedTotal: 45,
+        varianceTotal: 5,
+      ),
+    ],
+  );
 }
 
 ProviderContainer _container() => ProviderContainer(
@@ -175,5 +209,26 @@ void main() {
     expect(find.text('Shifts #7'), findsOneWidget);
     expect(find.textContaining('Cashier: Budi Cashier'), findsOneWidget);
     expect(find.textContaining(r'$2.00'), findsWidgets); // variance
+  });
+
+  testWidgets('shows supplier spend and variance trend cards', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.scrollUntilVisible(
+      find.text('Supplier spend'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('COGS estimate'), findsOneWidget);
+    expect(find.text('Acme Supply'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Purchase variance trend'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('2026-08'), findsOneWidget);
   });
 }

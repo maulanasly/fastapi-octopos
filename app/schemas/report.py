@@ -97,3 +97,33 @@ class CategorySalesItem(BaseModel):
     category_name: str
     total_revenue: float
     total_quantity_sold: int
+
+
+class SupplierSpendItem(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    po_count: int
+    invoice_count: int
+    approved_total: float
+    variance_total: float
+
+
+class SupplierSpendSummary(BaseModel):
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    cogs_estimate: float = 0.0
+    items: list[SupplierSpendItem] = []
+
+
+class VarianceTrendItem(BaseModel):
+    period: str  # YYYY-MM
+    invoice_count: int
+    billed_total: float
+    approved_total: float
+    variance_total: float
+
+
+class VarianceTrendSummary(BaseModel):
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    months: list[VarianceTrendItem] = []

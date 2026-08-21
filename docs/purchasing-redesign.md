@@ -2,9 +2,9 @@
 
 The intended purchasing lifecycle and the phased redesign. Phase 1 (the
 "make it usable" baseline), the replenishment UX (Phase 2), the supplier
-payment recording (Phase 3 financials), and the requester-vs-approver
-separation (Phase 4) are implemented; the remaining spec items are listed
-at the end.
+payment recording (Phase 3 financials), the requester-vs-approver
+separation (Phase 4), and purchasing visibility (Phase 5) are implemented;
+the remaining spec items are listed at the end.
 
 ## Intended lifecycle
 
@@ -117,11 +117,28 @@ reject`, `supplier_payment.create/submit/approve/reject`. Viewable via
   suggested supplier. **Generate POs** batches the included rows through
   the new endpoint and surfaces created POs plus skip reasons.
 
+## Purchasing Visibility (Phase 3)
+
+- `GET /purchasing/orders/{id}/detail` returns a consolidated PO detail:
+  per-item `quantity_invoiced`/`billed_total` (from non-rejected invoice
+  items), a lifecycle `timeline` (created → ordered → receipts from stock
+  movements → invoice created/approved/rejected events), and totals
+  (`total_received_amount`, `total_billed_amount`, `outstanding_payable`).
+  Approvers see all tenant POs; requesters their own.
+- `GET /purchasing/suppliers/{id}/ledger` returns the supplier ledger:
+  open PO count/amount, pending-review invoice count/amount, approved
+  invoice and payment totals, outstanding payable, plus up to 50 merged
+  recent entries (POs, invoices, payments) newest-first.
+- Reports: `GET /reports/supplier-spend` (per-supplier PO/invoice counts,
+  approved spend, variance, sorted by spend, with a COGS estimate =
+  approved invoice total) and `GET /reports/purchase-variance` (monthly
+  billed/approved/variance buckets, dialect-safe Python grouping).
+- Client: the PO dialog now shows invoiced columns, the timeline, and
+  totals; Purchasing gains a **Ledger** tab (supplier list → ledger
+  dialog); Reports gains **Supplier spend** and **Purchase variance
+  trend** cards.
+
 ## Remaining spec (not implemented)
 
-- **Phase 3 — visibility**: consolidated PO detail timeline with per-item
-  received/invoiced totals; supplier ledger view (open POs, pending
-  invoices, total payable); purchasing reports (COGS, spend by supplier,
-  variance trends).
 - **Phase 4 — automation**: settings for the scheduled auto-PO task
   (`REPLENISHMENT_*`): enable flag, lookback days, min stock trigger.

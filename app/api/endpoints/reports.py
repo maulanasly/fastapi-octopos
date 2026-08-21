@@ -19,8 +19,10 @@ from app.schemas.report import (
     DailyShiftItem,
     SalesSummary,
     ShiftReport,
+    SupplierSpendSummary,
     TopCustomerItem,
     TopProductItem,
+    VarianceTrendSummary,
 )
 from app.schemas.tax import TaxLiabilityItem, TaxLiabilitySummary
 from app.services.reports import (
@@ -32,8 +34,10 @@ from app.services.reports import (
     get_shift_list_data,
     get_shift_report_data,
     get_supplier_payment_summary_data,
+    get_supplier_spend_data,
     get_top_customers_data,
     get_top_products_data,
+    get_variance_trend_data,
 )
 
 router = APIRouter()
@@ -181,6 +185,40 @@ def get_supplier_payment_summary(
             start_date=start_date,
             end_date=end_date,
             supplier_id=supplier_id,
+            tenant_id=current_user.tenant_id,
+        )
+    )
+
+
+@router.get("/supplier-spend", response_model=SupplierSpendSummary)
+def get_supplier_spend(
+    db: Session = Depends(get_db),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    current_user: User = Depends(require_permissions("reports:view")),
+):
+    return SupplierSpendSummary(
+        **get_supplier_spend_data(
+            db=db,
+            start_date=start_date,
+            end_date=end_date,
+            tenant_id=current_user.tenant_id,
+        )
+    )
+
+
+@router.get("/purchase-variance", response_model=VarianceTrendSummary)
+def get_purchase_variance_trend(
+    db: Session = Depends(get_db),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
+    current_user: User = Depends(require_permissions("reports:view")),
+):
+    return VarianceTrendSummary(
+        **get_variance_trend_data(
+            db=db,
+            start_date=start_date,
+            end_date=end_date,
             tenant_id=current_user.tenant_id,
         )
     )

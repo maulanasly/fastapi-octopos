@@ -28,7 +28,9 @@ from app.schemas.purchase import (
     SupplierUpdate,
 )
 from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
+from app.schemas.purchase import PurchaseOrderDetail as PurchaseOrderDetailSchema
 from app.schemas.purchase import Supplier as SupplierSchema
+from app.schemas.purchase import SupplierLedger as SupplierLedgerSchema
 from app.schemas.purchase import SupplierPayment as SupplierPaymentSchema
 from app.schemas.replenishment import (
     PurchaseOrderBatchFromSuggestionsCreate,
@@ -38,6 +40,8 @@ from app.schemas.replenishment import (
 from app.services.purchasing import (
     _attach_outstanding_amounts,
     _get_purchase_invoice_for_user,
+    get_purchase_order_detail_data,
+    get_supplier_ledger_data,
 )
 from app.services.purchasing import (
     approve_purchase_invoice as approve_purchase_invoice_service,
@@ -377,6 +381,48 @@ def get_purchase_order(
             status_code=403, detail="Not authorized to access this purchase order"
         )
     return purchase_order
+
+
+@router.get(
+    "/orders/{purchase_order_id}/detail", response_model=PurchaseOrderDetailSchema
+)
+def get_purchase_order_detail(
+    purchase_order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    purchase_order = (
+        db.query(PurchaseOrder)
+        .filter(
+            PurchaseOrder.id == purchase_order_id,
+            PurchaseOrder.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
+    if not purchase_order:
+        raise HTTPException(status_code=404, detail="Purchase order not found")
+    if not _is_approver(db, current_user) and purchase_order.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this purchase order"
+        )
+    return get_purchase_order_detail_data(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        purchase_order_id=purchase_order_id,
+    )
+
+
+@router.get("/suppliers/{supplier_id}/ledger", response_model=SupplierLedgerSchema)
+def get_supplier_ledger(
+    supplier_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    return get_supplier_ledger_data(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        supplier_id=supplier_id,
+    )
 
 
 @router.post("/orders", response_model=PurchaseOrderSchema)

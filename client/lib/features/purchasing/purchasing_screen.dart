@@ -329,6 +329,12 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   Future<void> _orderDetail(PurchaseOrder order) async {
     final s = ref.read(stringsProvider);
     final suppliers = await ref.read(purchasingRepositoryProvider).suppliers();
+    PurchaseOrderDetail? detail;
+    try {
+      detail = await ref.read(purchasingRepositoryProvider).orderDetail(order.id);
+    } catch (_) {
+      detail = null;
+    }
     if (!mounted) return;
     final supplier = suppliers
         .where((sup) => sup.id == order.supplierId)
@@ -338,6 +344,19 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     final auth = ref.read(authControllerProvider);
     final canApprove = auth.has('purchasing:approve');
     final canReview = _canReview(ownerUserId: order.userId);
+    final rows = detail?.items ??
+        order.items
+            .map(
+              (item) => PurchaseOrderItemDetail(
+                id: item.id,
+                purchaseOrderId: item.purchaseOrderId,
+                productId: item.productId,
+                quantityOrdered: item.quantityOrdered,
+                quantityReceived: item.quantityReceived,
+                unitCost: item.unitCost,
+              ),
+            )
+            .toList();
 
     await showDialog<void>(
       context: context,
@@ -360,17 +379,69 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    for (final item in order.items)
+                    for (final item in rows)
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         title: Text('Product #${item.productId}'),
                         subtitle: Text(
                           '${s.of('qtyOrdered')}: ${item.quantityOrdered} · '
-                          '${s.of('qtyReceived')}: ${item.quantityReceived}',
+                          '${s.of('qtyReceived')}: ${item.quantityReceived} · '
+                          '${s.of('qtyInvoiced')}: ${item.quantityInvoiced}',
                         ),
-                        trailing: Text(formatCents(centsFromApi(item.unitCost))),
+                        trailing: Text(
+                          '${formatCents(centsFromApi(item.unitCost))}'
+                          '${item.billedTotal > 0
+                              ? ' · ${formatCents(centsFromApi(item.billedTotal))}'
+                              : ''}',
+                        ),
                       ),
+                    if (detail != null) ...[
+                      const Divider(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          s.of('timeline'),
+                          style: Theme.of(ctx).textTheme.titleSmall,
+                        ),
+                      ),
+                      for (final event in detail.timeline)
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.circle, size: 8),
+                          title: Text(
+                            event.note == null
+                                ? event.event
+                                : '${event.event} — ${event.note}',
+                          ),
+                          subtitle: event.at == null
+                              ? null
+                              : Text(formatDateTimeIso(event.at)),
+                        ),
+                      const Divider(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${s.of('receivedAmount')}: '
+                          '${formatCents(centsFromApi(detail.totalReceivedAmount))}',
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${s.of('billedTotal')}: '
+                          '${formatCents(centsFromApi(detail.totalBilledAmount))}',
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${s.of('outstandingPayable')}: '
+                          '${formatCents(centsFromApi(detail.outstandingPayable))}',
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1398,6 +1469,11 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 label: Text(s.of('supplierPayments')),
                 icon: const Icon(Icons.payments_outlined, size: 16),
               ),
+              ButtonSegment(
+                value: 4,
+                label: Text(s.of('ledger')),
+                icon: const Icon(Icons.menu_book_outlined, size: 16),
+              ),
             ],
             selected: {_tab},
             onSelectionChanged: (v) => setState(() => _tab = v.first),
@@ -1407,9 +1483,138 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               0 => _suppliersView(context, s),
               1 => _ordersView(context, s, canManage),
               2 => _invoicesView(context, s),
+              4 => _ledgerView(context, s),
               _ => _paymentsView(context, s),
             },
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ledgerView(BuildContext context, AppStrings s) {
+    return FutureBuilder<List<Supplier>>(
+      future: _suppliers,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text(friendlyError(snapshot.error!, s)));
+        }
+        final suppliers = snapshot.data ?? [];
+        if (suppliers.isEmpty) {
+          return Center(child: Text(s.of('noSuppliers')));
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: suppliers.length,
+          separatorBuilder: (_, _) => const Divider(height: 8),
+          itemBuilder: (context, i) {
+            final supplier = suppliers[i];
+            return ListTile(
+              leading: const Icon(Icons.menu_book_outlined),
+              title: Text(supplier.name),
+              subtitle: Text(supplier.contactEmail ?? supplier.phone ?? '—'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _supplierLedger(supplier),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _supplierLedger(Supplier supplier) async {
+    final s = ref.read(stringsProvider);
+    final SupplierLedger ledger;
+    try {
+      ledger = await ref
+          .read(purchasingRepositoryProvider)
+          .supplierLedger(supplier.id);
+    } catch (err) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(err, s))),
+      );
+      return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${s.of('ledger')} · ${ledger.supplierName}'),
+        content: SizedBox(
+          width: dialogWidth(context),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ledgerRow(
+                  s.of('openPurchaseOrders'),
+                  '${ledger.openPurchaseOrders} · '
+                      '${formatCents(centsFromApi(ledger.openPoAmount))}',
+                ),
+                _ledgerRow(
+                  s.of('pendingInvoices'),
+                  '${ledger.pendingInvoiceCount} · '
+                      '${formatCents(centsFromApi(ledger.pendingInvoiceAmount))}',
+                ),
+                _ledgerRow(
+                  s.of('approvedInvoices'),
+                  formatCents(centsFromApi(ledger.approvedInvoiceTotal)),
+                ),
+                _ledgerRow(
+                  s.of('approvedPayments'),
+                  formatCents(centsFromApi(ledger.approvedPaymentTotal)),
+                ),
+                _ledgerRow(
+                  s.of('outstandingPayable'),
+                  formatCents(centsFromApi(ledger.outstandingPayable)),
+                ),
+                const Divider(height: 16),
+                for (final entry in ledger.entries)
+                  ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(_ledgerIcon(entry.kind), size: 18),
+                    title: Text(entry.reference ?? '#${entry.id}'),
+                    subtitle: Text(
+                      '${entry.kind} · ${entry.status}'
+                      '${entry.date != null ? ' · ${formatDateTimeIso(entry.date)}' : ''}',
+                    ),
+                    trailing: Text(formatCents(centsFromApi(entry.amount))),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.of('done')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _ledgerIcon(String kind) {
+    return switch (kind) {
+      'purchase_order' => Icons.shopping_cart_outlined,
+      'invoice' => Icons.receipt_outlined,
+      _ => Icons.payments_outlined,
+    };
+  }
+
+  Widget _ledgerRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
     );
