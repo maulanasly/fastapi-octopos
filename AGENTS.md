@@ -17,7 +17,7 @@ and pgvector semantic search.
   `PATH="$HOME/.pyenv/versions/3.13.1/envs/octopos-313/bin:$PATH" pytest -q`.
   Python 3.13 matches the VPS (Debian 13 system python), CI, and the Docker
   image — keep all four in sync when bumping.
-- **Flutter**: `~/.yusufm/development/flutter/bin/flutter` (see `client/`).
+- **Flutter**: `~/development/flutter/bin/flutter` (see `client/`).
 
 ## Verification (run before any PR — mirrors CI)
 
@@ -117,7 +117,8 @@ and pgvector semantic search.
 ## Client conventions
 
 - `client/lib/features/<feature>/` for feature code; models, repos, controllers,
-  screens separated. State via `ChangeNotifier`; dependency injection in
-  `client/lib/app.dart`.
+  screens separated. State via Riverpod `Notifier`s; dependency injection via
+  providers in `client/lib/core/` (`api_client.dart`, `api_repositories.dart`)
+  and `client/lib/main.dart`.
 - Match tests: `client/test/<feature>_test.dart`; assert widget behavior with
   `pumpAndSettle`. Run `flutter analyze` clean + `flutter test` before merging.
