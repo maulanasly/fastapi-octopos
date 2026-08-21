@@ -13,86 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
-from app.models.purchase import (
-    PurchaseInvoiceItem,
-    PurchaseOrder,
-    PurchaseOrderItem,
-    Supplier,
-)
+from app.models.purchase import Supplier
 from app.models.user import User
 from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
-from app.services.purchasing import create_purchase_order_from_replenishment
-
-_PENDING_STATUSES = ("draft", "ordered", "partially_received")
-
-
-def _supplier_for_products(db: Session, product_ids: list[int]) -> dict[int, int]:
-    """Most recently used supplier per product (by purchase order id)."""
-    rows = (
-        db.query(PurchaseOrderItem.product_id, PurchaseOrder.supplier_id)
-        .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
-        .filter(PurchaseOrderItem.product_id.in_(product_ids))
-        .order_by(PurchaseOrder.id.desc())
-        .all()
-    )
-    supplier_map: dict[int, int] = {}
-    for product_id, supplier_id in rows:
-        supplier_map.setdefault(product_id, supplier_id)
-    if len(supplier_map) < len(product_ids):
-        invoice_rows = (
-            db.query(PurchaseInvoiceItem.product_id, PurchaseOrder.supplier_id)
-            .join(
-                PurchaseOrderItem,
-                PurchaseInvoiceItem.purchase_order_item_id == PurchaseOrderItem.id,
-            )
-            .join(
-                PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id
-            )
-            .filter(
-                PurchaseInvoiceItem.product_id.in_(product_ids),
-                ~PurchaseInvoiceItem.product_id.in_(list(supplier_map)),
-            )
-            .order_by(PurchaseOrder.id.desc())
-            .all()
-        )
-        for product_id, supplier_id in invoice_rows:
-            supplier_map.setdefault(product_id, supplier_id)
-
-    # Fallback: products with no purchase/invoice history default to the
-    # tenant's only active supplier, so a fresh catalog can still be ordered.
-    missing_ids = [pid for pid in product_ids if pid not in supplier_map]
-    if missing_ids:
-        tenant_rows = (
-            db.query(Product.id, Product.tenant_id)
-            .filter(Product.id.in_(missing_ids))
-            .all()
-        )
-        by_tenant: dict[int, list[int]] = defaultdict(list)
-        for product_id, tenant_id in tenant_rows:
-            by_tenant[tenant_id].append(product_id)
-        for tenant_id, tenant_product_ids in by_tenant.items():
-            active_suppliers = (
-                db.query(Supplier.id)
-                .filter(
-                    Supplier.tenant_id == tenant_id,
-                    Supplier.is_active.is_(True),
-                )
-                .all()
-            )
-            if len(active_suppliers) == 1:
-                for product_id in tenant_product_ids:
-                    supplier_map[product_id] = active_suppliers[0][0]
-    return supplier_map
-
-
-def _products_already_in_pending_po(db: Session) -> set[int]:
-    rows = (
-        db.query(PurchaseOrderItem.product_id)
-        .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
-        .filter(PurchaseOrder.status.in_(_PENDING_STATUSES))
-        .all()
-    )
-    return {row[0] for row in rows}
+from app.services.purchasing import (
+    _products_already_in_pending_po,
+    _supplier_for_products,
+    create_purchase_order_from_replenishment,
+)
 
 
 def auto_generate_purchase_orders(

@@ -30,7 +30,11 @@ from app.schemas.purchase import (
 from app.schemas.purchase import PurchaseOrder as PurchaseOrderSchema
 from app.schemas.purchase import Supplier as SupplierSchema
 from app.schemas.purchase import SupplierPayment as SupplierPaymentSchema
-from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
+from app.schemas.replenishment import (
+    PurchaseOrderBatchFromSuggestionsCreate,
+    PurchaseOrderBatchFromSuggestionsResponse,
+    PurchaseOrderFromSuggestionsCreate,
+)
 from app.services.purchasing import (
     _attach_outstanding_amounts,
     _get_purchase_invoice_for_user,
@@ -40,6 +44,9 @@ from app.services.purchasing import (
 )
 from app.services.purchasing import (
     approve_supplier_payment as approve_supplier_payment_service,
+)
+from app.services.purchasing import (
+    batch_generate_purchase_orders_from_replenishment as batch_generate_purchase_orders_from_replenishment_service,
 )
 from app.services.purchasing import (
     cancel_purchase_order as cancel_purchase_order_service,
@@ -425,6 +432,38 @@ def create_purchase_order_from_replenishment(
     )
     db.commit()
     return purchase_order
+
+
+@router.post(
+    "/orders/batch-from-replenishment",
+    response_model=PurchaseOrderBatchFromSuggestionsResponse,
+)
+def batch_generate_purchase_orders_from_replenishment(
+    payload: PurchaseOrderBatchFromSuggestionsCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    result = batch_generate_purchase_orders_from_replenishment_service(
+        db=db,
+        current_user=current_user,
+        payload=payload,
+        tenant_id=current_user.tenant_id,
+    )
+    for purchase_order in result["purchase_orders"]:
+        log_action(
+            db=db,
+            action="purchase_order.create",
+            user_id=current_user.id,
+            resource_type="purchase_order",
+            resource_id=purchase_order.id,
+            details={
+                "supplier_id": purchase_order.supplier_id,
+                "total_estimated_amount": float(purchase_order.total_estimated_amount),
+                "source": "replenishment_batch",
+            },
+        )
+    db.commit()
+    return result
 
 
 @router.post(

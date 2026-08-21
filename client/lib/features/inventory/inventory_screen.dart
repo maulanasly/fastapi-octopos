@@ -25,6 +25,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   late Future<List<ReplenishmentSuggestion>> _suggestions;
   String? _typeFilter;
   bool _onlyReorder = true;
+  List<Supplier> _suppliers = const [];
+  final Map<int, _SuggestionRow> _rows = {};
+  bool _generating = false;
 
   @override
   void initState() {
@@ -39,6 +42,44 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     _suggestions = ref
         .read(inventoryRepositoryProvider)
         .suggestions(onlyReorder: _onlyReorder);
+    _rows.clear();
+    _loadSuppliers();
+  }
+
+  Future<void> _loadSuppliers() async {
+    try {
+      final all = await ref.read(purchasingRepositoryProvider).suppliers();
+      if (!mounted) return;
+      setState(() => _suppliers = all.where((x) => x.isActive).toList());
+    } catch (_) {
+      if (mounted) setState(() => _suppliers = const []);
+    }
+  }
+
+  void _syncRows(List<ReplenishmentSuggestion> suggestions) {
+    for (final item in suggestions) {
+      _rows.putIfAbsent(
+        item.productId,
+        () => _SuggestionRow(
+          name: item.productName,
+          qty: TextEditingController(
+            text: item.recommendedOrderQuantity > 0
+                ? '${item.recommendedOrderQuantity}'
+                : '',
+          ),
+          cost: TextEditingController(text: item.unitCost.toString()),
+          supplierId: item.suggestedSupplierId,
+        ),
+      );
+    }
+    _rows.removeWhere((productId, _) {
+      final stale = suggestions.every((item) => item.productId != productId);
+      if (stale) {
+        _rows[productId]?.qty.dispose();
+        _rows[productId]?.cost.dispose();
+      }
+      return stale;
+    });
   }
 
   Future<void> _adjust(ReplenishmentSuggestion suggestion) async {
@@ -112,6 +153,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
     final canAdjust = ref.watch(authControllerProvider).has('products:manage');
+    final canGenerate = ref.watch(authControllerProvider).has(
+      'purchasing:manage',
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -146,7 +190,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           Expanded(
             child: _tab == 0
                 ? _movementsView(context, s)
-                : _suggestionsView(context, s, canAdjust),
+                : _suggestionsView(context, s, canAdjust, canGenerate),
           ),
         ],
       ),
@@ -229,7 +273,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     );
   }
 
-  Widget _suggestionsView(BuildContext context, AppStrings s, bool canAdjust) {
+  Widget _suggestionsView(
+    BuildContext context,
+    AppStrings s,
+    bool canAdjust,
+    bool canGenerate,
+  ) {
     return Column(
       children: [
         Row(
@@ -255,6 +304,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 return Center(child: Text(friendlyError(snapshot.error!, s)));
               }
               final suggestions = snapshot.data ?? [];
+              _syncRows(suggestions);
               if (suggestions.isEmpty) {
                 return Center(child: Text(s.of('noSuggestions')));
               }
@@ -262,39 +312,228 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 padding: const EdgeInsets.all(16),
                 itemCount: suggestions.length,
                 separatorBuilder: (_, _) => const Divider(height: 8),
-                itemBuilder: (context, i) {
-                  final item = suggestions[i];
-                  return ListTile(
-                    title: Text(item.productName),
-                    subtitle: Text(
-                      '${item.sku} · stock ${item.currentStock} (min ${item.minStock}) · '
-                      'sold ${item.soldQuantity} in lookback',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          s.of(
-                            'recommendedQty',
-                            args: {'qty': item.recommendedOrderQuantity},
-                          ),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        if (canAdjust)
-                          IconButton(
-                            tooltip: s.of('adjustStock'),
-                            icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () => _adjust(item),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+                itemBuilder: (context, i) =>
+                    _suggestionRow(context, s, suggestions[i], canAdjust),
               );
             },
           ),
         ),
+        if (canGenerate)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: FilledButton.icon(
+              onPressed: _generating ? null : _generate,
+              icon: _generating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.playlist_add_check),
+              label: Text(s.of('generatePos')),
+            ),
+          ),
       ],
     );
   }
+
+  Widget _suggestionRow(
+    BuildContext context,
+    AppStrings s,
+    ReplenishmentSuggestion item,
+    bool canAdjust,
+  ) {
+    final row = _rows[item.productId]!;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Checkbox(
+                  value: row.include,
+                  onChanged: (v) => setState(() => row.include = v ?? true),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(row.name, overflow: TextOverflow.ellipsis),
+                      Text(
+                        '${item.sku} · stock ${item.currentStock} (min ${item.minStock}) · '
+                        'sold ${item.soldQuantity} in lookback',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                if (canAdjust)
+                  IconButton(
+                    tooltip: s.of('adjustStock'),
+                    icon: const Icon(Icons.add_circle_outline),
+                    onPressed: () => _adjust(item),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: row.qty,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: s.of('adjustDelta'),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: row.cost,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: s.of('unitCost'),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<int?>(
+                    initialValue: row.supplierId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: s.of('supplier'),
+                      isDense: true,
+                    ),
+                    items: [
+                      ..._suppliers.map(
+                        (supplier) => DropdownMenuItem<int?>(
+                          value: supplier.id,
+                          child: Text(
+                            supplier.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      if (row.supplierId != null &&
+                          !_suppliers.any((x) => x.id == row.supplierId))
+                        DropdownMenuItem<int?>(
+                          value: row.supplierId,
+                          child: Text(
+                            '#${row.supplierId}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) => row.supplierId = v,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generate() async {
+    final s = ref.read(stringsProvider);
+    final items = <Map<String, dynamic>>[];
+    for (final entry in _rows.entries) {
+      final row = entry.value;
+      if (!row.include) continue;
+      final qty = int.tryParse(row.qty.text.trim());
+      if (qty == null || qty <= 0) continue;
+      items.add({
+        'product_id': entry.key,
+        'quantity_ordered': qty,
+        'unit_cost': double.tryParse(row.cost.text.trim()),
+        'supplier_id': row.supplierId,
+      });
+    }
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('noRowsSelected'))));
+      return;
+    }
+    setState(() => _generating = true);
+    BatchReplenishmentResult? result;
+    try {
+      result = await ref
+          .read(purchasingRepositoryProvider)
+          .batchGenerateFromSuggestions(items: items);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
+    if (!mounted) return;
+    final res = result;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.of('generatePos')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              s.of(
+                'generatedPos',
+                args: {'count': '${res.purchaseOrders.length}'},
+              ),
+            ),
+            if (res.skipped.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                s.of('skippedProducts'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              for (final skip in res.skipped)
+                Text('• ${_productName(skip.productId)}: ${skip.reason}'),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(s.of('ok')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    setState(_reload);
+  }
+
+  String _productName(int productId) =>
+      _rows[productId]?.name ?? '#$productId';
+}
+
+class _SuggestionRow {
+  final String name;
+  final TextEditingController qty;
+  final TextEditingController cost;
+  int? supplierId;
+  bool include = true;
+
+  _SuggestionRow({
+    required this.name,
+    required this.qty,
+    required this.cost,
+    this.supplierId,
+  });
 }

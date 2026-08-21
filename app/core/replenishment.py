@@ -13,6 +13,7 @@ def build_replenishment_suggestions(
     db: Session,
     products: list[Product],
     lookback_days: int,
+    supplier_map: dict[int, tuple[int, str]] | None = None,
 ) -> list[ReplenishmentSuggestion]:
     if not products:
         return []
@@ -71,6 +72,8 @@ def build_replenishment_suggestions(
                 0,
             )
 
+        supplier = (supplier_map or {}).get(product.id)
+
         suggestions.append(
             ReplenishmentSuggestion(
                 product_id=product.id,
@@ -88,6 +91,9 @@ def build_replenishment_suggestions(
                 suggested_target_stock=suggested_target_stock,
                 recommended_order_quantity=recommended_order_quantity,
                 should_reorder=should_reorder,
+                unit_cost=float(product.price),
+                suggested_supplier_id=supplier[0] if supplier else None,
+                suggested_supplier_name=supplier[1] if supplier else None,
             )
         )
 

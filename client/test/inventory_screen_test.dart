@@ -24,11 +24,15 @@ class _FixedLanguageLocalization extends LocalizationController {
 }
 
 class _FakeAuth extends AuthController {
+  final Set<String> extraPermissions;
+
+  _FakeAuth({this.extraPermissions = const {}});
+
   @override
-  AuthState build() => const AuthState(
+  AuthState build() => AuthState(
     status: AuthStatus.signedIn,
     email: 'manager@example.com',
-    permissions: {'inventory:view', 'products:manage'},
+    permissions: {'inventory:view', 'products:manage', ...extraPermissions},
   );
 }
 
@@ -89,18 +93,59 @@ class _FakeInventory extends InventoryRepository {
         projectedStockAtLeadTime: 1,
         recommendedOrderQuantity: 8,
         shouldReorder: true,
+        unitCost: 4.5,
       ),
     ];
   }
 }
 
-ProviderContainer _container() => ProviderContainer(
-  overrides: [
-    localizationControllerProvider.overrideWith(_FixedLanguageLocalization.new),
-    authControllerProvider.overrideWith(_FakeAuth.new),
-    inventoryRepositoryProvider.overrideWithValue(_FakeInventory()),
-  ],
-);
+class _FakePurchasing extends PurchasingRepository {
+  _FakePurchasing()
+    : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
+
+  List<Map<String, dynamic>>? lastItems;
+
+  @override
+  Future<List<Supplier>> suppliers() async => const [
+    Supplier(id: 7, name: 'Acme Supplies', isActive: true),
+  ];
+
+  @override
+  Future<BatchReplenishmentResult> batchGenerateFromSuggestions({
+    int lookbackDays = 30,
+    List<Map<String, dynamic>> items = const [],
+  }) async {
+    lastItems = items;
+    return BatchReplenishmentResult(
+      purchaseOrders: const [
+        PurchaseOrder(
+          id: 11,
+          supplierId: 7,
+          userId: 1,
+          status: 'draft',
+          totalEstimatedAmount: 22.5,
+        ),
+      ],
+      skipped: const [SkippedProduct(productId: 4, reason: 'no supplier history')],
+    );
+  }
+}
+
+ProviderContainer _container({_FakePurchasing? purchasing}) =>
+    ProviderContainer(
+      overrides: [
+        localizationControllerProvider.overrideWith(
+          _FixedLanguageLocalization.new,
+        ),
+        authControllerProvider.overrideWith(
+          () => _FakeAuth(extraPermissions: {'purchasing:manage'}),
+        ),
+        inventoryRepositoryProvider.overrideWithValue(_FakeInventory()),
+        purchasingRepositoryProvider.overrideWithValue(
+          purchasing ?? _FakePurchasing(),
+        ),
+      ],
+    );
 
 Future<void> _pump(WidgetTester tester, ProviderContainer container) async {
   await tester.pumpWidget(
@@ -136,7 +181,9 @@ void main() {
     expect(find.text('Product #4 · manual_adjustment'), findsNothing);
   });
 
-  testWidgets('replenishment tab shows suggestions', (tester) async {
+  testWidgets('replenishment tab shows editable suggestion rows', (
+    tester,
+  ) async {
     final container = _container();
     addTearDown(container.dispose);
     await _pump(tester, container);
@@ -145,7 +192,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cafe Latte'), findsOneWidget);
-    expect(find.textContaining('Suggested: 8'), findsOneWidget);
-    expect(find.byIcon(Icons.add_circle_outline), findsOneWidget);
+    // qty prefilled with the recommended quantity, cost with product price
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      '8',
+    );
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      '4.5',
+    );
+    // supplier dropdown lists active suppliers
+    await tester.tap(find.text('Supplier'));
+    await tester.pumpAndSettle();
+    expect(find.text('Acme Supplies'), findsOneWidget);
+    await tester.tap(find.text('Cafe Latte'));
+    await tester.pumpAndSettle();
+    expect(find.text('Generate POs'), findsOneWidget);
+  });
+
+  testWidgets('batch generate posts edited rows and shows result', (
+    tester,
+  ) async {
+    final purchasing = _FakePurchasing();
+    final container = _container(purchasing: purchasing);
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Replenishment'));
+    await tester.pumpAndSettle();
+
+    // edit quantity and pick an explicit supplier override
+    await tester.enterText(find.byType(TextField).first, '5');
+    await tester.pump();
+    await tester.tap(find.text('Supplier'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Acme Supplies'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Generate POs'));
+    await tester.pumpAndSettle();
+
+    expect(purchasing.lastItems, [
+      {
+        'product_id': 3,
+        'quantity_ordered': 5,
+        'unit_cost': 4.5,
+        'supplier_id': 7,
+      },
+    ]);
+    expect(find.text('1 draft purchase order(s) created'), findsOneWidget);
+    expect(find.textContaining('Cafe Latte'), findsOneWidget);
+    expect(find.textContaining('#4: no supplier history'), findsOneWidget);
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    // dialog closed, list reloaded
+    expect(find.text('1 draft purchase order(s) created'), findsNothing);
   });
 }

@@ -1,9 +1,10 @@
 # Purchasing Flow & Redesign Plan
 
 The intended purchasing lifecycle and the phased redesign. Phase 1 (the
-"make it usable" baseline), the supplier payment recording (Phase 3
-financials), and the requester-vs-approver separation (Phase 4) are
-implemented; the remaining spec items are listed at the end.
+"make it usable" baseline), the replenishment UX (Phase 2), the supplier
+payment recording (Phase 3 financials), and the requester-vs-approver
+separation (Phase 4) are implemented; the remaining spec items are listed
+at the end.
 
 ## Intended lifecycle
 
@@ -99,11 +100,25 @@ reject`, `supplier_payment.create/submit/approve/reject`. Viewable via
 - Payments tab: list with status filter, create-payment dialog (approved
   invoice, amount, method, reference), detail + submit/approve/reject.
 
+## Replenishment UX (Phase 2)
+
+- `GET /inventory/replenishment-suggestions` now returns `unit_cost`
+  (product price) and the suggested supplier per product
+  (`suggested_supplier_id`/`suggested_supplier_name`, resolved from
+  PO/invoice history with the sole-active-supplier fallback).
+- `POST /purchasing/orders/batch-from-replenishment` creates one draft PO
+  per supplier in a single call. It accepts per-product overrides
+  (`quantity_ordered`, `unit_cost`, `supplier_id`), skips products already
+  covered by a pending PO, without supplier history, or with an
+  inactive/unknown supplier — every skip comes back with its reason in
+  `skipped_products`.
+- Client (Inventory → Replenishment): suggestion rows are editable —
+  quantity, unit cost, and a per-row supplier dropdown defaulting to the
+  suggested supplier. **Generate POs** batches the included rows through
+  the new endpoint and surfaces created POs plus skip reasons.
+
 ## Remaining spec (not implemented)
 
-- **Phase 2 — replenishment UX**: editable suggestion quantities/costs
-  before generating, per-row supplier overrides, skip-reason surfacing,
-  batch generate.
 - **Phase 3 — visibility**: consolidated PO detail timeline with per-item
   received/invoiced totals; supplier ledger view (open POs, pending
   invoices, total payable); purchasing reports (COGS, spend by supplier,

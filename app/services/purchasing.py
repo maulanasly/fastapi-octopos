@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -28,7 +29,10 @@ from app.schemas.purchase import (
     SupplierPaymentCreate,
     SupplierPaymentReviewAction,
 )
-from app.schemas.replenishment import PurchaseOrderFromSuggestionsCreate
+from app.schemas.replenishment import (
+    PurchaseOrderBatchFromSuggestionsCreate,
+    PurchaseOrderFromSuggestionsCreate,
+)
 
 
 def _can_access_any_tenant_document(db: Session, current_user: User) -> bool:
@@ -426,6 +430,277 @@ def create_purchase_order(
         )
         .first()
     )
+
+
+def _supplier_for_products(db: Session, product_ids: list[int]) -> dict[int, int]:
+    """Most recently used supplier per product (by purchase order id)."""
+    rows = (
+        db.query(PurchaseOrderItem.product_id, PurchaseOrder.supplier_id)
+        .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
+        .filter(PurchaseOrderItem.product_id.in_(product_ids))
+        .order_by(PurchaseOrder.id.desc())
+        .all()
+    )
+    supplier_map: dict[int, int] = {}
+    for product_id, supplier_id in rows:
+        supplier_map.setdefault(product_id, supplier_id)
+    if len(supplier_map) < len(product_ids):
+        invoice_rows = (
+            db.query(PurchaseInvoiceItem.product_id, PurchaseOrder.supplier_id)
+            .join(
+                PurchaseOrderItem,
+                PurchaseInvoiceItem.purchase_order_item_id == PurchaseOrderItem.id,
+            )
+            .join(
+                PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id
+            )
+            .filter(
+                PurchaseInvoiceItem.product_id.in_(product_ids),
+                ~PurchaseInvoiceItem.product_id.in_(list(supplier_map)),
+            )
+            .order_by(PurchaseOrder.id.desc())
+            .all()
+        )
+        for product_id, supplier_id in invoice_rows:
+            supplier_map.setdefault(product_id, supplier_id)
+
+    # Fallback: products with no purchase/invoice history default to the
+    # tenant's only active supplier, so a fresh catalog can still be ordered.
+    missing_ids = [pid for pid in product_ids if pid not in supplier_map]
+    if missing_ids:
+        tenant_rows = (
+            db.query(Product.id, Product.tenant_id)
+            .filter(Product.id.in_(missing_ids))
+            .all()
+        )
+        by_tenant: dict[int, list[int]] = defaultdict(list)
+        for product_id, tenant_id in tenant_rows:
+            by_tenant[tenant_id].append(product_id)
+        for tenant_id, tenant_product_ids in by_tenant.items():
+            active_suppliers = (
+                db.query(Supplier.id)
+                .filter(
+                    Supplier.tenant_id == tenant_id,
+                    Supplier.is_active.is_(True),
+                )
+                .all()
+            )
+            if len(active_suppliers) == 1:
+                for product_id in tenant_product_ids:
+                    supplier_map[product_id] = active_suppliers[0][0]
+    return supplier_map
+
+
+def supplier_map_with_names(
+    db: Session, product_ids: list[int]
+) -> dict[int, tuple[int, str]]:
+    """Supplier resolution keyed by product, including the supplier name."""
+    ids = _supplier_for_products(db, product_ids)
+    if not ids:
+        return {}
+    names = dict(
+        db.query(Supplier.id, Supplier.name)
+        .filter(Supplier.id.in_(set(ids.values())))
+        .all()
+    )
+    return {
+        product_id: (supplier_id, names[supplier_id])
+        for product_id, supplier_id in ids.items()
+        if supplier_id in names
+    }
+
+
+def _products_already_in_pending_po(db: Session) -> set[int]:
+    rows = (
+        db.query(PurchaseOrderItem.product_id)
+        .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
+        .filter(PurchaseOrder.status.in_(("draft", "ordered", "partially_received")))
+        .all()
+    )
+    return {row[0] for row in rows}
+
+
+def batch_generate_purchase_orders_from_replenishment(
+    db: Session,
+    current_user: User,
+    payload: PurchaseOrderBatchFromSuggestionsCreate,
+    tenant_id: int,
+) -> dict:
+    """Create one draft PO per supplier from replenishment suggestions.
+
+    Honors per-product overrides (quantity, unit cost, supplier) and returns
+    every skipped product with the reason it was left out.
+    """
+    overrides = {
+        item.product_id: item for item in (payload.items or []) if item is not None
+    }
+    requested_ids = payload.product_ids or list(overrides)
+
+    product_query = (
+        db.query(Product)
+        .filter(Product.tenant_id == tenant_id)
+        .order_by(Product.id.asc())
+    )
+    if requested_ids:
+        unique_product_ids = sorted(set(requested_ids))
+        product_query = product_query.filter(Product.id.in_(unique_product_ids))
+        products = product_query.all()
+        missing_product_ids = [
+            product_id
+            for product_id in unique_product_ids
+            if product_id not in {product.id for product in products}
+        ]
+        if missing_product_ids:
+            missing_products_text = ", ".join(
+                str(product_id) for product_id in missing_product_ids
+            )
+            raise HTTPException(
+                status_code=404,
+                detail=f"Product(s) not found: {missing_products_text}",
+            )
+    else:
+        products = [
+            product
+            for product in product_query.all()
+            if product.stock_quantity <= product.reorder_point
+        ]
+    if not products:
+        return {"purchase_orders": [], "skipped_products": []}
+
+    pending_products = _products_already_in_pending_po(db)
+    candidates: list[Product] = []
+    skipped: list[dict] = []
+    for product in products:
+        if product.id in pending_products:
+            skipped.append(
+                {
+                    "product_id": product.id,
+                    "reason": "already covered by a pending purchase order",
+                }
+            )
+        else:
+            candidates.append(product)
+    if not candidates:
+        return {"purchase_orders": [], "skipped_products": skipped}
+
+    suggestions = build_replenishment_suggestions(
+        db=db,
+        products=candidates,
+        lookback_days=payload.lookback_days,
+        supplier_map=supplier_map_with_names(
+            db, [product.id for product in candidates]
+        ),
+    )
+
+    by_supplier: dict[int, list[dict]] = defaultdict(list)
+    for suggestion in suggestions:
+        override = overrides.get(suggestion.product_id)
+        quantity = (
+            override.quantity_ordered
+            if override and override.quantity_ordered is not None
+            else suggestion.recommended_order_quantity
+        )
+        if quantity <= 0:
+            skipped.append(
+                {
+                    "product_id": suggestion.product_id,
+                    "reason": "no reorder needed",
+                }
+            )
+            continue
+        supplier_id = (
+            override.supplier_id
+            if override and override.supplier_id is not None
+            else suggestion.suggested_supplier_id
+        )
+        if supplier_id is None:
+            skipped.append(
+                {
+                    "product_id": suggestion.product_id,
+                    "reason": "no supplier history",
+                }
+            )
+            continue
+        unit_cost = (
+            override.unit_cost
+            if override and override.unit_cost is not None
+            else suggestion.unit_cost
+        )
+        by_supplier[supplier_id].append(
+            {
+                "product_id": suggestion.product_id,
+                "quantity": quantity,
+                "unit_cost": unit_cost,
+            }
+        )
+
+    suppliers_by_id = {
+        supplier.id: supplier
+        for supplier in db.query(Supplier).filter(Supplier.id.in_(by_supplier)).all()
+        if supplier.tenant_id == tenant_id
+    }
+    for supplier_id in sorted(by_supplier):
+        supplier = suppliers_by_id.get(supplier_id)
+        if supplier is None:
+            skipped.extend(
+                {
+                    "product_id": spec["product_id"],
+                    "reason": "supplier not found",
+                }
+                for spec in by_supplier.pop(supplier_id)
+            )
+        elif not supplier.is_active:
+            skipped.extend(
+                {
+                    "product_id": spec["product_id"],
+                    "reason": "supplier inactive",
+                }
+                for spec in by_supplier.pop(supplier_id)
+            )
+
+    notes = payload.notes or (
+        "Generated from replenishment suggestions "
+        f"(lookback_days={payload.lookback_days})"
+    )
+    created_orders: list[PurchaseOrder] = []
+    for supplier_id, specs in by_supplier.items():
+        purchase_order = PurchaseOrder(
+            supplier_id=supplier_id,
+            user_id=current_user.id,
+            tenant_id=tenant_id,
+            status="draft",
+            total_estimated_amount=sum(
+                spec["quantity"] * spec["unit_cost"] for spec in specs
+            ),
+            notes=notes,
+        )
+        db.add(purchase_order)
+        db.flush()
+        for spec in specs:
+            db.add(
+                PurchaseOrderItem(
+                    purchase_order_id=purchase_order.id,
+                    product_id=spec["product_id"],
+                    tenant_id=tenant_id,
+                    quantity_ordered=spec["quantity"],
+                    quantity_received=0,
+                    unit_cost=spec["unit_cost"],
+                )
+            )
+        created_orders.append(purchase_order)
+    db.commit()
+
+    created_orders = (
+        db.query(PurchaseOrder)
+        .options(joinedload(PurchaseOrder.items))
+        .filter(
+            PurchaseOrder.id.in_([order.id for order in created_orders]),
+            PurchaseOrder.tenant_id == tenant_id,
+        )
+        .order_by(PurchaseOrder.id.asc())
+        .all()
+    )
+    return {"purchase_orders": created_orders, "skipped_products": skipped}
 
 
 def create_purchase_order_from_replenishment(
