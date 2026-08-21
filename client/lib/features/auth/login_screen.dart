@@ -22,13 +22,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _fullName = TextEditingController();
   bool _registerMode = false;
   bool _submitting = false;
+  bool _obscure = true;
   String? _error;
+  final _passwordFocus = FocusNode();
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
     _fullName.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -81,9 +84,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -138,19 +141,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
+                    autofillHints: const [AutofillHints.email],
                     validator: (v) => (v == null || !v.contains('@'))
-                        ? 'Valid email required'
+                        ? s.of('invalidEmail')
                         : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     key: const Key('passwordField'),
                     controller: _password,
+                    focusNode: _passwordFocus,
                     decoration: InputDecoration(
                       labelText: s.of('password'),
                       border: OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        tooltip: _obscure
+                            ? s.of('showPassword')
+                            : s.of('hidePassword'),
+                        icon: Icon(
+                          _obscure
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                      ),
                     ),
-                    obscureText: true,
+                    obscureText: _obscure,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) {
+                      if (!_submitting) _submit();
+                    },
+                    autofillHints: const [AutofillHints.password],
                     validator: (v) => (v == null || v.length < 8)
                         ? s.of('minPassword')
                         : null,
@@ -189,8 +212,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           }),
                     child: Text(
                       _registerMode
-                          ? 'Already have an account? Sign in'
-                          : 'New cashier? Register',
+                          ? s.of('signInInstead')
+                          : s.of('registerInstead'),
                     ),
                   ),
                 ],
