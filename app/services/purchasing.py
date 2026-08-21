@@ -18,6 +18,7 @@ from app.models.purchase import (
     Supplier,
     SupplierPayment,
 )
+from app.models.purchasing_setting import PurchasingSetting
 from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.purchase import (
@@ -29,6 +30,7 @@ from app.schemas.purchase import (
     SupplierPaymentCreate,
     SupplierPaymentReviewAction,
 )
+from app.schemas.purchasing_setting import PurchasingSettingUpdate
 from app.schemas.replenishment import (
     PurchaseOrderBatchFromSuggestionsCreate,
     PurchaseOrderFromSuggestionsCreate,
@@ -432,15 +434,18 @@ def create_purchase_order(
     )
 
 
-def _supplier_for_products(db: Session, product_ids: list[int]) -> dict[int, int]:
+def _supplier_for_products(
+    db: Session, product_ids: list[int], tenant_id: int | None = None
+) -> dict[int, int]:
     """Most recently used supplier per product (by purchase order id)."""
     rows = (
         db.query(PurchaseOrderItem.product_id, PurchaseOrder.supplier_id)
         .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
         .filter(PurchaseOrderItem.product_id.in_(product_ids))
-        .order_by(PurchaseOrder.id.desc())
-        .all()
     )
+    if tenant_id is not None:
+        rows = rows.filter(PurchaseOrder.tenant_id == tenant_id)
+    rows = rows.order_by(PurchaseOrder.id.desc()).all()
     supplier_map: dict[int, int] = {}
     for product_id, supplier_id in rows:
         supplier_map.setdefault(product_id, supplier_id)
@@ -510,14 +515,17 @@ def supplier_map_with_names(
     }
 
 
-def _products_already_in_pending_po(db: Session) -> set[int]:
+def _products_already_in_pending_po(
+    db: Session, tenant_id: int | None = None
+) -> set[int]:
     rows = (
         db.query(PurchaseOrderItem.product_id)
         .join(PurchaseOrder, PurchaseOrderItem.purchase_order_id == PurchaseOrder.id)
         .filter(PurchaseOrder.status.in_(("draft", "ordered", "partially_received")))
-        .all()
     )
-    return {row[0] for row in rows}
+    if tenant_id is not None:
+        rows = rows.filter(PurchaseOrder.tenant_id == tenant_id)
+    return {row[0] for row in rows.all()}
 
 
 def batch_generate_purchase_orders_from_replenishment(
@@ -708,6 +716,7 @@ def create_purchase_order_from_replenishment(
     current_user: User,
     payload: PurchaseOrderFromSuggestionsCreate,
     tenant_id: int,
+    min_stock_trigger: int = 0,
 ) -> PurchaseOrder:
     supplier = (
         db.query(Supplier)
@@ -752,6 +761,7 @@ def create_purchase_order_from_replenishment(
         db=db,
         products=products,
         lookback_days=payload.lookback_days,
+        min_stock_trigger=min_stock_trigger,
     )
     if payload.include_only_reorder:
         suggestions = [item for item in suggestions if item.should_reorder]
@@ -1614,3 +1624,36 @@ def get_supplier_ledger_data(db: Session, tenant_id: int, supplier_id: int) -> d
         ),
         "entries": entries[:50],
     }
+
+
+def get_or_create_purchasing_setting(db: Session, tenant_id: int) -> PurchasingSetting:
+    """Return the tenant's auto-PO settings, creating defaults on first read."""
+    setting = (
+        db.query(PurchasingSetting)
+        .filter(PurchasingSetting.tenant_id == tenant_id)
+        .first()
+    )
+    if not setting:
+        setting = PurchasingSetting(tenant_id=tenant_id)
+        db.add(setting)
+        db.commit()
+        db.refresh(setting)
+    return setting
+
+
+def update_purchasing_setting(
+    db: Session,
+    tenant_id: int,
+    data: PurchasingSettingUpdate,
+) -> PurchasingSetting:
+    setting = get_or_create_purchasing_setting(db, tenant_id)
+    if data.auto_po_enabled is not None:
+        setting.auto_po_enabled = data.auto_po_enabled
+    if data.auto_po_lookback_days is not None:
+        setting.auto_po_lookback_days = data.auto_po_lookback_days
+    if data.auto_po_min_stock_trigger is not None:
+        setting.auto_po_min_stock_trigger = data.auto_po_min_stock_trigger
+    db.add(setting)
+    db.commit()
+    db.refresh(setting)
+    return setting

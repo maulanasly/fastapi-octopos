@@ -343,6 +343,31 @@ class SupplierLedger {
   );
 }
 
+class PurchasingSettings {
+  final bool autoPoEnabled;
+  final int autoPoLookbackDays;
+  final int autoPoMinStockTrigger;
+
+  const PurchasingSettings({
+    required this.autoPoEnabled,
+    required this.autoPoLookbackDays,
+    required this.autoPoMinStockTrigger,
+  });
+
+  factory PurchasingSettings.fromJson(Map<String, dynamic> json) =>
+      PurchasingSettings(
+        autoPoEnabled: json['auto_po_enabled'] as bool? ?? false,
+        autoPoLookbackDays: json['auto_po_lookback_days'] as int? ?? 30,
+        autoPoMinStockTrigger: json['auto_po_min_stock_trigger'] as int? ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'auto_po_enabled': autoPoEnabled,
+    'auto_po_lookback_days': autoPoLookbackDays,
+    'auto_po_min_stock_trigger': autoPoMinStockTrigger,
+  };
+}
+
 class SupplierSpendItem {
   final int supplierId;
   final String supplierName;

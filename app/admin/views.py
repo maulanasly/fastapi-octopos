@@ -45,6 +45,7 @@ from app.models.purchase import (
     Supplier,
     SupplierPayment,
 )
+from app.models.purchasing_setting import PurchasingSetting
 from app.models.rbac import Permission, Role, RolePermission, UserRole
 from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
@@ -396,6 +397,59 @@ class LocalizationSettingAdmin(
             raise ValueError(
                 "Localization already exists for the chosen tenant; "
                 "edit the existing row instead."
+            )
+        if is_created:
+            data["tenant"] = tenant_id
+        await super().on_model_change(data, model, is_created, request)
+
+
+class PurchasingSettingAdmin(
+    LabeledRelationsMixin, TenantScopedModelView, model=PurchasingSetting
+):
+    name = "Purchasing Automation"
+    icon = "fa-solid fa-robot"
+    category = "System"
+    category_icon = "fa-solid fa-gear"
+
+    exclude_tenant_from_form = False
+
+    column_list = [
+        PurchasingSetting.id,
+        PurchasingSetting.tenant,
+        PurchasingSetting.auto_po_enabled,
+        PurchasingSetting.auto_po_lookback_days,
+        PurchasingSetting.auto_po_min_stock_trigger,
+    ]
+    form_columns = [
+        "tenant",
+        "auto_po_enabled",
+        "auto_po_lookback_days",
+        "auto_po_min_stock_trigger",
+    ]
+
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        """Keep one PurchasingSetting per tenant (singleton semantics the
+        API relies on)."""
+        chosen = data.get("tenant")
+        try:
+            tenant_id = int(chosen)
+        except (TypeError, ValueError):
+            tenant_id = _selected_tenant_id(request)
+        db = SessionLocal()
+        try:
+            existing = (
+                db.query(PurchasingSetting)
+                .filter(PurchasingSetting.tenant_id == tenant_id)
+                .first()
+            )
+        finally:
+            db.close()
+        if existing and (is_created or existing.id != model.id):
+            raise ValueError(
+                "Purchasing automation settings already exist for the chosen "
+                "tenant; edit the existing row instead."
             )
         if is_created:
             data["tenant"] = tenant_id

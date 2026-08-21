@@ -134,6 +134,26 @@ class _FakePurchasing extends PurchasingRepository {
 
   int orderDetailCalls = 0;
   int supplierLedgerCalls = 0;
+  int settingsCalls = 0;
+  int updateSettingsCalls = 0;
+  PurchasingSettings _settings = const PurchasingSettings(
+    autoPoEnabled: false,
+    autoPoLookbackDays: 30,
+    autoPoMinStockTrigger: 0,
+  );
+
+  @override
+  Future<PurchasingSettings> settings() async {
+    settingsCalls++;
+    return _settings;
+  }
+
+  @override
+  Future<PurchasingSettings> updateSettings(PurchasingSettings settings) async {
+    updateSettingsCalls++;
+    _settings = settings;
+    return _settings;
+  }
 
   @override
   Future<PurchaseOrderDetail> orderDetail(int purchaseOrderId) async {
@@ -664,5 +684,44 @@ void main() {
     expect(find.text('PO-11'), findsOneWidget);
     expect(find.text('INV-001'), findsOneWidget);
     expect(find.text('TRX-1'), findsOneWidget);
+  });
+
+  testWidgets('automation settings dialog loads and saves', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.byTooltip('Automation settings'));
+    await tester.pumpAndSettle();
+
+    expect(fake.settingsCalls, 1);
+    expect(find.text('Auto-generate purchase orders'), findsOneWidget);
+
+    await tester.tap(find.text('Auto-generate purchase orders'));
+    await tester.enterText(find.byType(TextField).at(0), '14');
+    await tester.enterText(find.byType(TextField).at(1), '25');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(fake.updateSettingsCalls, 1);
+    expect(fake._settings.autoPoEnabled, isTrue);
+    expect(fake._settings.autoPoLookbackDays, 14);
+    expect(fake._settings.autoPoMinStockTrigger, 25);
+    expect(find.text('Automation settings saved'), findsOneWidget);
+  });
+
+  testWidgets('automation settings cancel does not save', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    await _pump(tester, container);
+
+    await tester.tap(find.byTooltip('Automation settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(fake.updateSettingsCalls, 0);
   });
 }

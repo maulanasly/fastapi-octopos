@@ -155,3 +155,90 @@ def test_auto_po_defaults_to_sole_active_supplier(
     body = resp.json()
     assert body["supplier_id"] == supplier_id
     assert body["items"][0]["product_id"] == product["id"]
+
+
+def test_auto_po_honors_min_stock_trigger_and_tenant_scope(
+    client: TestClient, db, manager_headers, auth_factory
+):
+    owner_email = "auto-po-owner2@example.com"
+    owner = auth_factory.register(owner_email)
+    u = db.get(User, owner["id"])
+    u.is_superuser = True
+    db.commit()
+
+    supplier = client.post(
+        "/api/v1/purchasing/suppliers",
+        headers=manager_headers,
+        json={"name": "Trigger Supplier", "is_active": True},
+    )
+    supplier_id = supplier.json()["id"]
+
+    # stock 8 is above its reorder point (5) but at/below the trigger (10)
+    below_trigger = _seed(
+        db,
+        client,
+        manager_headers,
+        "Trigger Item",
+        "SKU-TRG",
+        4.0,
+        stock=8,
+        reorder_point=5,
+    )
+    # stock 40 is above both lines -> never a candidate
+    above_both = _seed(
+        db,
+        client,
+        manager_headers,
+        "Safe Item",
+        "SKU-SAFE",
+        4.0,
+        stock=40,
+        reorder_point=5,
+    )
+
+    result = auto_generate_purchase_orders(
+        db=db, lookback_days=30, tenant_id=1, min_stock_trigger=10
+    )
+    db.commit()
+    assert result["generated"] == 1, result
+    assert result["po_ids"], "expected one draft PO"
+
+    # the new PO is a draft attributed to the tenant superuser
+    owner_h = _login(client, owner_email)
+    po = client.get(
+        f"/api/v1/purchasing/orders/{result['po_ids'][0]}", headers=owner_h
+    ).json()
+    assert [item["product_id"] for item in po["items"]] == [below_trigger["id"]]
+    assert above_both["id"] not in [item["product_id"] for item in po["items"]]
+    assert po["supplier_id"] == supplier_id
+
+
+def test_auto_po_without_trigger_keeps_reorder_point_only(
+    client: TestClient, db, manager_headers, auth_factory
+):
+    owner = auth_factory.register("auto-po-owner3@example.com")
+    u = db.get(User, owner["id"])
+    u.is_superuser = True
+    db.commit()
+
+    client.post(
+        "/api/v1/purchasing/suppliers",
+        headers=manager_headers,
+        json={"name": "No Trigger Supplier", "is_active": True},
+    )
+    product = _seed(
+        db,
+        client,
+        manager_headers,
+        "Above Reorder",
+        "SKU-ABV",
+        4.0,
+        stock=8,
+        reorder_point=5,
+    )
+
+    result = auto_generate_purchase_orders(
+        db=db, lookback_days=30, tenant_id=1, min_stock_trigger=0
+    )
+    assert result["generated"] == 0
+    assert product["id"] not in [s["product_id"] for s in result["skipped_products"]]

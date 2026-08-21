@@ -1366,3 +1366,56 @@ def test_supplier_ledger_unknown_supplier_404(client, manager_headers):
         "/api/v1/purchasing/suppliers/99999/ledger", headers=manager_headers
     )
     assert resp.status_code == 404
+
+
+def test_purchasing_settings_defaults_and_update(client, manager_headers):
+    resp = client.get("/api/v1/purchasing/settings", headers=manager_headers)
+    assert resp.status_code == 200, resp.text
+    settings = resp.json()
+    assert settings["auto_po_enabled"] is False
+    assert settings["auto_po_lookback_days"] == 30
+    assert settings["auto_po_min_stock_trigger"] == 0
+
+    updated = client.put(
+        "/api/v1/purchasing/settings",
+        headers=manager_headers,
+        json={
+            "auto_po_enabled": True,
+            "auto_po_lookback_days": 14,
+            "auto_po_min_stock_trigger": 25,
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    body = updated.json()
+    assert body["auto_po_enabled"] is True
+    assert body["auto_po_lookback_days"] == 14
+    assert body["auto_po_min_stock_trigger"] == 25
+
+    reread = client.get("/api/v1/purchasing/settings", headers=manager_headers)
+    assert reread.json() == body
+
+
+def test_purchasing_settings_partial_update(client, manager_headers):
+    client.put(
+        "/api/v1/purchasing/settings",
+        headers=manager_headers,
+        json={"auto_po_lookback_days": 7},
+    )
+    body = client.get("/api/v1/purchasing/settings", headers=manager_headers).json()
+    assert body["auto_po_lookback_days"] == 7
+    assert body["auto_po_enabled"] is False
+
+
+def test_purchasing_settings_validation(client, manager_headers):
+    resp = client.put(
+        "/api/v1/purchasing/settings",
+        headers=manager_headers,
+        json={"auto_po_lookback_days": 0},
+    )
+    assert resp.status_code == 422
+    resp = client.put(
+        "/api/v1/purchasing/settings",
+        headers=manager_headers,
+        json={"auto_po_min_stock_trigger": -1},
+    )
+    assert resp.status_code == 422

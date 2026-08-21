@@ -1035,6 +1035,21 @@ class PurchasingRepository {
     return SupplierLedger.fromJson(resp.data!);
   }
 
+  // ---- Automation settings ----
+
+  Future<PurchasingSettings> settings() async {
+    final resp = await api.dio.get<Map<String, dynamic>>('/purchasing/settings');
+    return PurchasingSettings.fromJson(resp.data!);
+  }
+
+  Future<PurchasingSettings> updateSettings(PurchasingSettings settings) async {
+    final resp = await api.dio.put<Map<String, dynamic>>(
+      '/purchasing/settings',
+      data: settings.toJson(),
+    );
+    return PurchasingSettings.fromJson(resp.data!);
+  }
+
   // ---- Purchase invoices ----
 
   Future<List<PurchaseInvoice>> invoices({
