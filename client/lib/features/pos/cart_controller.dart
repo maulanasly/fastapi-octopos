@@ -24,11 +24,18 @@ class CartState {
   final String promotionCode;
   final int redeemPoints;
 
+  /// Incremented on every successful add; [lastAddedId] names the product
+  /// so the grid can flash the tile that was just added (tap or scan).
+  final int addTick;
+  final int? lastAddedId;
+
   const CartState({
     this.lines = const {},
     this.customer,
     this.promotionCode = '',
     this.redeemPoints = 0,
+    this.addTick = 0,
+    this.lastAddedId,
   });
 
   int get subtotalCents =>
@@ -43,11 +50,15 @@ class CartState {
     Customer? customer,
     String? promotionCode,
     int? redeemPoints,
+    int? addTick,
+    int? lastAddedId,
   }) => CartState(
     lines: lines ?? this.lines,
     customer: customer ?? this.customer,
     promotionCode: promotionCode ?? this.promotionCode,
     redeemPoints: redeemPoints ?? this.redeemPoints,
+    addTick: addTick ?? this.addTick,
+    lastAddedId: lastAddedId ?? this.lastAddedId,
   );
 }
 
@@ -124,7 +135,11 @@ class CartController extends Notifier<CartState> {
         lines[product.id] = CartLine(product: product);
       }
     }
-    state = state.copyWith(lines: lines);
+    state = state.copyWith(
+      lines: lines,
+      addTick: state.addTick + 1,
+      lastAddedId: product.id,
+    );
     _persist();
   }
 

@@ -139,6 +139,15 @@ void main() {
         'totallyMissing',
       );
     });
+
+    test('every locale mirrors the english key set', () {
+      // New messages must be added to BOTH tables; this keeps a missing
+      // Indonesian translation from silently rendering English (or a raw
+      // key) on localized devices.
+      for (final language in const ['en', 'id']) {
+        expect(keysFor(language), stringKeys, reason: 'locale $language');
+      }
+    });
   });
 
   _authProfileTests();

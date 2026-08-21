@@ -65,8 +65,10 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
     }
 
     if (session == null) {
-      return const Scaffold(
-        body: Center(child: Text('No open drawer to reconcile.')),
+      return Scaffold(
+        body: Center(
+          child: Text(ref.watch(stringsProvider).of('reconcileNoDrawer')),
+        ),
       );
     }
 
