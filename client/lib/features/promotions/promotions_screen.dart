@@ -147,16 +147,16 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       labelText: s.of('appliesTo'),
                       isDense: true,
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'order', child: Text('order')),
-                      DropdownMenuItem(
-                        value: 'category',
-                        child: Text('category'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'product',
-                        child: Text('product'),
-                      ),
+                    items: [
+                      for (final value in const [
+                        'order',
+                        'category',
+                        'product',
+                      ])
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text(_scopeLabel(s, value)),
+                        ),
                     ],
                     onChanged: (v) => setDialogState(() {
                       appliesTo = v ?? 'order';
@@ -235,9 +235,8 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
       }
     }
   }
@@ -267,9 +266,8 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
       }
     }
   }
@@ -355,3 +353,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
     );
   }
 }
+
+/// Localized label for a promotion's applies-to scope.
+String _scopeLabel(AppStrings s, String scope) => switch (scope) {
+  'category' => s.of('scopeCategory'),
+  'product' => s.of('scopeProduct'),
+  _ => s.of('scopeOrder'),
+};

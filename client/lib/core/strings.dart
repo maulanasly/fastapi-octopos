@@ -42,6 +42,29 @@ const Map<String, Map<String, String>> _translations = {
     'create': 'Create',
     'pos': 'POS',
     'more': 'More',
+    'noOpenDrawerBanner': 'No open drawer. Open one before taking orders.',
+    'refreshCatalog': 'Refresh catalog',
+    'startingCash': 'Starting cash',
+    'scanNoMatch': 'No product matches this code',
+    'needDrawer': 'Open a drawer first',
+    'invalidEmail': 'Valid email required',
+    'signInInstead': 'Already have an account? Sign in',
+    'registerInstead': 'New cashier? Register',
+    'showPassword': 'Show password',
+    'hidePassword': 'Hide password',
+    'searchCustomers': 'Search customers',
+    'pointsUnit': 'pts',
+    'decreaseQty': 'Decrease quantity',
+    'increaseQty': 'Increase quantity',
+    'removeLine': 'Remove from cart',
+    'scopeOrder': 'Order',
+    'scopeCategory': 'Category',
+    'scopeProduct': 'Product',
+    'taxExclusive': 'Exclusive',
+    'taxInclusive': 'Inclusive',
+    'refundSelectedItems': 'Refund selected items',
+    'reconcileNoDrawer': 'No open drawer to reconcile.',
+    'recenter': 'Recenter',
     'serving': 'Serving',
     'servingEmpty': 'No orders waiting to be served',
     'orderNumber': 'Order #{{id}}',
@@ -381,6 +404,30 @@ const Map<String, Map<String, String>> _translations = {
     'create': 'Buat',
     'pos': 'POS',
     'more': 'Lainnya',
+    'noOpenDrawerBanner':
+        'Belum ada laci terbuka. Buka laci sebelum menerima pesanan.',
+    'refreshCatalog': 'Muat ulang katalog',
+    'startingCash': 'Uang awal',
+    'scanNoMatch': 'Tidak ada produk yang cocok dengan kode ini',
+    'needDrawer': 'Buka laci dulu',
+    'invalidEmail': 'Email tidak valid',
+    'signInInstead': 'Sudah punya akun? Masuk',
+    'registerInstead': 'Kasir baru? Daftar',
+    'showPassword': 'Tampilkan kata sandi',
+    'hidePassword': 'Sembunyikan kata sandi',
+    'searchCustomers': 'Cari pelanggan',
+    'pointsUnit': 'poin',
+    'decreaseQty': 'Kurangi jumlah',
+    'increaseQty': 'Tambah jumlah',
+    'removeLine': 'Hapus dari keranjang',
+    'scopeOrder': 'Pesanan',
+    'scopeCategory': 'Kategori',
+    'scopeProduct': 'Produk',
+    'taxExclusive': 'Eksklusif',
+    'taxInclusive': 'Inklusif',
+    'refundSelectedItems': 'Refund item terpilih',
+    'reconcileNoDrawer': 'Tidak ada laci terbuka untuk direkonsiliasi.',
+    'recenter': 'Pusatkan',
     'serving': 'Pelayanan',
     'servingEmpty': 'Belum ada pesanan yang menunggu disajikan',
     'orderNumber': 'Pesanan #{{id}}',
@@ -505,8 +552,7 @@ const Map<String, Map<String, String>> _translations = {
     'receive': 'Terima',
     'confirmMarkOrdered': 'Tandai pesanan pembelian ini sebagai dipesan?',
     'confirmCancelOrder': 'Batalkan pesanan pembelian ini?',
-    'confirmReceiveItems':
-        'Menerima barang memperbarui stok dan mencatat riwayat pergerakan stok.',
+    'confirmReceiveItems': 'Menerima barang memperbarui stok dan mencatat riwayat pergerakan stok.',
     'qtyOrdered': 'Dipesan',
     'qtyReceived': 'Diterima',
     'qtyInvoiced': 'Difakturkan',
@@ -548,7 +594,8 @@ const Map<String, Map<String, String>> _translations = {
     'billed': 'Ditagih',
     'createInvoice': 'Buat faktur',
     'selectEligiblePo': 'Pilih pesanan pembelian yang sudah diterima',
-    'noEligiblePo': 'Tidak ada pesanan pembelian dengan barang diterima untuk ditagih',
+    'noEligiblePo':
+        'Tidak ada pesanan pembelian dengan barang diterima untuk ditagih',
     'submitForReviewOrder': 'Kirim untuk ditinjau',
     'confirmSubmitOrder': 'Kirim pesanan pembelian ini untuk ditinjau?',
     'confirmApproveOrder': 'Setujui pesanan pembelian ini?',
@@ -704,3 +751,10 @@ final stringsProvider = Provider<AppStrings>((ref) {
   final language = ref.watch(localizationControllerProvider).language;
   return AppStrings(_translations[language] ?? _translations['en']!);
 });
+
+/// Every message key (the English table is the reference set).
+Set<String> get stringKeys => _translations['en']!.keys.toSet();
+
+/// Keys defined for [language] — every locale must mirror that set.
+Set<String> keysFor(String language) =>
+    (_translations[language] ?? _translations['en']!).keys.toSet();

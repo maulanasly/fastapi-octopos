@@ -55,57 +55,65 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
                 children: [
                   TextField(
                     controller: name,
-                  decoration: InputDecoration(
-                    labelText: s.of('taxName'),
-                    isDense: true,
-                  ),
-                ),
-                TextField(
-                  controller: rate,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: s.of('taxRate'),
-                    suffixText: '%',
-                    isDense: true,
-                  ),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: scope,
-                  decoration: InputDecoration(
-                    labelText: s.of('taxScope'),
-                    isDense: true,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'order', child: Text('order')),
-                    DropdownMenuItem(value: 'product', child: Text('product')),
-                  ],
-                  onChanged: (v) => setDialogState(() => scope = v ?? 'order'),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: mode,
-                  decoration: InputDecoration(
-                    labelText: s.of('taxMode'),
-                    isDense: true,
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'exclusive',
-                      child: Text('exclusive'),
+                    decoration: InputDecoration(
+                      labelText: s.of('taxName'),
+                      isDense: true,
                     ),
-                    DropdownMenuItem(value: 'inclusive', child: Text('inclusive')),
-                  ],
-                  onChanged: (v) => setDialogState(() => mode = v ?? 'exclusive'),
-                ),
-                SwitchListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(s.of('staffActive')),
-                  value: isActive,
-                  onChanged: (v) => setDialogState(() => isActive = v),
-                ),
-              ],
+                  ),
+                  TextField(
+                    controller: rate,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: s.of('taxRate'),
+                      suffixText: '%',
+                      isDense: true,
+                    ),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: scope,
+                    decoration: InputDecoration(
+                      labelText: s.of('taxScope'),
+                      isDense: true,
+                    ),
+                    items: [
+                      for (final value in const ['order', 'product'])
+                        DropdownMenuItem(
+                          value: value,
+                          child: Text(_scopeLabel(s, value)),
+                        ),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => scope = v ?? 'order'),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: mode,
+                    decoration: InputDecoration(
+                      labelText: s.of('taxMode'),
+                      isDense: true,
+                    ),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'exclusive',
+                        child: Text(s.of('taxExclusive')),
+                      ),
+                      DropdownMenuItem(
+                        value: 'inclusive',
+                        child: Text(s.of('taxInclusive')),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setDialogState(() => mode = v ?? 'exclusive'),
+                  ),
+                  SwitchListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(s.of('staffActive')),
+                    value: isActive,
+                    onChanged: (v) => setDialogState(() => isActive = v),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
           actions: [
             TextButton(
@@ -139,9 +147,8 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
       }
     }
   }
@@ -173,9 +180,8 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
       _reload();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
       }
     }
   }
@@ -245,3 +251,9 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
     );
   }
 }
+
+/// Localized label for a tax rule's scope.
+String _scopeLabel(AppStrings s, String scope) => switch (scope) {
+  'product' => s.of('scopeProduct'),
+  _ => s.of('scopeOrder'),
+};
