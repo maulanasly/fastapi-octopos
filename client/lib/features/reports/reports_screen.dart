@@ -219,36 +219,62 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Sales summary',
+                        strings.of('salesSummary'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 12),
                       _metric(
                         context,
-                        'Gross revenue',
+                        strings.of('grossRevenue'),
                         formatCents(centsFromApi(s.grossRevenue)),
                       ),
                       _metric(
                         context,
-                        'Discounts',
+                        strings.of('discounts'),
                         formatCents(centsFromApi(s.totalDiscounts)),
                       ),
                       _metric(
                         context,
-                        'Refunds',
+                        strings.of('refunds'),
                         formatCents(centsFromApi(s.totalRefunds)),
                       ),
                       _metric(
                         context,
-                        'Net revenue',
+                        strings.of('netRevenue'),
                         formatCents(centsFromApi(s.netRevenue)),
                       ),
                       _metric(context, strings.of('orders'), '${s.orderCount}'),
                       _metric(
                         context,
-                        'Avg order',
+                        strings.of('avgOrder'),
                         formatCents(centsFromApi(s.averageOrderValue)),
                       ),
+                      _metric(
+                        context,
+                        strings.of('cogsTotal'),
+                        formatCents(centsFromApi(s.cogsTotal)),
+                      ),
+                      _metric(
+                        context,
+                        strings.of('grossMargin'),
+                        s.grossMarginPercent == null
+                            ? '—'
+                            : '${formatCents(centsFromApi(s.grossMarginAmount))} '
+                                '(${s.grossMarginPercent!.toStringAsFixed(1)}%)',
+                      ),
+                      if (s.cogsKnownRatio != null && s.cogsKnownRatio! < 1)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            strings.of('partialCostData'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

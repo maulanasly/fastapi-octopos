@@ -440,6 +440,11 @@ def create_order(
                 tenant_id=tenant_id,
                 quantity=item.quantity,
                 unit_price=unit_price,
+                # Snapshot the current cost for per-sale COGS; NULL when
+                # the product has no known cost yet.
+                unit_cost=quantize_money(product.unit_cost)
+                if product.unit_cost is not None
+                else None,
             )
         )
         movement_inputs.append(

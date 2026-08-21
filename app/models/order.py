@@ -106,6 +106,9 @@ class OrderItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     quantity = Column(Integer, nullable=False, default=1)
     unit_price = Column(Numeric(12, 2), nullable=False)
+    # Cost snapshot taken at sale time (see migration 0020). NULL for
+    # orders created before cost tracking; excluded from margin math.
+    unit_cost = Column(Numeric(12, 2), nullable=True)
 
     tenant = relationship("Tenant")
     order = relationship("Order", back_populates="items")
