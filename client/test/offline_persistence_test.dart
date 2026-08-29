@@ -1,7 +1,10 @@
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:octopos_client/core/api_client.dart';
 import 'package:octopos_client/core/api_repositories.dart';
+import 'package:octopos_client/core/db/app_database.dart';
+import 'package:octopos_client/core/db/database_provider.dart';
 import 'package:octopos_client/core/local_persistence.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/token_store.dart';
@@ -137,13 +140,18 @@ void main() {
   group('catalog delta-aware load', () {
     test('first load stores the watermark and full catalog', () async {
       SharedPreferences.setMockInitialValues({});
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       final container = ProviderContainer(
-        overrides: [syncRepositoryProvider.overrideWithValue(_FakeSyncRepo())],
+        overrides: [
+          syncRepositoryProvider.overrideWithValue(_FakeSyncRepo()),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
       );
       addTearDown(container.dispose);
 
       container.listen(catalogControllerProvider, (_, _) {});
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final state = container.read(catalogControllerProvider);
       expect(state.products.length, 2);
@@ -152,18 +160,26 @@ void main() {
         await container.read(localStoreProvider).readWatermark(),
         '2026-08-16T10:00:00',
       );
+      // also persisted to drift
+      expect(await db.readWatermark(), '2026-08-16T10:00:00');
+      expect((await db.getAllProducts()).length, 2);
     });
 
     test('refresh merges the delta into the cache', () async {
       SharedPreferences.setMockInitialValues({});
       final fake = _FakeSyncRepo();
+      final db = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
       final container = ProviderContainer(
-        overrides: [syncRepositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          syncRepositoryProvider.overrideWithValue(fake),
+          appDatabaseProvider.overrideWithValue(db),
+        ],
       );
       addTearDown(container.dispose);
 
       container.listen(catalogControllerProvider, (_, _) {});
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(container.read(catalogControllerProvider).products.length, 2);
 
       // mark a product changed and add one via the delta

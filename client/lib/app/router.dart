@@ -55,6 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/pos',
     refreshListenable: _AuthListenable(ref),
     navigatorKey: rootNavigatorKey,
+    errorBuilder: (context, state) => const PosScreen(),
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
       final signedIn = auth.status == AuthStatus.signedIn;
@@ -103,7 +104,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ':orderId',
                 builder: (context, state) {
-                  final orderId = int.parse(state.pathParameters['orderId']!);
+                  final raw = state.pathParameters['orderId'];
+                  final orderId = int.tryParse(raw ?? '');
+                  if (orderId == null) {
+                    // Invalid deep link (e.g. /tracking/abc) -> show list
+                    return const TrackingScreen();
+                  }
                   // `extra` is a convenience hand-off from in-app taps;
                   // deep links arrive without it (and never with an
                   // unexpected type), so treat it as best-effort.

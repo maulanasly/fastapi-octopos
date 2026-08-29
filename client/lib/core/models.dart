@@ -3,6 +3,9 @@
 /// Amounts come from the backend as floats with 2-decimal quantization;
 /// parse them with [centsFromApi] on receipt.
 library;
+import 'models/catalog.dart';
+export 'models/catalog.dart';
+
 
 class Supplier {
   final int id;
@@ -1015,95 +1018,6 @@ class LocalizationOptions {
       );
 }
 
-class Category {
-  final int id;
-  final String name;
-  final String? description;
-  final String? color;
-
-  const Category({
-    required this.id,
-    required this.name,
-    this.description,
-    this.color,
-  });
-
-  factory Category.fromJson(Map<String, dynamic> json) => Category(
-    id: json['id'] as int,
-    name: json['name'] as String,
-    description: json['description'] as String?,
-    color: json['color'] as String?,
-  );
-}
-
-class Product {
-  final int id;
-  final String name;
-  final String sku;
-  final String? description;
-  final double price;
-  final int stockQuantity;
-  final int minStock;
-  final int? maxStock;
-  final int reorderPoint;
-  final int leadTimeDays;
-  final int? categoryId;
-  final Category? category;
-  final String? imageUrl;
-  final String? thumbnailUrl;
-
-  const Product({
-    required this.id,
-    required this.name,
-    required this.sku,
-    this.description,
-    required this.price,
-    required this.stockQuantity,
-    required this.minStock,
-    this.maxStock,
-    required this.reorderPoint,
-    required this.leadTimeDays,
-    this.categoryId,
-    this.category,
-    this.imageUrl,
-    this.thumbnailUrl,
-  });
-
-  int get priceCents => (price * 100).round();
-
-  factory Product.fromJson(Map<String, dynamic> json) => Product(
-    id: json['id'] as int,
-    name: json['name'] as String,
-    sku: json['sku'] as String,
-    description: json['description'] as String?,
-    price: (json['price'] as num).toDouble(),
-    stockQuantity: json['stock_quantity'] as int? ?? 0,
-    minStock: json['min_stock'] as int? ?? 0,
-    maxStock: json['max_stock'] as int?,
-    reorderPoint: json['reorder_point'] as int? ?? 0,
-    leadTimeDays: json['lead_time_days'] as int? ?? 0,
-    categoryId: json['category_id'] as int?,
-    category: json['category'] == null
-        ? null
-        : Category.fromJson(json['category'] as Map<String, dynamic>),
-    imageUrl: json['image_url'] as String?,
-    thumbnailUrl: json['thumbnail_url'] as String?,
-  );
-
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'sku': sku,
-    'description': description,
-    'price': price,
-    'stock_quantity': stockQuantity,
-    'min_stock': minStock,
-    'max_stock': maxStock,
-    'reorder_point': reorderPoint,
-    'lead_time_days': leadTimeDays,
-    'category_id': categoryId,
-  };
-}
-
 class Customer {
   final int id;
   final String name;
@@ -1881,27 +1795,5 @@ class SalesSummary {
         (json['gross_margin_amount'] as num?)?.toDouble() ?? 0,
     grossMarginPercent: (json['gross_margin_percent'] as num?)?.toDouble(),
     cogsKnownRatio: (json['cogs_known_ratio'] as num?)?.toDouble(),
-  );
-}
-
-class CatalogDelta {
-  final String serverTime;
-  final List<Category> categories;
-  final List<Product> products;
-
-  const CatalogDelta({
-    required this.serverTime,
-    this.categories = const [],
-    this.products = const [],
-  });
-
-  factory CatalogDelta.fromJson(Map<String, dynamic> json) => CatalogDelta(
-    serverTime: json['server_time'] as String,
-    categories: (json['categories'] as List? ?? [])
-        .map((e) => Category.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    products: (json['products'] as List? ?? [])
-        .map((e) => Product.fromJson(e as Map<String, dynamic>))
-        .toList(),
   );
 }

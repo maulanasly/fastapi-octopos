@@ -6,6 +6,7 @@
 /// patterns for the shipped presets.
 library;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -20,6 +21,35 @@ void _ensureTz() {
 
 String _activeTz = 'UTC';
 String _activeFormat = 'yyyy-MM-dd HH:mm:ss';
+
+class DateConfig {
+  final String timezone;
+  final String intlPattern;
+
+  const DateConfig({this.timezone = 'UTC', this.intlPattern = 'yyyy-MM-dd HH:mm:ss'});
+}
+
+class DateConfigController extends Notifier<DateConfig> {
+  @override
+  DateConfig build() => DateConfig(timezone: _activeTz, intlPattern: _activeFormat);
+
+  void configure({required String timezone, required String dateFormat}) {
+    _ensureTz();
+    _activeTz = timezone;
+    _activeFormat = toIntlPattern(dateFormat);
+    state = DateConfig(timezone: _activeTz, intlPattern: _activeFormat);
+  }
+
+  void reset() {
+    _activeTz = 'UTC';
+    _activeFormat = 'yyyy-MM-dd HH:mm:ss';
+    state = const DateConfig();
+  }
+}
+
+final dateConfigProvider = NotifierProvider<DateConfigController, DateConfig>(
+  DateConfigController.new,
+);
 
 /// Maps a strftime-style format (from the backend setting) to an intl
 /// DateFormat pattern. Unsupported tokens fall back to the shipped default.
@@ -63,4 +93,33 @@ String formatDateTime(DateTime dt, {String? overrideFormat}) {
   }
   final zoned = tz.TZDateTime.from(utc, location);
   return DateFormat(overrideFormat ?? _activeFormat).format(zoned);
+}
+
+/// Riverpod-aware variant using explicit config (avoids global).
+String formatDateTimeWithConfig(
+  DateTime dt,
+  DateConfig config, {
+  String? overrideFormat,
+}) {
+  _ensureTz();
+  final utc = dt.isUtc ? dt : dt.toUtc();
+  tz.Location location;
+  try {
+    location = tz.getLocation(config.timezone);
+  } catch (_) {
+    location = tz.getLocation('UTC');
+  }
+  final zoned = tz.TZDateTime.from(utc, location);
+  return DateFormat(overrideFormat ?? config.intlPattern).format(zoned);
+}
+
+String formatDateTimeIsoWithConfig(
+  String? iso,
+  DateConfig config, {
+  String? overrideFormat,
+}) {
+  if (iso == null || iso.isEmpty) return '-';
+  final parsed = DateTime.tryParse(iso);
+  if (parsed == null) return iso;
+  return formatDateTimeWithConfig(parsed, config, overrideFormat: overrideFormat);
 }

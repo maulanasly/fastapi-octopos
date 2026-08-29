@@ -16,6 +16,10 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - "**/*.freezed.dart"
+    - "**/*.g.dart"
+    - "**/*.drift.dart"
+    - "**/*.steps.dart"
 include: package:flutter_lints/flutter.yaml
 
 linter:
