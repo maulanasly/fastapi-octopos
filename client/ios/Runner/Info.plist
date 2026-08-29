@@ -16,6 +16,21 @@
 	<string>octopos_client</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Used to report your position for order tracking.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Used to report your position for order tracking even when the app is in the background.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Used to report your position for order tracking even when the app is in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>location</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.octopos.sync</string>
+		<string>com.octopos.outbox</string>
+	</array>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

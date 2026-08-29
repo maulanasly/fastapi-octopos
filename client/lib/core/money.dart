@@ -10,6 +10,7 @@
 /// (e.g. `Rp4.500` for Indonesia instead of `$4.50`).
 library;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 /// Backend float (e.g. `4.50`) -> integer cents (450).
@@ -30,8 +31,47 @@ String _numberFormat = 'en_US';
 /// Active display currency code (e.g. 'USD', 'IDR').
 String get currentCurrency => _currency;
 
+/// Immutable money display config (Riverpod-friendly).
+class MoneyConfig {
+  final String currency;
+  final String numberFormat;
+
+  const MoneyConfig({this.currency = 'USD', this.numberFormat = 'en_US'});
+
+  MoneyConfig copyWith({String? currency, String? numberFormat}) => MoneyConfig(
+    currency: currency ?? this.currency,
+    numberFormat: numberFormat ?? this.numberFormat,
+  );
+}
+
+class MoneyConfigController extends Notifier<MoneyConfig> {
+  @override
+  MoneyConfig build() => MoneyConfig(currency: _currency, numberFormat: _numberFormat);
+
+  void configure({required String currency, required String numberFormat}) {
+    _currency = currency;
+    _numberFormat = numberFormat;
+    state = MoneyConfig(currency: currency, numberFormat: numberFormat);
+  }
+
+  void reset() {
+    _currency = 'USD';
+    _numberFormat = 'en_US';
+    state = const MoneyConfig();
+  }
+}
+
+final moneyConfigProvider = NotifierProvider<MoneyConfigController, MoneyConfig>(
+  MoneyConfigController.new,
+);
+
 /// Sets the active display currency and number format (e.g. `IDR` /
 /// `id_ID`). Falls back to `USD` / `en_US` defaults until called.
+///
+/// This updates both the legacy globals (for [formatCents] compat) and,
+/// when a [ProviderContainer] is available via [moneyConfigProvider],
+/// the Riverpod state. Callers with a [Ref] should prefer
+/// `ref.read(moneyConfigProvider.notifier).configure(...)`.
 void configureMoney({required String currency, required String numberFormat}) {
   _currency = currency;
   _numberFormat = numberFormat;
@@ -78,6 +118,26 @@ String formatCents(int cents) {
   // (e.g. `Rp 4.500`); other currencies attach the symbol directly.
   final separator = _currency == 'IDR' ? ' ' : '';
   return '$symbol$separator${number.format(value)}';
+}
+
+/// Riverpod-aware variant: formats using the watched [MoneyConfig].
+String formatCentsWithConfig(int cents, MoneyConfig config) {
+  final locale = config.numberFormat == 'id_ID' ? 'id_ID' : 'en_US';
+  final decimalDigits = config.currency == 'IDR' ? 0 : 2;
+  final value = config.currency == 'IDR'
+      ? (cents / 100).floorToDouble()
+      : cents / 100;
+  final number = NumberFormat('#,##0.00', locale)
+    ..minimumFractionDigits = decimalDigits
+    ..maximumFractionDigits = decimalDigits;
+  final symbol = currencySymbol(config.currency);
+  final separator = config.currency == 'IDR' ? ' ' : '';
+  return '$symbol$separator${number.format(value)}';
+}
+
+extension MoneyRefX on WidgetRef {
+  String formatCentsWatch(int cents) =>
+      formatCentsWithConfig(cents, watch(moneyConfigProvider));
 }
 
 /// Integer cents -> bare string with two decimals (e.g. `4.50`).

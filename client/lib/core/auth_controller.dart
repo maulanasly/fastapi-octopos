@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api_client.dart';
 import 'api_repositories.dart';
+import 'dates.dart';
 import 'local_persistence.dart';
 import 'money.dart';
 
@@ -140,14 +141,21 @@ class AuthController extends Notifier<AuthState> {
   }
 
   /// Clears per-user local state (draft cart, sync watermark) so nothing
-  /// leaks into the next session. Money formatting resets to defaults.
+  /// leaks into the next session. Money/dates formatting resets to defaults.
   void _resetLocalSession() {
     configureMoney(currency: 'USD', numberFormat: 'en_US');
+    try {
+      ref.read(moneyConfigProvider.notifier).reset();
+    } catch (_) {}
+    configureDates(timezone: 'UTC', dateFormat: '%Y-%m-%d %H:%M:%S');
+    try {
+      ref.read(dateConfigProvider.notifier).reset();
+    } catch (_) {}
     unawaited(ref.read(localStoreProvider).clearSessionData());
   }
 
-  /// Applies the backend display settings (currency, number format) to the
-  /// money formatter. Failures keep the current defaults.
+  /// Applies the backend display settings (currency, number format, dates)
+  /// to the formatters. Failures keep the current defaults.
   Future<void> _applyLocalization() async {
     try {
       final settings = await ref
@@ -157,6 +165,19 @@ class AuthController extends Notifier<AuthState> {
         currency: settings.currency,
         numberFormat: settings.numberFormat,
       );
+      try {
+        ref.read(moneyConfigProvider.notifier).configure(
+          currency: settings.currency,
+          numberFormat: settings.numberFormat,
+        );
+      } catch (_) {}
+      configureDates(timezone: settings.timezone, dateFormat: settings.dateFormat);
+      try {
+        ref.read(dateConfigProvider.notifier).configure(
+          timezone: settings.timezone,
+          dateFormat: settings.dateFormat,
+        );
+      } catch (_) {}
     } catch (_) {
       // Keep current formatting when the settings cannot be fetched.
     }

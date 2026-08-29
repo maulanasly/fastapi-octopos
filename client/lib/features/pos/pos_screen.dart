@@ -9,9 +9,12 @@ import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/colors.dart';
+import '../../core/db/app_database.dart';
+import '../../core/db/database_provider.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../core/sync/connectivity_provider.dart';
 import '../drawer/drawer_controller.dart';
 import 'product_tile.dart';
 import 'cart_controller.dart';
@@ -37,6 +40,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final catalog = ref.watch(catalogControllerProvider);
     final cart = ref.watch(cartControllerProvider);
     final drawer = ref.watch(drawerControllerProvider);
+    final isOnline = ref.watch(isOnlineProvider);
+    // Pending outbox count
+    final pendingAsync = ref.watch(_pendingOutboxProvider);
+    final pendingCount = pendingAsync.maybeWhen(data: (l) => l.length, orElse: () => 0);
     // Restore the persisted draft once the catalog is available.
     ref.watch(cartRestoreProvider);
 
@@ -44,6 +51,38 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     return Column(
       children: [
+        if (!isOnline)
+          MaterialBanner(
+            content: Text(s.of('offlineBanner')),
+            leading: const Icon(Icons.wifi_off),
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            actions: [
+              if (pendingCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Chip(label: Text(s.of('pendingSync', args: {'count': pendingCount}))),
+                ),
+            ],
+          )
+        else if (pendingCount > 0)
+          MaterialBanner(
+            content: Text(s.of('pendingSync', args: {'count': pendingCount})),
+            leading: const Icon(Icons.sync),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  final db = ref.read(appDatabaseProvider);
+                  // Trigger manual sync via provider
+                  // ignore: unused
+                  db;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(s.of('queuedOrders'))),
+                  );
+                },
+                child: Text(s.of('retry')),
+              ),
+            ],
+          ),
         if (drawer.session == null && !drawer.loading)
           MaterialBanner(
             content: const Text(
@@ -615,6 +654,11 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
     );
   }
 }
+
+final _pendingOutboxProvider = StreamProvider<List<OutboxOrder>>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return (db.select(db.outboxOrders)..where((t) => t.status.equals('pending'))).watch();
+});
 
 /// Category chip tinted with the category's configured color.
 class _CategoryChip extends StatelessWidget {

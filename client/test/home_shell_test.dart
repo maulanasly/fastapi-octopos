@@ -5,13 +5,18 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/auth_controller.dart';
+import 'package:octopos_client/core/db/app_database.dart';
+import 'package:octopos_client/core/db/database_provider.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/route_access.dart';
+import 'package:octopos_client/core/sync/connectivity_provider.dart';
 import 'package:octopos_client/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,6 +55,8 @@ void _setLogicalSize(WidgetTester tester, Size logical) {
 
 Future<void> _pumpShell(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
+  final db = AppDatabase.forTesting(NativeDatabase.memory());
+  addTearDown(db.close);
   final container = ProviderContainer(
     overrides: [
       localizationControllerProvider.overrideWith(
@@ -59,6 +66,8 @@ Future<void> _pumpShell(WidgetTester tester) async {
       // The region menu hits the API; without an override its error-retry
       // timer outlives the test (pending-timer invariant).
       regionListProvider.overrideWith((ref) async => <LocalizationRegion>[]),
+      appDatabaseProvider.overrideWithValue(db),
+      connectivityProvider.overrideWith((ref) => Stream.value(ConnectivityResult.wifi)),
     ],
   );
   addTearDown(container.dispose);

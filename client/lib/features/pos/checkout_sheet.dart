@@ -6,10 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
+
 import '../../core/api_repositories.dart';
 import '../../core/errors.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
+import '../../core/sync/connectivity_provider.dart';
+import '../../core/sync/outbox_repository.dart';
 import 'cart_controller.dart';
 
 enum _PayMethod { cash, card, split }
@@ -303,6 +309,77 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
       _error = null;
     });
 
+    // Precompute payment payload for offline queue
+    String? paymentMethod;
+    int? paymentAmount;
+    String? splitJson;
+    if (_method == _PayMethod.split) {
+      final cash = _splitCents.clamp(0, total);
+      final card = total - cash;
+      if (cash > 0 && card > 0) {
+        splitJson = jsonEncode([
+          {'payment_method': 'cash', 'amount': centsToApi(cash)},
+          {'payment_method': 'card', 'amount': centsToApi(card)},
+        ]);
+      } else if (cash > 0) {
+        paymentMethod = 'cash';
+        paymentAmount = cash;
+      } else {
+        paymentMethod = 'card';
+        paymentAmount = card;
+      }
+    } else if (_method == _PayMethod.cash) {
+      final received = centsFromInput(_cashReceived.text);
+      paymentMethod = 'cash';
+      paymentAmount = received > 0 ? received : total;
+    } else {
+      paymentMethod = 'card';
+      paymentAmount = total;
+    }
+
+    Future<void> enqueueOffline() async {
+      final outbox = ref.read(outboxRepositoryProvider);
+      await outbox.enqueueOrder(
+        items: [
+          for (final line in cart.lines.values)
+            {'product_id': line.product.id, 'quantity': line.quantity},
+        ],
+        customerId: cart.customer?.id,
+        promotionCode: promo.isEmpty ? null : promo,
+        redeemPoints: _redeemPoints,
+        destinationAddress: _destination.text.trim().isEmpty ? null : _destination.text.trim(),
+        destinationLat: _pinLat,
+        destinationLng: _pinLng,
+        idempotencyKey: _orderKeyOnce,
+        paymentMethod: paymentMethod,
+        paymentAmountCents: paymentAmount,
+        splitJson: splitJson,
+        payIdempotencyKey: _payKeyOnce,
+      );
+      // Clear cart locally; order will sync in background
+      ref.read(cartControllerProvider.notifier).clear();
+      if (mounted && context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(strings.of('queuedForSync'))),
+        );
+      }
+    }
+
+    // Fast offline path: if we know we're offline, queue immediately without network attempt.
+    final isOnline = ref.read(isOnlineProvider);
+    if (!isOnline) {
+      try {
+        await enqueueOffline();
+        return;
+      } catch (e) {
+        if (mounted) setState(() => _error = friendlyError(e, strings));
+        return;
+      } finally {
+        if (mounted) setState(() => _submitting = false);
+      }
+    }
+
     try {
       final orders = ref.read(orderRepositoryProvider);
 
@@ -368,6 +445,22 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
         );
       }
       if (mounted && context.mounted) Navigator.of(context).pop(order);
+    } on DioException catch (e) {
+      final isNetwork = e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.error.toString().contains('SocketException');
+      if (isNetwork) {
+        try {
+          await enqueueOffline();
+          return;
+        } catch (qe) {
+          if (mounted) setState(() => _error = friendlyError(qe, strings));
+        }
+      } else {
+        if (mounted) setState(() => _error = friendlyError(e, strings));
+      }
     } catch (e) {
       if (mounted) setState(() => _error = friendlyError(e, strings));
     } finally {
