@@ -8,7 +8,7 @@ int intFromJson(Object? json) => (json as num?)?.toInt() ?? 0;
 
 int? nullableIntFromJson(Object? json) => (json as num?)?.toInt();
 
-/// Role permissions come as List<Map{ code }>; unwrap to List<String>.
+/// Role permissions come as `List<Map<String, dynamic>>` with `code`; unwrap to `List<String>`.
 List<String> permsFromJson(Object? json) {
   final list = json as List? ?? const [];
   return list

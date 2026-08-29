@@ -29,6 +29,7 @@ void main() {
     // Already covered by ", final  "
     if (text != original) {
       file.writeAsStringSync(text);
+      // ignore: avoid_print
       print('patched $path');
     }
   }
