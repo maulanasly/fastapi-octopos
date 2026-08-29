@@ -11,6 +11,13 @@ class SalesSummary(BaseModel):
     net_revenue: float
     order_count: int
     average_order_value: float
+    # Per-sale COGS from the order_items.unit_cost snapshot (migration
+    # 0020). cogs_known_ratio < 1 means some sold lines had no cost
+    # snapshot, so the margin is computed over known-cost lines only.
+    cogs_total: float = 0.0
+    gross_margin_amount: float = 0.0
+    gross_margin_percent: float | None = None
+    cogs_known_ratio: float | None = None
 
 
 class PaymentBreakdownItem(BaseModel):

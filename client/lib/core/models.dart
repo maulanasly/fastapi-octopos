@@ -1846,6 +1846,14 @@ class SalesSummary {
   final int orderCount;
   final double averageOrderValue;
 
+  /// Per-sale COGS from the order_items.unit_cost snapshot. Lines sold
+  /// before cost tracking carry no snapshot and are excluded, so
+  /// [cogsKnownRatio] < 1 signals partial coverage.
+  final double cogsTotal;
+  final double grossMarginAmount;
+  final double? grossMarginPercent;
+  final double? cogsKnownRatio;
+
   const SalesSummary({
     required this.grossRevenue,
     required this.totalDiscounts,
@@ -1854,6 +1862,10 @@ class SalesSummary {
     required this.netRevenue,
     required this.orderCount,
     required this.averageOrderValue,
+    this.cogsTotal = 0,
+    this.grossMarginAmount = 0,
+    this.grossMarginPercent,
+    this.cogsKnownRatio,
   });
 
   factory SalesSummary.fromJson(Map<String, dynamic> json) => SalesSummary(
@@ -1864,6 +1876,11 @@ class SalesSummary {
     netRevenue: (json['net_revenue'] as num?)?.toDouble() ?? 0,
     orderCount: json['order_count'] as int? ?? 0,
     averageOrderValue: (json['average_order_value'] as num?)?.toDouble() ?? 0,
+    cogsTotal: (json['cogs_total'] as num?)?.toDouble() ?? 0,
+    grossMarginAmount:
+        (json['gross_margin_amount'] as num?)?.toDouble() ?? 0,
+    grossMarginPercent: (json['gross_margin_percent'] as num?)?.toDouble(),
+    cogsKnownRatio: (json['cogs_known_ratio'] as num?)?.toDouble(),
   );
 }
 

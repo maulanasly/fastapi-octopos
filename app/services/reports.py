@@ -15,7 +15,7 @@ from app.models.purchase import (
     Supplier,
     SupplierPayment,
 )
-from app.models.refund import Refund
+from app.models.refund import Refund, RefundItem
 from app.models.shift_reconciliation import ShiftReconciliation
 
 
@@ -173,6 +173,78 @@ def get_sales_summary_data(
     net_revenue = float(total_revenue or 0.0) - total_refunds
     average_order_value = total_revenue / order_count if order_count > 0 else 0.0
 
+    # Per-sale COGS from the cost snapshot on each line (migration 0020).
+    # Shares the revenue query's status/window/cashier filters so the
+    # margin is computed over exactly the same orders as net_revenue;
+    # refunds reverse cost against the same order set.
+    sold_filters = [Order.status.in_(["serving", "completed"])]
+    if tenant_id is not None:
+        sold_filters.append(Order.tenant_id == tenant_id)
+        sold_filters.append(OrderItem.tenant_id == tenant_id)
+    if start_date:
+        sold_filters.append(Order.created_at >= start_date)
+    if end_date:
+        sold_filters.append(Order.created_at <= end_date)
+    if cashier_id:
+        sold_filters.append(Order.user_id == cashier_id)
+
+    known_sold_qty, gross_known_cogs = (
+        db.query(
+            func.coalesce(func.sum(OrderItem.quantity), 0),
+            func.coalesce(func.sum(OrderItem.quantity * OrderItem.unit_cost), 0.0),
+        )
+        .select_from(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .filter(OrderItem.unit_cost.is_not(None), *sold_filters)
+        .first()
+    )
+    total_sold_qty = (
+        db.query(func.coalesce(func.sum(OrderItem.quantity), 0))
+        .select_from(OrderItem)
+        .join(Order, OrderItem.order_id == Order.id)
+        .filter(*sold_filters)
+        .scalar()
+    )
+
+    # Refunds reverse cost only for lines whose cost is known.
+    refunded_filters = [*sold_filters]
+    if tenant_id is not None:
+        refunded_filters.append(RefundItem.tenant_id == tenant_id)
+    refunded_qty, refunded_cogs = (
+        db.query(
+            func.coalesce(func.sum(RefundItem.quantity), 0),
+            func.coalesce(func.sum(RefundItem.quantity * OrderItem.unit_cost), 0.0),
+        )
+        .select_from(RefundItem)
+        .join(OrderItem, RefundItem.order_item_id == OrderItem.id)
+        .join(Order, OrderItem.order_id == Order.id)
+        .filter(OrderItem.unit_cost.is_not(None), *refunded_filters)
+        .first()
+    )
+
+    known_sold_qty = int(known_sold_qty or 0)
+    total_sold_qty = int(total_sold_qty or 0)
+    gross_known_cogs = float(gross_known_cogs or 0.0)
+    refunded_qty = int(refunded_qty or 0)
+    refunded_cogs = float(refunded_cogs or 0.0)
+
+    cogs_total = round(max(gross_known_cogs - refunded_cogs, 0.0), 2)
+    # Coverage of the COGS basis: share of sold quantity that carried a
+    # cost snapshot. Clamped so refunds can never push it above 100%.
+    cogs_known_ratio = (
+        round(min(known_sold_qty / total_sold_qty, 1.0), 4)
+        if total_sold_qty > 0
+        else None
+    )
+    gross_margin_amount = round(net_revenue - cogs_total, 2)
+    gross_margin_percent = (
+        round(gross_margin_amount / net_revenue * 100, 2) if net_revenue > 0 else None
+    )
+    gross_margin_amount = round(net_revenue - cogs_total, 2)
+    gross_margin_percent = (
+        round(gross_margin_amount / net_revenue * 100, 2) if net_revenue > 0 else None
+    )
+
     return {
         "gross_revenue": float(gross_revenue),
         "total_discounts": float(total_discounts),
@@ -181,6 +253,10 @@ def get_sales_summary_data(
         "net_revenue": net_revenue,
         "order_count": int(order_count),
         "average_order_value": float(average_order_value),
+        "cogs_total": cogs_total,
+        "gross_margin_amount": gross_margin_amount,
+        "gross_margin_percent": gross_margin_percent,
+        "cogs_known_ratio": cogs_known_ratio,
     }
 
 
