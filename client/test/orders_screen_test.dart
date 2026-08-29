@@ -5,6 +5,7 @@ import 'package:octopos_client/core/api_client.dart';
 import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
+import 'package:octopos_client/core/pagination.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/orders/orders_screen.dart';
 
@@ -51,7 +52,7 @@ class _FakeOrders extends OrderRepository {
   int cancelCount = 0;
 
   @override
-  Future<List<Order>> recentOrders({int limit = 50}) async => stored;
+  Future<List<Order>> recentOrders({PaginationParams pagination = PaginationParams.recentOrders}) async => stored;
 
   @override
   Future<Order> cancel(int orderId) async {

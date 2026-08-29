@@ -5,6 +5,7 @@ import 'package:octopos_client/core/api_client.dart';
 import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
+import 'package:octopos_client/core/pagination.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/reports/reports_screen.dart';
 
@@ -39,11 +40,7 @@ class _FakeReports extends ReportRepository {
       );
 
   @override
-  Future<List<TopProductItem>> topProducts({
-    String? startDate,
-    String? endDate,
-    int limit = 10,
-  }) async => const [
+  Future<List<TopProductItem>> topProducts({String? startDate, String? endDate, PaginationParams pagination = const PaginationParams(limit: 10)}) async => const [
     TopProductItem(
       productId: 1,
       productName: 'Cafe Latte',

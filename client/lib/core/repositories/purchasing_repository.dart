@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../pagination.dart';
 
 final purchasingRepositoryProvider = Provider<PurchasingRepository>(
   (ref) => PurchasingRepository(ref.watch(apiClientProvider)),
@@ -40,10 +41,10 @@ class PurchasingRepository {
 
   // ---- Purchase orders ----
 
-  Future<List<PurchaseOrder>> orders({String? status, int limit = 100}) async {
+  Future<List<PurchaseOrder>> orders({String? status, PaginationParams pagination = PaginationParams.purchasing}) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/purchasing/orders',
-      queryParameters: {'status': ?status, 'limit': limit},
+      queryParameters: {'status': ?status, ...pagination.toQuery()},
     );
     return resp.data!
         .map((e) => PurchaseOrder.fromJson(e as Map<String, dynamic>))
@@ -172,13 +173,10 @@ class PurchasingRepository {
 
   // ---- Purchase invoices ----
 
-  Future<List<PurchaseInvoice>> invoices({
-    String? status,
-    int limit = 100,
-  }) async {
+  Future<List<PurchaseInvoice>> invoices({String? status, PaginationParams pagination = PaginationParams.purchasing}) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/purchasing/invoices',
-      queryParameters: {'status': ?status, 'limit': limit},
+      queryParameters: {'status': ?status, ...pagination.toQuery()},
     );
     return resp.data!
         .map((e) => PurchaseInvoice.fromJson(e as Map<String, dynamic>))
@@ -228,13 +226,10 @@ class PurchasingRepository {
 
   // ---- Supplier payments ----
 
-  Future<List<SupplierPayment>> payments({
-    String? status,
-    int limit = 100,
-  }) async {
+  Future<List<SupplierPayment>> payments({String? status, PaginationParams pagination = PaginationParams.purchasing}) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/purchasing/payments',
-      queryParameters: {'status': ?status, 'limit': limit},
+      queryParameters: {'status': ?status, ...pagination.toQuery()},
     );
     return resp.data!
         .map((e) => SupplierPayment.fromJson(e as Map<String, dynamic>))

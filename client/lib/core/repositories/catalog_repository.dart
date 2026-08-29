@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../pagination.dart';
 
 final catalogRepositoryProvider = Provider<CatalogRepository>(
   (ref) => CatalogRepository(ref.watch(apiClientProvider)),
@@ -42,10 +43,12 @@ class CatalogRepository {
         .toList();
   }
 
-  Future<List<Product>> products() async {
+  Future<List<Product>> products({
+    PaginationParams pagination = PaginationParams.catalog,
+  }) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/products/',
-      queryParameters: {'limit': 500},
+      queryParameters: pagination.toQuery(),
     );
     return resp.data!
         .map((e) => Product.fromJson(e as Map<String, dynamic>))

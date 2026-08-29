@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../pagination.dart';
 
 final reportRepositoryProvider = Provider<ReportRepository>(
   (ref) => ReportRepository(ref.watch(apiClientProvider)),
@@ -21,17 +22,13 @@ class ReportRepository {
     return SalesSummary.fromJson(resp.data!);
   }
 
-  Future<List<TopProductItem>> topProducts({
-    String? startDate,
-    String? endDate,
-    int limit = 10,
-  }) async {
+  Future<List<TopProductItem>> topProducts({String? startDate, String? endDate, PaginationParams pagination = const PaginationParams(limit: 10)}) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/reports/top-products',
       queryParameters: {
         'start_date': ?startDate,
         'end_date': ?endDate,
-        'limit': limit,
+        ...pagination.toQuery(),
       },
     );
     return resp.data!

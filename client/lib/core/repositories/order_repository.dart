@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../pagination.dart';
 import 'helpers.dart';
 
 final orderRepositoryProvider = Provider<OrderRepository>(
@@ -106,15 +107,21 @@ class OrderRepository {
     return Order.fromJson(resp.data!);
   }
 
-  Future<List<Order>> recentOrders({int limit = 50}) async {
+  Future<List<Order>> recentOrders({
+    PaginationParams pagination = PaginationParams.recentOrders,
+  }) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/orders/',
-      queryParameters: {'limit': limit},
+      queryParameters: pagination.toQuery(),
     );
     return resp.data!
         .map((e) => Order.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  // Backwards compat: keep limit-based overload
+  Future<List<Order>> recentOrdersWithLimit({int limit = 50}) =>
+      recentOrders(pagination: PaginationParams(limit: limit));
 
   Future<OrderReceipt> receipt(int orderId) async {
     final resp = await api.dio.get<Map<String, dynamic>>(
@@ -158,6 +165,7 @@ class OrderRepository {
   /// `{"order_id": int, "tracking_status": string, ...}`). Each emitted
   /// map carries the SSE event name under `event` (`serving` | `tracking`).
   /// Errors terminate the stream; callers fall back to polling.
+  /// Handles `event:`, `data:`, `id:`, `retry:` and `:` comments per SSE spec.
   Stream<Map<String, dynamic>> servingEvents() async* {
     final resp = await api.dio.get<ResponseBody>(
       '/orders/serving/stream',
@@ -168,6 +176,8 @@ class OrderRepository {
     // naive per-chunk parse corrupts frames that span chunk boundaries.
     var pending = '';
     var currentEvent = '';
+    var lastEventId = '';
+    var retryMs = 3000;
     final data = StringBuffer();
     await for (final chunk in resp.data!.stream) {
       pending += utf8.decode(chunk, allowMalformed: true);
@@ -176,27 +186,48 @@ class OrderRepository {
         if (nl < 0) break;
         final line = pending.substring(0, nl).replaceAll('\r', '');
         pending = pending.substring(nl + 1);
-        if (line.startsWith('event: ')) {
-          currentEvent = line.substring(7).trim();
-        } else if (line.startsWith('data: ')) {
-          if (currentEvent == 'serving' || currentEvent == 'tracking') {
-            data.write(line.substring(6));
-          }
-        } else if (line.isEmpty) {
+        if (line.isEmpty) {
           if (data.isNotEmpty) {
             final payload = data.toString();
             data.clear();
             final emittedEvent = currentEvent;
+            final emittedId = lastEventId;
             currentEvent = '';
             try {
-              yield {
-                ...jsonDecode(payload) as Map<String, dynamic>,
-                'event': emittedEvent,
-              };
+              final decoded = jsonDecode(payload) as Map<String, dynamic>;
+              // Only emit known event types, but still include id for dedup
+              if (decoded.containsKey('order_id')) {
+                yield {
+                  ...decoded,
+                  'event': emittedEvent,
+                  if (emittedId.isNotEmpty) 'id': emittedId,
+                  'retry': retryMs,
+                };
+              }
             } on FormatException {
               // ignore malformed frames
             }
           }
+        } else if (line.startsWith(':')) {
+          // Comment, ignore
+          continue;
+        } else if (line.startsWith('event:')) {
+          currentEvent = line.substring(6).trim();
+        } else if (line.startsWith('data:')) {
+          // Per spec, data field may be "data: <payload>" or "data:" (empty)
+          final payload = line.length > 5 ? line.substring(5) : '';
+          // Strip single leading space if present
+          final normalized = payload.startsWith(' ') ? payload.substring(1) : payload;
+          if (currentEvent == 'serving' || currentEvent == 'tracking' || currentEvent.isEmpty) {
+            // Buffer data; spec says multiple data lines are joined with \n
+            if (data.isNotEmpty) data.write('\n');
+            data.write(normalized);
+          }
+        } else if (line.startsWith('id:')) {
+          lastEventId = line.substring(3).trim();
+        } else if (line.startsWith('retry:')) {
+          final parsed = int.tryParse(line.substring(6).trim());
+          if (parsed != null) retryMs = parsed;
         }
       }
     }

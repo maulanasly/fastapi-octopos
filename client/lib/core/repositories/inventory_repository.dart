@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../pagination.dart';
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>(
   (ref) => InventoryRepository(ref.watch(apiClientProvider)),
@@ -16,14 +17,14 @@ class InventoryRepository {
   Future<List<StockMovement>> movements({
     int? productId,
     String? movementType,
-    int limit = 100,
+    PaginationParams pagination = PaginationParams.inventory,
   }) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/inventory/movements',
       queryParameters: {
         'product_id': ?productId,
         'movement_type': ?movementType,
-        'limit': limit,
+        ...pagination.toQuery(),
       },
     );
     return resp.data!
