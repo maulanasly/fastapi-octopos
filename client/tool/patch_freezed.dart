@@ -18,15 +18,19 @@ void main() {
     if (!file.existsSync()) continue;
     var text = file.readAsStringSync();
     final original = text;
-    // Only patch constructor signatures: const _X({ ... })
-    text = text.replaceAll(', final  ', ', ');
-    text = text.replaceAll(', final ', ', ');
-    text = text.replaceAll('({final  ', '({');
-    text = text.replaceAll('({final ', '({');
-    text = text.replaceAll('({required final  ', '({required ');
-    text = text.replaceAll('({required final ', '({required ');
-    // Also handle "@JsonKey(...) final  " inside constructor params
-    // Already covered by ", final  "
+    // Patch only constructor lines (contain "const _" ), keep @override fields intact.
+    final lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.contains('const _') && line.contains('final')) {
+        // Remove "final " before List/String/int etc in constructor params
+        // Handles both "final  " (double space) and "final " and annotation case "@JsonKey(...) final  List"
+        var patched = line.replaceAll('final  ', '');
+        patched = patched.replaceAll('final ', '');
+        lines[i] = patched;
+      }
+    }
+    text = lines.join('\n');
     if (text != original) {
       file.writeAsStringSync(text);
       // ignore: avoid_print

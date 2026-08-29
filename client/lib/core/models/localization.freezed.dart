@@ -770,7 +770,7 @@ return $default(_that.languages,_that.currencies,_that.timezones,_that.dateForma
 @JsonSerializable()
 
 class _LocalizationOptions implements LocalizationOptions {
-  const _LocalizationOptions({required List<String> languages, required final  List<String> currencies, required final  List<String> timezones, required final  List<String> dateFormats, required final  List<String> numberFormats, required final  List<String> countryCodes}): _languages = languages,_currencies = currencies,_timezones = timezones,_dateFormats = dateFormats,_numberFormats = numberFormats,_countryCodes = countryCodes;
+  const _LocalizationOptions({required List<String> languages, required List<String> currencies, required List<String> timezones, required List<String> dateFormats, required List<String> numberFormats, required List<String> countryCodes}): _languages = languages,_currencies = currencies,_timezones = timezones,_dateFormats = dateFormats,_numberFormats = numberFormats,_countryCodes = countryCodes;
   factory _LocalizationOptions.fromJson(Map<String, dynamic> json) => _$LocalizationOptionsFromJson(json);
 
  final  List<String> _languages;
