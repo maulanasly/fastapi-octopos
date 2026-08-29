@@ -60,17 +60,20 @@ class CatalogController extends Notifier<CatalogState> {
     final db = ref.read(appDatabaseProvider);
     final store = ref.read(localStoreProvider);
     try {
-      // Try to show cached DB data immediately for offline browse.
-      if (!freshSession) {
+      // Show cached DB data immediately for instant browse (even on freshSession
+      // we can show stale cache while fetching full catalog in background).
+      try {
         final cachedProducts = await db.getAllProducts();
         final cachedCategories = await db.getAllCategories();
         if (cachedProducts.isNotEmpty || cachedCategories.isNotEmpty) {
           state = CatalogState(
             categories: cachedCategories,
             products: cachedProducts,
-            loading: true,
+            loading: false,
           );
         }
+      } catch (_) {
+        // DB read failure shouldn't block network fetch
       }
 
       // A stored watermark is only meaningful on top of a populated
