@@ -6,6 +6,7 @@ import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/auth_controller.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
+import 'package:octopos_client/core/pagination.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/inventory/inventory_screen.dart';
 
@@ -46,7 +47,7 @@ class _FakeInventory extends InventoryRepository {
   Future<List<StockMovement>> movements({
     int? productId,
     String? movementType,
-    int limit = 100,
+    PaginationParams pagination = PaginationParams.inventory,
   }) async {
     final all = [
       const StockMovement(

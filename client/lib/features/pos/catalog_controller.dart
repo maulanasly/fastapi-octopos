@@ -41,6 +41,7 @@ class CatalogController extends Notifier<CatalogState> {
         // Drift: also clear DB watermark and catalog tables
         final db = ref.read(appDatabaseProvider);
         db.clearWatermark();
+        db.clearCatalog();
         // Don't await: fire and forget, but keep in-memory cleared
         state = const CatalogState();
       } else if (next.status == AuthStatus.signedIn &&
@@ -80,9 +81,16 @@ class CatalogController extends Notifier<CatalogState> {
       // cache: with an empty base (fresh sign-in) it must be ignored,
       // otherwise the delta pull returns just the changed rows and most
       // of the catalog would be missing from the POS grid.
+      // Also guard the web case where IndexedDB was cleared but
+      // SharedPreferences still holds a stale watermark (empty DB + non-null
+      // since => delta returns [] and the catalog stays blank forever).
       String? since;
       if (!freshSession) {
-        since = await db.readWatermark() ?? await store.readWatermark();
+        final hasCachedNow =
+            state.products.isNotEmpty || state.categories.isNotEmpty;
+        if (hasCachedNow) {
+          since = await db.readWatermark() ?? await store.readWatermark();
+        }
       }
       final delta = await _fetchDelta(since);
 

@@ -160,6 +160,11 @@ class AppDatabase extends _$AppDatabase {
     await (delete(syncMeta)..where((t) => t.key.equals('catalog_watermark'))).go();
   }
 
+  Future<void> clearCatalog() async {
+    await delete(driftProducts).go();
+    await delete(driftCategories).go();
+  }
+
   // ---- OutboxOrders ----
 
   Future<int> enqueueOrder({

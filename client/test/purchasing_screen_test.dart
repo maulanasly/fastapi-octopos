@@ -6,6 +6,7 @@ import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/auth_controller.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
+import 'package:octopos_client/core/pagination.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/purchasing/purchasing_screen.dart';
 
@@ -70,7 +71,7 @@ class _FakePurchasing extends PurchasingRepository {
   ];
 
   @override
-  Future<List<PurchaseOrder>> orders({String? status, int limit = 100}) async {
+  Future<List<PurchaseOrder>> orders({String? status, PaginationParams pagination = PaginationParams.purchasing}) async {
     return const [
       PurchaseOrder(
         id: 11,
@@ -94,7 +95,7 @@ class _FakePurchasing extends PurchasingRepository {
   }
 
   @override
-  Future<List<PurchaseInvoice>> invoices({String? status, int limit = 100}) async {
+  Future<List<PurchaseInvoice>> invoices({String? status, PaginationParams pagination = PaginationParams.purchasing}) async {
     return const [
       PurchaseInvoice(
         id: 31,
@@ -117,7 +118,7 @@ class _FakePurchasing extends PurchasingRepository {
   @override
   Future<List<SupplierPayment>> payments({
     String? status,
-    int limit = 100,
+    PaginationParams pagination = PaginationParams.purchasing,
   }) async {
     return const [
       SupplierPayment(

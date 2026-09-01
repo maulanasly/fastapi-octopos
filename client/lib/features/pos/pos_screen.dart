@@ -232,6 +232,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       .read(catalogControllerProvider.notifier)
                       .refresh(),
                 )
+              : catalog.products.isEmpty
+              ? EmptyStateView(message: s.of('noProducts'))
+              : products.isEmpty
+              ? EmptyStateView(
+                  message: _search.trim().isNotEmpty
+                      ? s.of(
+                          'noSearchResults',
+                          args: {'q': _search.trim()},
+                        )
+                      : s.of('noProducts'),
+                )
               : RefreshIndicator(
                   onRefresh: () =>
                       ref.read(catalogControllerProvider.notifier).refresh(),
