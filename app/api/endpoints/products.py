@@ -348,6 +348,25 @@ def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     update_data = product_in.model_dump(exclude_unset=True)
+    # Handle stock_delta (preferred) vs deprecated stock_quantity absolute
+    stock_delta = update_data.pop("stock_delta", None)
+    stock_note = update_data.pop("stock_note", None)
+    if stock_delta is not None and "stock_quantity" in update_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either stock_delta or stock_quantity, not both",
+        ) from None
+    if stock_delta is not None:
+        if stock_delta == 0:
+            raise HTTPException(
+                status_code=400, detail="stock_delta cannot be zero"
+            ) from None
+        new_quantity = product.stock_quantity + stock_delta
+        if new_quantity < 0:
+            raise HTTPException(
+                status_code=400, detail="Stock cannot go below zero"
+            ) from None
+        # Will be applied after tenant move, before other fields
     # Handle tenant move (superuser only) — must be before other field assignments
     if tenant_id is not None and tenant_id != product.tenant_id:
         if not current_user.is_superuser:
@@ -410,14 +429,50 @@ def update_product(
             details={"from_tenant": old_tenant, "to_tenant": tenant_id},
         )
     previous_stock_quantity = product.stock_quantity
+    # Delta-based adjustment (preferred)
+    if stock_delta is not None:
+        new_quantity = previous_stock_quantity + stock_delta
+        product.stock_quantity = new_quantity
+        db.add(
+            StockMovement(
+                product_id=product.id,
+                tenant_id=product.tenant_id,
+                user_id=current_user.id,
+                movement_type="manual_adjustment",
+                quantity_before=previous_stock_quantity,
+                quantity_delta=stock_delta,
+                quantity_after=new_quantity,
+                note=stock_note or "Manual stock adjustment via delta",
+            )
+        )
+        log_action(
+            db=db,
+            action="product.stock_adjust",
+            user_id=current_user.id,
+            resource_type="product",
+            resource_id=product.id,
+            details={
+                "quantity_before": previous_stock_quantity,
+                "quantity_after": new_quantity,
+                "delta": stock_delta,
+                "note": stock_note,
+            },
+        )
+        # Remove stock_quantity from update_data handling (already handled)
+        # Other fields still need to be applied
     for field, value in update_data.items():
+        # Skip stock_quantity if we already handled delta (already popped) — no conflict
         setattr(product, field, value)
 
     db.add(product)
     embedding_refresh = "name" in update_data or "description" in update_data
+    # Legacy absolute path
     stock_changed = "stock_quantity" in update_data and (
         product.stock_quantity != previous_stock_quantity
     )
+    # If delta was used, stock already moved, don't re-create manual_adjustment via absolute path
+    if stock_delta is not None:
+        stock_changed = False
     if embedding_refresh:
         product.embedding = embed_text(f"{product.name} {product.description or ''}")
     if stock_changed:

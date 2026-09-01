@@ -11,6 +11,13 @@ class StockMovement {
   final int quantityAfter;
   final String? note;
   final String? createdAt;
+  // Enriched for intuitive UI
+  final String? productName;
+  final String? productSku;
+  final String? userEmail;
+  final int? orderId;
+  final int? purchaseOrderId;
+  final int? refundId;
 
   const StockMovement({
     required this.id,
@@ -21,6 +28,12 @@ class StockMovement {
     required this.quantityAfter,
     this.note,
     this.createdAt,
+    this.productName,
+    this.productSku,
+    this.userEmail,
+    this.orderId,
+    this.purchaseOrderId,
+    this.refundId,
   });
 
   factory StockMovement.fromJson(Map<String, dynamic> json) => StockMovement(
@@ -32,6 +45,12 @@ class StockMovement {
     quantityAfter: json['quantity_after'] as int? ?? 0,
     note: json['note'] as String?,
     createdAt: json['created_at'] as String?,
+    productName: json['product_name'] as String?,
+    productSku: json['product_sku'] as String?,
+    userEmail: json['user_email'] as String?,
+    orderId: json['order_id'] as int?,
+    purchaseOrderId: json['purchase_order_id'] as int?,
+    refundId: json['refund_id'] as int?,
   );
 }
 

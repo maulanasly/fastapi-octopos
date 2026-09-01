@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from app.core.replenishment import build_replenishment_suggestions
 from app.models.customer import Customer, LoyaltyTransaction
 from app.models.drawer import DrawerSession
 from app.models.order import Order, OrderItem
@@ -346,30 +347,29 @@ def get_low_stock_products_data(
 ):
     """Products at or below stock threshold.
 
-    When threshold is None, use each product's own reorder_point (falling
-    back to min_stock), and a default of 10 when both are unset/zero.
+    When threshold is provided, simple stock <= threshold.
+    When None, unified with replenishment.should_reorder (lead-time
+    projection, min_stock, reorder_point).
     """
     query = db.query(Product)
     if tenant_id is not None:
         query = query.filter(Product.tenant_id == tenant_id)
     if threshold is not None:
         query = query.filter(Product.stock_quantity <= threshold)
-    else:
-        effective_threshold = func.coalesce(
-            func.nullif(
-                case(
-                    (
-                        Product.reorder_point >= Product.min_stock,
-                        Product.reorder_point,
-                    ),
-                    else_=Product.min_stock,
-                ),
-                0,
-            ),
-            10,
-        )
-        query = query.filter(Product.stock_quantity <= effective_threshold)
-    return query.order_by(Product.stock_quantity.asc()).all()
+        return query.order_by(Product.stock_quantity.asc()).all()
+    # Unified: use replenishment logic for intuitive low-stock
+    products = query.all()
+    suggestions = build_replenishment_suggestions(
+        db=db, products=products, lookback_days=30
+    )
+    low_ids = {s.product_id for s in suggestions if s.should_reorder}
+    if not low_ids:
+        return []
+    # Preserve stock-asc order for UI
+    return sorted(
+        [p for p in products if p.id in low_ids],
+        key=lambda p: p.stock_quantity,
+    )
 
 
 def get_top_customers_data(

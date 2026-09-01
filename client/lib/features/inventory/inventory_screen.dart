@@ -134,12 +134,93 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final parsed = int.tryParse(delta.text.trim());
     if (parsed == null || parsed == 0) return;
     try {
-      await ref.read(catalogRepositoryProvider).updateProduct(
-        suggestion.productId,
-        {'stock_quantity': suggestion.currentStock + parsed},
-      );
+      await ref
+          .read(inventoryRepositoryProvider)
+          .adjustStock(
+            productId: suggestion.productId,
+            delta: parsed,
+            note: note.text.trim().isEmpty ? null : note.text.trim(),
+          );
       await ref.read(catalogControllerProvider.notifier).refresh();
       if (mounted) setState(_reload);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyError(e, s))));
+      }
+    }
+  }
+
+  Future<void> _adHocReceipt() async {
+    final s = ref.read(stringsProvider);
+    final productId = TextEditingController();
+    final qty = TextEditingController();
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s.of('receive')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: productId,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: s.of('productId', args: {'id': ''}).replaceAll(' #', ''),
+                hintText: 'Product ID',
+                isDense: true,
+              ),
+            ),
+            TextField(
+              controller: qty,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: s.of('qtyReceived'),
+                isDense: true,
+              ),
+            ),
+            TextField(
+              controller: note,
+              decoration: InputDecoration(
+                labelText: s.of('adjustNote'),
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(s.of('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(s.of('save')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final pid = int.tryParse(productId.text.trim());
+    final q = int.tryParse(qty.text.trim());
+    if (pid == null || q == null || q <= 0) return;
+    try {
+      await ref
+          .read(inventoryRepositoryProvider)
+          .adHocReceipt(
+            productId: pid,
+            quantity: q,
+            note: note.text.trim().isEmpty ? null : note.text.trim(),
+          );
+      await ref.read(catalogControllerProvider.notifier).refresh();
+      if (mounted) setState(_reload);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(s.of('shiftReconciled'))));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -161,6 +242,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       appBar: AppBar(
         title: Text(s.of('inventory')),
         actions: [
+          IconButton(
+            tooltip: s.of('receive'),
+            icon: const Icon(Icons.add_box),
+            onPressed: _adHocReceipt,
+          ),
           IconButton(
             tooltip: s.of('inventory'),
             icon: const Icon(Icons.refresh),
@@ -209,6 +295,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           _typeChip(s, 'refund', 'refund'),
           _typeChip(s, 'manual_adjustment', 'manual'),
           _typeChip(s, 'initial_stock', 'initial'),
+          _typeChip(s, 'purchase_receipt', 'receipt'),
+          _typeChip(s, 'ad_hoc_receipt', 'ad-hoc'),
+          _typeChip(s, 'reservation_release', 'release'),
+          _typeChip(s, 'order_cancel', 'cancel'),
         ],
       ),
     );
@@ -242,32 +332,49 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         if (movements.isEmpty) {
           return Center(child: Text(s.of('noMovements')));
         }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: movements.length,
-          separatorBuilder: (_, _) => const Divider(height: 8),
-          itemBuilder: (context, i) {
-            final m = movements[i];
-            final delta = m.quantityDelta;
-            return ListTile(
-              leading: Icon(
-                delta >= 0
-                    ? Icons.add_box_outlined
-                    : Icons.remove_circle_outline,
-                color: delta >= 0 ? Colors.green : Colors.red,
-              ),
-              title: Text(
-                '${s.of('productId', args: {'id': m.productId})} · ${m.movementType}',
-              ),
-              subtitle: Text(
-                '${formatDateTimeIso(m.createdAt)}'
-                '${m.note != null ? ' — ${m.note}' : ''}',
-              ),
-              trailing: Text(
-                '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
-              ),
-            );
-          },
+        return RefreshIndicator(
+          onRefresh: () async => setState(_reload),
+          child: ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: movements.length,
+            separatorBuilder: (_, _) => const Divider(height: 8),
+            itemBuilder: (context, i) {
+              final m = movements[i];
+              final delta = m.quantityDelta;
+              final productLabel = m.productName != null
+                  ? '${m.productName} (${m.productSku ?? m.productId})'
+                  : s.of('productId', args: {'id': m.productId});
+              final meta = [
+                if (m.userEmail != null) m.userEmail!,
+                if (m.orderId != null) 'Order #${m.orderId}',
+                if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
+                if (m.refundId != null) 'Refund #${m.refundId}',
+              ].join(' · ');
+              return ListTile(
+                leading: Icon(
+                  delta >= 0
+                      ? Icons.add_box_outlined
+                      : Icons.remove_circle_outline,
+                  color: delta >= 0 ? Colors.green : Colors.red,
+                ),
+                title: Text('$productLabel · ${m.movementType}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${formatDateTimeIso(m.createdAt)}'
+                      '${m.note != null ? ' — ${m.note}' : ''}',
+                    ),
+                    if (meta.isNotEmpty)
+                      Text(meta, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+                trailing: Text(
+                  '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -290,32 +397,39 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 _reload();
               }),
             ),
-            Text(s.of('replenishment')),
+            Text(s.of('onlyReorderNeeded')),
           ],
         ),
         Expanded(
-          child: FutureBuilder<List<ReplenishmentSuggestion>>(
-            future: _suggestions,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text(friendlyError(snapshot.error!, s)));
-              }
-              final suggestions = snapshot.data ?? [];
-              _syncRows(suggestions);
-              if (suggestions.isEmpty) {
-                return Center(child: Text(s.of('noSuggestions')));
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: suggestions.length,
-                separatorBuilder: (_, _) => const Divider(height: 8),
-                itemBuilder: (context, i) =>
-                    _suggestionRow(context, s, suggestions[i], canAdjust),
-              );
-            },
+          child: RefreshIndicator(
+            onRefresh: () async => setState(_reload),
+            child: FutureBuilder<List<ReplenishmentSuggestion>>(
+              future: _suggestions,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text(friendlyError(snapshot.error!, s)));
+                }
+                final suggestions = snapshot.data ?? [];
+                _syncRows(suggestions);
+                if (suggestions.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [Center(child: Text(s.of('noSuggestions')))],
+                  );
+                }
+                return ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: suggestions.length,
+                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  itemBuilder: (context, i) =>
+                      _suggestionRow(context, s, suggestions[i], canAdjust),
+                );
+              },
+            ),
           ),
         ),
         if (canGenerate)

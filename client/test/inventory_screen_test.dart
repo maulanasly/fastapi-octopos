@@ -47,6 +47,10 @@ class _FakeInventory extends InventoryRepository {
   Future<List<StockMovement>> movements({
     int? productId,
     String? movementType,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? userId,
+    int? purchaseOrderId,
     PaginationParams pagination = PaginationParams.inventory,
   }) async {
     final all = [

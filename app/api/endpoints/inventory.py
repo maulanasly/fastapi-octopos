@@ -1,16 +1,23 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.dependencies import require_permissions
+from app.core.audit import log_action
 from app.core.database import get_db
 from app.core.replenishment import build_replenishment_suggestions
 from app.models.product import Product
+from app.models.purchase import Supplier
 from app.models.stock_movement import StockMovement
 from app.models.user import User
 from app.schemas.replenishment import ReplenishmentSuggestion
-from app.schemas.stock_movement import StockMovement as StockMovementSchema
+from app.schemas.stock_movement import (
+    InventoryReceiptCreate,
+)
+from app.schemas.stock_movement import (
+    StockMovement as StockMovementSchema,
+)
 from app.services.purchasing import supplier_map_with_names
 
 router = APIRouter()
@@ -31,6 +38,7 @@ def get_inventory_movements(
 ):
     query = (
         db.query(StockMovement)
+        .options(joinedload(StockMovement.product), joinedload(StockMovement.user))
         .filter(StockMovement.tenant_id == current_user.tenant_id)
         .order_by(StockMovement.id.desc())
     )
@@ -48,7 +56,92 @@ def get_inventory_movements(
     if end_date:
         query = query.filter(StockMovement.created_at <= end_date)
 
-    return query.offset(skip).limit(limit).all()
+    movements = query.offset(skip).limit(limit).all()
+    # Enrich with product/user details for intuitive UI
+    for m in movements:
+        if m.product:
+            m.product_name = m.product.name  # type: ignore[attr-defined]
+            m.product_sku = m.product.sku  # type: ignore[attr-defined]
+        if m.user:
+            m.user_email = m.user.email  # type: ignore[attr-defined]
+    return movements
+
+
+@router.post("/receipt", response_model=StockMovementSchema)
+def create_inventory_receipt(
+    payload: InventoryReceiptCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permissions("inventory:view")),
+):
+    """Ad-hoc stock receipt without a purchase order (intuitive restock)."""
+    product = (
+        db.query(Product)
+        .filter(
+            Product.id == payload.product_id,
+            Product.tenant_id == current_user.tenant_id,
+        )
+        .with_for_update()
+        .first()
+    )
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found") from None
+
+    supplier_id = payload.supplier_id
+    if supplier_id is not None:
+        supplier = (
+            db.query(Supplier)
+            .filter(
+                Supplier.id == supplier_id, Supplier.tenant_id == current_user.tenant_id
+            )
+            .first()
+        )
+        if not supplier:
+            raise HTTPException(status_code=404, detail="Supplier not found") from None
+        if not supplier.is_active:
+            raise HTTPException(
+                status_code=400, detail="Supplier is inactive"
+            ) from None
+
+    quantity_before = product.stock_quantity
+    quantity_after = quantity_before + payload.quantity
+    product.stock_quantity = quantity_after
+    if payload.unit_cost is not None:
+        product.unit_cost = payload.unit_cost
+    db.add(product)
+
+    movement = StockMovement(
+        product_id=product.id,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        movement_type="ad_hoc_receipt",
+        quantity_before=quantity_before,
+        quantity_delta=payload.quantity,
+        quantity_after=quantity_after,
+        note=payload.note or "Ad-hoc stock receipt",
+    )
+    db.add(movement)
+    log_action(
+        db=db,
+        action="inventory.ad_hoc_receipt",
+        user_id=current_user.id,
+        resource_type="product",
+        resource_id=product.id,
+        details={
+            "quantity_before": quantity_before,
+            "quantity_after": quantity_after,
+            "delta": payload.quantity,
+            "supplier_id": supplier_id,
+            "unit_cost": payload.unit_cost,
+            "note": payload.note,
+        },
+    )
+    db.commit()
+    db.refresh(movement)
+    # Enrich for response
+    movement.product_name = product.name  # type: ignore[attr-defined]
+    movement.product_sku = product.sku  # type: ignore[attr-defined]
+    movement.user_email = current_user.email  # type: ignore[attr-defined]
+    return movement
 
 
 @router.get("/replenishment-suggestions", response_model=list[ReplenishmentSuggestion])
