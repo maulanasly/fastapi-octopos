@@ -3,7 +3,11 @@ from uuid import uuid4
 
 # pyrefly: ignore [missing-import]
 from sqladmin import Flash, action, expose
-from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
+from sqladmin.filters import (
+    AllUniqueStringValuesFilter,
+    ForeignKeyFilter,
+    OperationColumnFilter,
+)
 from starlette.exceptions import HTTPException
 
 # pyrefly: ignore [missing-import]
@@ -496,7 +500,8 @@ class StockMovementAdmin(
     column_default_sort = [(StockMovement.created_at, True)]
     column_filters = [
         AllUniqueStringValuesFilter(StockMovement.movement_type, title="Movement Type"),
-        ForeignKeyFilter(StockMovement.product_id, Product.name, foreign_model=Product),
+        # Huge product list: use ID input instead of dropdown (avoids loading 10k options)
+        OperationColumnFilter(StockMovement.product_id, title="Product ID"),
     ]
     column_labels = {
         StockMovement.movement_type: "Movement Type",

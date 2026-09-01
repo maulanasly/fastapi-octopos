@@ -1,9 +1,12 @@
 /// Inventory: stock movements, replenishment suggestions, manual adjust.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_client.dart';
 import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
@@ -105,6 +108,135 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     final pid = int.tryParse(raw);
     setState(() {
       _productIdFilter = pid;
+      _movementsLimit = 100;
+      _reload();
+    });
+  }
+
+  Future<void> _pickProduct() async {
+    final s = ref.read(stringsProvider);
+    final searchCtrl = TextEditingController();
+    List<Product> results = [];
+    bool searching = false;
+    String? error;
+    Timer? debounce;
+
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(s.of('selectProduct')),
+          content: SizedBox(
+            width: 400,
+            height: 360,
+            child: Column(
+              children: [
+                TextField(
+                  controller: searchCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Search product (name/SKU)',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    isDense: true,
+                  ),
+                  onChanged: (v) {
+                    debounce?.cancel();
+                    debounce = Timer(const Duration(milliseconds: 400), () async {
+                      final q = v.trim();
+                      if (q.isEmpty) {
+                        setD(() {
+                          results = [];
+                          error = null;
+                          searching = false;
+                        });
+                        return;
+                      }
+                      setD(() {
+                        searching = true;
+                        error = null;
+                      });
+                      try {
+                        // Use API directly for name search with limit 20 (handles huge catalog)
+                        final dio = ref.read(apiClientProvider).dio;
+                        final resp = await dio.get<List<dynamic>>(
+                          '/products/',
+                          queryParameters: {'q': q, 'limit': 20},
+                        );
+                        final list = resp.data!
+                            .map((e) => Product.fromJson(e as Map<String, dynamic>))
+                            .toList();
+                        if (ctx.mounted) {
+                          setD(() {
+                            results = list;
+                            searching = false;
+                          });
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          setD(() {
+                            error = friendlyError(e, s);
+                            searching = false;
+                          });
+                        }
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                if (searching) const LinearProgressIndicator(),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(error!, style: const TextStyle(color: Colors.red)),
+                  ),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: results.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (c, i) {
+                      final p = results[i];
+                      return ListTile(
+                        dense: true,
+                        title: Text(p.name),
+                        subtitle: Text('${p.sku} · ${p.stockQuantity} in stock'),
+                        onTap: () => Navigator.of(ctx).pop(p.id),
+                      );
+                    },
+                  ),
+                ),
+                if (results.isEmpty && !searching && searchCtrl.text.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text('No matches'),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(s.of('cancel')),
+            ),
+            TextButton(
+              onPressed: () {
+                _productIdController.clear();
+                Navigator.of(ctx).pop(0); // 0 means clear filter
+              },
+              child: Text(s.of('clear')),
+            ),
+          ],
+        ),
+      ),
+    );
+    debounce?.cancel();
+    if (selected == null) return;
+    setState(() {
+      if (selected == 0) {
+        _productIdFilter = null;
+        _productIdController.clear();
+      } else {
+        _productIdFilter = selected;
+        _productIdController.text = '$selected';
+      }
       _movementsLimit = 100;
       _reload();
     });
@@ -385,13 +517,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           Row(
             children: [
               SizedBox(
-                width: 110,
+                width: 90,
                 child: TextField(
                   controller: _productIdController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     labelText: 'Product ID',
-                    hintText: 'e.g. 12',
+                    hintText: 'ID',
                     isDense: true,
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.search, size: 18),
@@ -401,7 +533,12 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   onSubmitted: (_) => _applyProductFilter(),
                 ),
               ),
-              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Search product',
+                icon: const Icon(Icons.manage_search, size: 18),
+                onPressed: _pickProduct,
+              ),
+              const SizedBox(width: 4),
               OutlinedButton.icon(
                 icon: const Icon(Icons.date_range, size: 16),
                 label: Text(

@@ -1,6 +1,9 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView  # noqa: F401
-from sqladmin.filters import ForeignKeyFilter
+from sqladmin.filters import (
+    AllUniqueStringValuesFilter,
+    OperationColumnFilter,
+)
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
@@ -157,7 +160,9 @@ class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
     column_searchable_list = [Order.id]
     column_default_sort = [(Order.created_at, True)]
     column_filters = [
-        ForeignKeyFilter(Order.customer_id, Customer.name, foreign_model=Customer),
+        AllUniqueStringValuesFilter(Order.status, title="Status"),
+        # Huge customer list: use ID input (avoids loading 10k customers)
+        OperationColumnFilter(Order.customer_id, title="Customer ID"),
     ]
     column_labels = {Order.id: "Order #", Order.status: "Status"}
     can_create = False
