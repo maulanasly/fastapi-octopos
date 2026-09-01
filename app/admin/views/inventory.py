@@ -3,6 +3,7 @@ from uuid import uuid4
 
 # pyrefly: ignore [missing-import]
 from sqladmin import Flash, action, expose
+from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
 from starlette.exceptions import HTTPException
 
 # pyrefly: ignore [missing-import]
@@ -39,6 +40,7 @@ class CategoryAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Category
     column_searchable_list = [Category.name]
     column_default_sort = [(Category.updated_at, True)]
     form_overrides = {"color": ColorField}
+    column_labels = {Category.name: "Category"}
 
 
 class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
@@ -72,6 +74,10 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.lead_time_days,
     ]
     column_default_sort = [(Product.updated_at, True)]
+    column_filters = [
+        ForeignKeyFilter(Product.category_id, Category.name, foreign_model=Category),
+    ]
+    column_labels = {Product.name: "Product / SKU", Product.category: "Category"}
 
     # Stock is ledger-managed via the stock-adjustment action below; never
     # edit it directly through the create/edit forms. Photos go through the
@@ -488,6 +494,14 @@ class StockMovementAdmin(
     column_searchable_list = [StockMovement.movement_type, StockMovement.note]
     column_sortable_list = [StockMovement.created_at, StockMovement.id]
     column_default_sort = [(StockMovement.created_at, True)]
+    column_filters = [
+        AllUniqueStringValuesFilter(StockMovement.movement_type, title="Movement Type"),
+        ForeignKeyFilter(StockMovement.product_id, Product.name, foreign_model=Product),
+    ]
+    column_labels = {
+        StockMovement.movement_type: "Movement Type",
+        StockMovement.product: "Product",
+    }
     can_create = False
     can_edit = False
     can_delete = False

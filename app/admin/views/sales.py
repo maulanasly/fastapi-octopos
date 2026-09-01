@@ -1,5 +1,6 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView  # noqa: F401
+from sqladmin.filters import ForeignKeyFilter
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
@@ -35,6 +36,7 @@ class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promoti
     column_searchable_list = [Promotion.code, Promotion.name, Promotion.description]
     column_sortable_list = [Promotion.id, Promotion.usage_count, Promotion.starts_at]
     column_default_sort = [(Promotion.created_at, True)]
+    column_labels = {Promotion.code: "Promo Code", Promotion.name: "Promotion"}
 
 
 class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
@@ -59,6 +61,7 @@ class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
     column_searchable_list = [TaxRule.name, TaxRule.description]
     column_sortable_list = [TaxRule.id, TaxRule.rate, TaxRule.updated_at]
     column_default_sort = [(TaxRule.updated_at, True)]
+    column_labels = {TaxRule.name: "Tax Rule"}
 
 
 class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer):
@@ -79,6 +82,7 @@ class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer
     column_searchable_list = [Customer.name, Customer.email, Customer.phone]
     column_sortable_list = [Customer.id, Customer.points_balance, Customer.created_at]
     column_default_sort = [(Customer.created_at, True)]
+    column_labels = {Customer.name: "Customer"}
 
 
 class LoyaltyTransactionAdmin(
@@ -152,6 +156,10 @@ class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
     column_sortable_list = [Order.created_at, Order.total_amount]
     column_searchable_list = [Order.id]
     column_default_sort = [(Order.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(Order.customer_id, Customer.name, foreign_model=Customer),
+    ]
+    column_labels = {Order.id: "Order #", Order.status: "Status"}
     can_create = False
     can_edit = False
     can_delete = False

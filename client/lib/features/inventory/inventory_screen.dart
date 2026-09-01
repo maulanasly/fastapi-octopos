@@ -9,6 +9,7 @@ import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/models.dart';
+import '../../core/pagination.dart';
 import '../../core/strings.dart';
 import '../pos/catalog_controller.dart';
 
@@ -24,6 +25,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   late Future<List<StockMovement>> _movements;
   late Future<List<ReplenishmentSuggestion>> _suggestions;
   String? _typeFilter;
+  int? _productIdFilter;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  int _movementsLimit = 100;
+  final _productIdController = TextEditingController();
   bool _onlyReorder = true;
   List<Supplier> _suppliers = const [];
   final Map<int, _SuggestionRow> _rows = {};
@@ -35,15 +41,80 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     _reload();
   }
 
+  @override
+  void dispose() {
+    _productIdController.dispose();
+    for (final r in _rows.values) {
+      r.qty.dispose();
+      r.cost.dispose();
+    }
+    super.dispose();
+  }
+
   void _reload() {
-    _movements = ref
-        .read(inventoryRepositoryProvider)
-        .movements(movementType: _typeFilter);
+    _movements = ref.read(inventoryRepositoryProvider).movements(
+          movementType: _typeFilter,
+          productId: _productIdFilter,
+          startDate: _startDate,
+          endDate: _endDate,
+          pagination: PaginationParams(limit: _movementsLimit),
+        );
     _suggestions = ref
         .read(inventoryRepositoryProvider)
         .suggestions(onlyReorder: _onlyReorder);
     _rows.clear();
     _loadSuppliers();
+  }
+
+  bool get _hasActiveMovementFilters =>
+      _typeFilter != null || _productIdFilter != null || _startDate != null || _endDate != null;
+
+  void _clearMovementFilters() {
+    setState(() {
+      _typeFilter = null;
+      _productIdFilter = null;
+      _startDate = null;
+      _endDate = null;
+      _movementsLimit = 100;
+      _productIdController.clear();
+      _reload();
+    });
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked.start;
+      _endDate = picked.end;
+      _movementsLimit = 100;
+      _reload();
+    });
+  }
+
+  void _applyProductFilter() {
+    final raw = _productIdController.text.trim();
+    final pid = int.tryParse(raw);
+    setState(() {
+      _productIdFilter = pid;
+      _movementsLimit = 100;
+      _reload();
+    });
+  }
+
+  void _loadMoreMovements() {
+    setState(() {
+      _movementsLimit += 100;
+      _reload();
+    });
   }
 
   Future<void> _loadSuppliers() async {
@@ -284,37 +355,89 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   Widget _typeFilterRow(AppStrings s) {
-    return SizedBox(
-      height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+    final hasFilters = _hasActiveMovementFilters;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _typeChip(s, null, s.of('all')),
-          _typeChip(s, 'sale', 'sale'),
-          _typeChip(s, 'refund', 'refund'),
-          _typeChip(s, 'manual_adjustment', 'manual'),
-          _typeChip(s, 'initial_stock', 'initial'),
-          _typeChip(s, 'purchase_receipt', 'receipt'),
-          _typeChip(s, 'ad_hoc_receipt', 'ad-hoc'),
-          _typeChip(s, 'reservation_release', 'release'),
-          _typeChip(s, 'order_cancel', 'cancel'),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _typeChip(s, null, s.of('all')),
+              _typeChip(s, 'sale', 'sale'),
+              _typeChip(s, 'refund', 'refund'),
+              _typeChip(s, 'manual_adjustment', 'manual'),
+              _typeChip(s, 'initial_stock', 'initial'),
+              _typeChip(s, 'purchase_receipt', 'receipt'),
+              _typeChip(s, 'ad_hoc_receipt', 'ad-hoc'),
+              _typeChip(s, 'reservation_release', 'release'),
+              _typeChip(s, 'order_cancel', 'cancel'),
+              if (hasFilters)
+                ActionChip(
+                  label: Text('${s.of('clear')} ✕'),
+                  onPressed: _clearMovementFilters,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 110,
+                child: TextField(
+                  controller: _productIdController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Product ID',
+                    hintText: 'e.g. 12',
+                    isDense: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search, size: 18),
+                      onPressed: _applyProductFilter,
+                    ),
+                  ),
+                  onSubmitted: (_) => _applyProductFilter(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.date_range, size: 16),
+                label: Text(
+                  _startDate == null
+                      ? 'Date range'
+                      : '${_startDate!.month}/${_startDate!.day} - ${_endDate!.month}/${_endDate!.day}',
+                ),
+                onPressed: _pickDateRange,
+              ),
+              if (_startDate != null)
+                IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: s.of('clear'),
+                  onPressed: () => setState(() {
+                    _startDate = null;
+                    _endDate = null;
+                    _movementsLimit = 100;
+                    _reload();
+                  }),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _typeChip(AppStrings s, String? value, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: _typeFilter == value,
-        onSelected: (_) => setState(() {
-          _typeFilter = value;
-          _reload();
-        }),
-      ),
+    return ChoiceChip(
+      label: Text(label),
+      selected: _typeFilter == value,
+      onSelected: (_) => setState(() {
+        _typeFilter = value;
+        _movementsLimit = 100;
+        _reload();
+      }),
     );
   }
 
@@ -330,50 +453,78 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         }
         final movements = snapshot.data ?? [];
         if (movements.isEmpty) {
-          return Center(child: Text(s.of('noMovements')));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(s.of('noMovements')),
+                if (_hasActiveMovementFilters)
+                  TextButton(
+                    onPressed: _clearMovementFilters,
+                    child: Text(s.of('clear')),
+                  ),
+              ],
+            ),
+          );
         }
+        final hasMore = movements.length >= _movementsLimit;
         return RefreshIndicator(
           onRefresh: () async => setState(_reload),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: movements.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
-            itemBuilder: (context, i) {
-              final m = movements[i];
-              final delta = m.quantityDelta;
-              final productLabel = m.productName != null
-                  ? '${m.productName} (${m.productSku ?? m.productId})'
-                  : s.of('productId', args: {'id': m.productId});
-              final meta = [
-                if (m.userEmail != null) m.userEmail!,
-                if (m.orderId != null) 'Order #${m.orderId}',
-                if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
-                if (m.refundId != null) 'Refund #${m.refundId}',
-              ].join(' · ');
-              return ListTile(
-                leading: Icon(
-                  delta >= 0
-                      ? Icons.add_box_outlined
-                      : Icons.remove_circle_outline,
-                  color: delta >= 0 ? Colors.green : Colors.red,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: movements.length,
+                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  itemBuilder: (context, i) {
+                    final m = movements[i];
+                    final delta = m.quantityDelta;
+                    final productLabel = m.productName != null
+                        ? '${m.productName} (${m.productSku ?? m.productId})'
+                        : s.of('productId', args: {'id': m.productId});
+                    final meta = [
+                      if (m.userEmail != null) m.userEmail!,
+                      if (m.orderId != null) 'Order #${m.orderId}',
+                      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
+                      if (m.refundId != null) 'Refund #${m.refundId}',
+                    ].join(' · ');
+                    return ListTile(
+                      leading: Icon(
+                        delta >= 0
+                            ? Icons.add_box_outlined
+                            : Icons.remove_circle_outline,
+                        color: delta >= 0 ? Colors.green : Colors.red,
+                      ),
+                      title: Text('$productLabel · ${m.movementType}'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${formatDateTimeIso(m.createdAt)}'
+                            '${m.note != null ? ' — ${m.note}' : ''}',
+                          ),
+                          if (meta.isNotEmpty)
+                            Text(meta, style: Theme.of(context).textTheme.bodySmall),
+                        ],
+                      ),
+                      trailing: Text(
+                        '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
+                      ),
+                    );
+                  },
                 ),
-                title: Text('$productLabel · ${m.movementType}'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${formatDateTimeIso(m.createdAt)}'
-                      '${m.note != null ? ' — ${m.note}' : ''}',
-                    ),
-                    if (meta.isNotEmpty)
-                      Text(meta, style: Theme.of(context).textTheme.bodySmall),
-                  ],
+              ),
+              if (hasMore)
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.expand_more, size: 18),
+                    label: Text('Load more (${movements.length} shown)'),
+                    onPressed: _loadMoreMovements,
+                  ),
                 ),
-                trailing: Text(
-                  '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
-                ),
-              );
-            },
+            ],
           ),
         );
       },

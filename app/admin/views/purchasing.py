@@ -1,4 +1,5 @@
 # pyrefly: ignore [missing-import]
+from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
 from starlette.requests import Request
 
 from app.admin.base import TenantScopedModelView
@@ -53,6 +54,13 @@ class PurchaseOrderAdmin(
     column_searchable_list = [PurchaseOrder.status]
     column_sortable_list = [PurchaseOrder.created_at, PurchaseOrder.received_at]
     column_default_sort = [(PurchaseOrder.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(
+            PurchaseOrder.supplier_id, Supplier.name, foreign_model=Supplier
+        ),
+        AllUniqueStringValuesFilter(PurchaseOrder.status, title="Status"),
+    ]
+    column_labels = {PurchaseOrder.status: "Status", PurchaseOrder.supplier: "Supplier"}
     can_create = False
     can_edit = False
     can_delete = False
@@ -113,6 +121,17 @@ class PurchaseInvoiceAdmin(
         PurchaseInvoice.variance_amount,
     ]
     column_default_sort = [(PurchaseInvoice.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(
+            PurchaseInvoice.supplier_id, Supplier.name, foreign_model=Supplier
+        ),
+        AllUniqueStringValuesFilter(PurchaseInvoice.status, title="Status"),
+    ]
+    column_labels = {
+        PurchaseInvoice.invoice_number: "Invoice #",
+        PurchaseInvoice.status: "Status",
+        PurchaseInvoice.supplier: "Supplier",
+    }
     can_create = False
     can_edit = False
     can_delete = False
@@ -184,6 +203,20 @@ class SupplierPaymentAdmin(
         SupplierPayment.status,
     ]
     column_default_sort = [(SupplierPayment.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(
+            SupplierPayment.supplier_id, Supplier.name, foreign_model=Supplier
+        ),
+        AllUniqueStringValuesFilter(SupplierPayment.status, title="Status"),
+        AllUniqueStringValuesFilter(
+            SupplierPayment.payment_method, title="Payment Method"
+        ),
+    ]
+    column_labels = {
+        SupplierPayment.status: "Status",
+        SupplierPayment.supplier: "Supplier",
+        SupplierPayment.payment_method: "Payment Method",
+    }
     can_create = False
     can_edit = False
     can_delete = False
