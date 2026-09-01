@@ -13,6 +13,7 @@ from app.models.product import Category, Product
 from app.models.purchase import PurchaseInvoiceItem, PurchaseOrderItem
 from app.models.refund import RefundItem
 from app.models.stock_movement import StockMovement
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.product import Category as CategorySchema
 from app.schemas.product import (
@@ -328,16 +329,86 @@ def update_product(
     product_id: int,
     product_in: ProductUpdate,
     db: Session = Depends(get_db),
+    tenant_id: int | None = Query(
+        None, alias="tenant_id", description="Move to tenant (superuser only)"
+    ),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
     q = db.query(Product).filter(Product.id == product_id)
     if not current_user.is_superuser:
+        # Non-superuser cannot move between tenants
+        if tenant_id is not None and tenant_id != current_user.tenant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only superuser can move products between tenants",
+            ) from None
         q = q.filter(Product.tenant_id == current_user.tenant_id)
     product = q.with_for_update().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
     update_data = product_in.model_dump(exclude_unset=True)
+    # Handle tenant move (superuser only) — must be before other field assignments
+    if tenant_id is not None and tenant_id != product.tenant_id:
+        if not current_user.is_superuser:
+            raise HTTPException(
+                status_code=403,
+                detail="Only superuser can move products between tenants",
+            ) from None
+        target_tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        if not target_tenant:
+            raise HTTPException(
+                status_code=404, detail="Target tenant not found"
+            ) from None
+        # SKU uniqueness in target tenant (use new sku if provided, else existing)
+        sku_to_check = update_data.get("sku", product.sku)
+        existing_sku = (
+            db.query(Product)
+            .filter(Product.tenant_id == tenant_id, Product.sku == sku_to_check)
+            .first()
+        )
+        if existing_sku and existing_sku.id != product.id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SKU '{sku_to_check}' already exists in target tenant",
+            ) from None
+        # Category must belong to target tenant (or be cleared)
+        if "category_id" in update_data:
+            new_category_id = update_data["category_id"]
+            if new_category_id is not None:
+                cat = (
+                    db.query(Category)
+                    .filter(
+                        Category.id == new_category_id, Category.tenant_id == tenant_id
+                    )
+                    .first()
+                )
+                if not cat:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Category not found in target tenant (or not in same tenant as product)",
+                    ) from None
+        elif product.category_id is not None:
+            # No category update supplied; auto-clear orphaned category
+            old_cat = (
+                db.query(Category)
+                .filter(
+                    Category.id == product.category_id, Category.tenant_id == tenant_id
+                )
+                .first()
+            )
+            if not old_cat:
+                update_data["category_id"] = None
+        old_tenant = product.tenant_id
+        product.tenant_id = tenant_id
+        log_action(
+            db=db,
+            action="product.tenant_move",
+            user_id=current_user.id,
+            resource_type="product",
+            resource_id=product.id,
+            details={"from_tenant": old_tenant, "to_tenant": tenant_id},
+        )
     previous_stock_quantity = product.stock_quantity
     for field, value in update_data.items():
         setattr(product, field, value)

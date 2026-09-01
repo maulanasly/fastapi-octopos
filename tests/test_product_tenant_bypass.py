@@ -160,3 +160,128 @@ def test_search_isolation(client, auth_factory, db):
     assert resp.status_code == 200
     # superuser without tenant filter should find it (if bypass includes search)
     # Already tested tenant isolation via product list above
+
+
+def test_product_move_to_different_tenant(client, auth_factory, db):
+    # Setup two tenants
+    auth_factory.register("move-a@example.com")
+    b = auth_factory.register("move-b@example.com")
+    from app.models.user import User as _User  # local to avoid shadowing
+
+    user_b = db.get(_User, b["id"])
+    user_b.is_superuser = True
+    db.commit()
+
+    for email in ("move-a@example.com", "move-b@example.com"):
+        user = db.query(_User).filter(_User.email == email).one()
+        admin_role = db.query(Role).filter(Role.name == "admin").one()
+        if admin_role not in user.roles:
+            user.roles.append(admin_role)
+            db.commit()
+
+    headers_a = auth_factory.login("move-a@example.com")
+    headers_b = auth_factory.login("move-b@example.com")  # superuser
+
+    tenant_b = (
+        db.query(_User).filter(_User.email == "move-b@example.com").one().tenant_id
+    )
+
+    cat_a = client.post(
+        "/api/v1/products/categories", headers=headers_a, json={"name": "MoveCatA"}
+    ).json()
+    prod = client.post(
+        "/api/v1/products",
+        headers=headers_a,
+        json={
+            "name": "MoveProd",
+            "sku": "MOVE-1",
+            "price": 9.0,
+            "category_id": cat_a["id"],
+        },
+    ).json()
+
+    # Normal user cannot move
+    resp = client.put(
+        f"/api/v1/products/{prod['id']}?tenant_id={tenant_b}",
+        headers=headers_a,
+        json={},
+    )
+    assert resp.status_code == 403, resp.text
+
+    # Superuser moves product to tenant B
+    resp = client.put(
+        f"/api/v1/products/{prod['id']}?tenant_id={tenant_b}",
+        headers=headers_b,
+        json={},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["id"] == prod["id"]
+
+    # Verify product now in B, not in A
+    list_a = client.get("/api/v1/products", headers=headers_a).json()
+    assert all(p["id"] != prod["id"] for p in list_a)
+    list_b = client.get(
+        f"/api/v1/products?tenant_id={tenant_b}", headers=headers_b
+    ).json()
+    assert any(p["id"] == prod["id"] for p in list_b)
+    # Also direct fetch as superuser without filter should still see it
+    all_products = client.get("/api/v1/products", headers=headers_b).json()
+    assert any(p["id"] == prod["id"] for p in all_products)
+
+    # Category should have been auto-cleared (since old category belongs to A)
+    moved = client.get(
+        f"/api/v1/products?tenant_id={tenant_b}", headers=headers_b
+    ).json()
+    moved_prod = next(p for p in moved if p["id"] == prod["id"])
+    assert moved_prod["category_id"] is None  # auto-cleared
+
+    # Moving to non-existent tenant
+    resp = client.put(
+        f"/api/v1/products/{prod['id']}?tenant_id=99999", headers=headers_b, json={}
+    )
+    assert resp.status_code == 404, resp.text
+
+    # Duplicate SKU in target should be rejected
+    # Create another product in B with same SKU
+    cat_b = client.post(
+        "/api/v1/products/categories", headers=headers_b, json={"name": "MoveCatB"}
+    ).json()
+    # Need to specify tenant for superuser create when using B's headers? B is superuser but has tenant_b,
+    # but we can create via tenant_b context by not specifying tenant_id (fallback to own tenant)
+    # So create in B directly
+    client.post(
+        "/api/v1/products",
+        headers=headers_b,
+        json={
+            "name": "Other",
+            "sku": "DUP-SKU",
+            "price": 5.0,
+            "category_id": cat_b["id"],
+        },
+    ).json()
+    # Create product in A with same SKU to move and trigger duplicate
+    prod2 = client.post(
+        "/api/v1/products",
+        headers=headers_a,
+        json={"name": "DupProd", "sku": "DUP-SKU", "price": 7.0},
+    ).json()
+    resp = client.put(
+        f"/api/v1/products/{prod2['id']}?tenant_id={tenant_b}",
+        headers=headers_b,
+        json={},
+    )
+    assert resp.status_code == 400 and "already exists" in resp.text, resp.text
+
+    # Moving with category that belongs to target should succeed
+    prod3 = client.post(
+        "/api/v1/products",
+        headers=headers_a,
+        json={"name": "MoveWithCat", "sku": "MOVE-CAT", "price": 8.0},
+    ).json()
+    resp = client.put(
+        f"/api/v1/products/{prod3['id']}?tenant_id={tenant_b}",
+        headers=headers_b,
+        json={"category_id": cat_b["id"]},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["category_id"] == cat_b["id"]
