@@ -206,3 +206,6 @@ class SyncEventLogAdmin(
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False

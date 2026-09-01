@@ -38,36 +38,45 @@ from app.admin.views.tenant import TenantAdmin, TenantSwitchAdmin
 from app.admin.views.workflows import WorkflowsAdmin
 
 all_admin_views = [
+    # Platform — tenant context first (scopes all writes)
+    TenantSwitchAdmin,
+    TenantAdmin,
+    # Workflows — guided daily tasks
     WorkflowsAdmin,
+    # Sales — Orders, Customers, Marketing (merged for daily ops)
     OrderAdmin,
-    OrderItemAdmin,
-    OrderTaxLineAdmin,
     RefundAdmin,
-    RefundItemAdmin,
     CustomerAdmin,
-    LoyaltyTransactionAdmin,
-    SupplierAdmin,
-    PurchaseOrderAdmin,
-    PurchaseOrderItemAdmin,
-    PurchaseInvoiceAdmin,
-    PurchaseInvoiceItemAdmin,
-    SupplierPaymentAdmin,
+    PromotionAdmin,
+    TaxRuleAdmin,
+    # Inventory — catalog + ledger
     ProductAdmin,
     CategoryAdmin,
     StockMovementAdmin,
-    PromotionAdmin,
-    TaxRuleAdmin,
+    # Purchasing — suppliers & documents
+    SupplierAdmin,
+    PurchaseOrderAdmin,
+    PurchaseInvoiceAdmin,
+    SupplierPaymentAdmin,
+    # Operations — cash & shifts
     DrawerSessionAdmin,
     ShiftReconciliationAdmin,
+    # Reports — KPIs
+    ReportsAdmin,
+    # Administration — tenant-scoped settings & RBAC
     UserAdmin,
     RoleAdmin,
+    LocalizationSettingAdmin,
+    PurchasingSettingAdmin,
+    # Hidden detail/audit — kept for detail routes, not in menu
+    OrderItemAdmin,
+    OrderTaxLineAdmin,
+    RefundItemAdmin,
+    LoyaltyTransactionAdmin,
+    PurchaseOrderItemAdmin,
+    PurchaseInvoiceItemAdmin,
     PermissionAdmin,
     UserRoleAdmin,
     RolePermissionAdmin,
-    LocalizationSettingAdmin,
-    PurchasingSettingAdmin,
     SyncEventLogAdmin,
-    ReportsAdmin,
-    TenantSwitchAdmin,
-    TenantAdmin,
 ]

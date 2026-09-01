@@ -1,3 +1,6 @@
+# pyrefly: ignore [missing-import]
+from starlette.requests import Request
+
 from app.admin.base import TenantScopedModelView
 from app.admin.formatting import LabeledRelationsMixin
 from app.models.purchase import (
@@ -78,6 +81,9 @@ class PurchaseOrderItemAdmin(
     can_edit = False
     can_delete = False
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class PurchaseInvoiceAdmin(
     LabeledRelationsMixin, TenantScopedModelView, model=PurchaseInvoice
@@ -142,6 +148,9 @@ class PurchaseInvoiceItemAdmin(
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class SupplierPaymentAdmin(

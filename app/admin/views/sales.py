@@ -1,6 +1,9 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView  # noqa: F401
 
+# pyrefly: ignore [missing-import]
+from starlette.requests import Request
+
 from app.admin.base import TenantScopedModelView
 from app.admin.formatting import LabeledRelationsMixin
 from app.models.customer import Customer, LoyaltyTransaction
@@ -13,8 +16,8 @@ from app.models.tax import OrderTaxLine, TaxRule
 class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promotion):
     name = "Promotions"
     icon = "fa-solid fa-tags"
-    category = "Marketing"
-    category_icon = "fa-solid fa-bullhorn"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         Promotion.id,
@@ -37,8 +40,8 @@ class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promoti
 class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
     name = "Tax Rules"
     icon = "fa-solid fa-percent"
-    category = "Marketing"
-    category_icon = "fa-solid fa-bullhorn"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         TaxRule.id,
@@ -61,8 +64,8 @@ class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
 class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer):
     name = "Customers"
     icon = "fa-solid fa-user-group"
-    category = "Customers"
-    category_icon = "fa-solid fa-user-group"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         Customer.id,
@@ -83,8 +86,8 @@ class LoyaltyTransactionAdmin(
 ):
     name = "Loyalty Transactions"
     icon = "fa-solid fa-star"
-    category = "Customers"
-    category_icon = "fa-solid fa-user-group"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         LoyaltyTransaction.id,
@@ -104,6 +107,9 @@ class LoyaltyTransactionAdmin(
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
@@ -170,6 +176,9 @@ class OrderItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=OrderIt
     can_edit = False
     can_delete = False
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class OrderTaxLineAdmin(
     LabeledRelationsMixin, TenantScopedModelView, model=OrderTaxLine
@@ -197,6 +206,9 @@ class OrderTaxLineAdmin(
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class RefundAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund):
@@ -239,3 +251,6 @@ class RefundItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False

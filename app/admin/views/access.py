@@ -108,6 +108,9 @@ class PermissionAdmin(LabeledRelationsMixin, ModelView, model=Permission):
     column_sortable_list = [Permission.id, Permission.code]
     column_default_sort = [(Permission.id, True)]
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
     name = "User Roles"
@@ -121,6 +124,9 @@ class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission):
@@ -143,3 +149,6 @@ class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
