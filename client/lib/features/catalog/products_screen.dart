@@ -150,6 +150,9 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         onRetry: () => ref.read(catalogControllerProvider.notifier).refresh(),
       );
     }
+    if (catalog.products.isEmpty) {
+      return EmptyStateView(message: s.of('noProducts'));
+    }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: catalog.products.length,

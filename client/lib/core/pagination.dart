@@ -1,7 +1,8 @@
 library;
 
 /// Simple pagination abstraction to avoid hardcoded `limit: 500` etc.
-/// Mirrors backend `limit`/`offset` query params.
+/// Mirrors backend `limit`/`skip` query params (backend uses `skip`, we keep
+/// `offset` as the Dart field name for familiarity).
 class PaginationParams {
   final int limit;
   final int offset;
@@ -19,6 +20,8 @@ class PaginationParams {
 
   Map<String, dynamic> toQuery() => {
     'limit': limit,
+    // Backend expects `skip`; also send `offset` for forward compat.
+    if (offset > 0) 'skip': offset,
     if (offset > 0) 'offset': offset,
   };
 
