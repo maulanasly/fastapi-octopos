@@ -3,10 +3,16 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import joinedload
 
 from app.core.localization import format_currency, get_localization_setting
+from app.models.customer import Customer
 from app.models.drawer import DrawerSession
 from app.models.order import Order
-from app.models.product import Product
-from app.models.purchase import PurchaseInvoice, PurchaseOrder, SupplierPayment
+from app.models.product import Category, Product
+from app.models.purchase import (
+    PurchaseInvoice,
+    PurchaseOrder,
+    Supplier,
+    SupplierPayment,
+)
 from app.models.stock_movement import StockMovement
 from app.models.tenant import Tenant
 from app.services.reports import (
@@ -113,6 +119,22 @@ def build_dashboard_data(db, tenant_id: int, period: str = "30d") -> dict:
         .all()
     )
 
+    # Onboarding checklist for new tenants (intuitive flow)
+    has_products = len(all_products) > 0
+    has_categories = (
+        db.query(Category).filter(Category.tenant_id == tenant_id).count() > 0
+    )
+    has_suppliers = (
+        db.query(Supplier).filter(Supplier.tenant_id == tenant_id).count() > 0
+    )
+    has_customers = (
+        db.query(Customer).filter(Customer.tenant_id == tenant_id).count() > 0
+    )
+    has_orders = db.query(Order).filter(Order.tenant_id == tenant_id).count() > 0
+    onboarding_complete = all(
+        [has_products, has_categories, has_suppliers, has_customers, has_orders]
+    )
+
     localized = {
         "net_revenue": format_currency(
             float(sales_summary["net_revenue"]),
@@ -180,6 +202,14 @@ def build_dashboard_data(db, tenant_id: int, period: str = "30d") -> dict:
         "open_drawer_count": open_drawer_count,
         "recent_orders": recent_orders,
         "recent_movements": recent_movements,
+        "onboarding": {
+            "has_products": has_products,
+            "has_categories": has_categories,
+            "has_suppliers": has_suppliers,
+            "has_customers": has_customers,
+            "has_orders": has_orders,
+            "complete": onboarding_complete,
+        },
     }
 
 

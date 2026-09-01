@@ -45,6 +45,7 @@ class CategoryAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Category
     column_default_sort = [(Category.updated_at, True)]
     form_overrides = {"color": ColorField}
     column_labels = {Category.name: "Category"}
+    column_descriptions = {Category.name: "Short category name, searchable"}
 
 
 class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
@@ -60,14 +61,10 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.id,
         Product.name,
         Product.sku,
-        Product.price,
-        Product.unit_cost,
-        Product.stock_quantity,
-        Product.min_stock,
-        Product.max_stock,
-        Product.reorder_point,
-        Product.lead_time_days,
         Product.category,
+        Product.price,
+        Product.stock_quantity,
+        Product.reorder_point,
         Product.image_url,
     ]
     column_searchable_list = [Product.name, Product.sku]
@@ -78,10 +75,42 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.lead_time_days,
     ]
     column_default_sort = [(Product.updated_at, True)]
+    column_details_list = [
+        Product.id,
+        Product.name,
+        Product.sku,
+        Product.category,
+        Product.price,
+        Product.unit_cost,
+        Product.stock_quantity,
+        Product.min_stock,
+        Product.max_stock,
+        Product.reorder_point,
+        Product.lead_time_days,
+        Product.image_url,
+        Product.thumbnail_url,
+    ]
     column_filters = [
         ForeignKeyFilter(Product.category_id, Category.name, foreign_model=Category),
     ]
-    column_labels = {Product.name: "Product / SKU", Product.category: "Category"}
+    column_labels = {
+        Product.name: "Product / SKU",
+        Product.category: "Category",
+        Product.sku: "SKU",
+        Product.price: "Price",
+        Product.stock_quantity: "Stock",
+    }
+    column_descriptions = {
+        Product.name: "Full product name, appears on POS tile",
+        Product.sku: "Unique per tenant — use Suggest SKU button",
+        Product.price: "Selling price (display currency)",
+        Product.category: "Optional category for filtering",
+    }
+    form_args = {
+        "name": {"render_kw": {"placeholder": "e.g. Cafe Latte"}},
+        "sku": {"render_kw": {"placeholder": "e.g. SKU-CAFE-LATTE"}},
+        "price": {"render_kw": {"placeholder": "12.50"}},
+    }
 
     # Stock is ledger-managed via the stock-adjustment action below; never
     # edit it directly through the create/edit forms. Photos go through the

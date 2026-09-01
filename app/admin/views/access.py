@@ -1,5 +1,6 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView
+from sqladmin.filters import BooleanFilter
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
@@ -29,7 +30,12 @@ class UserAdmin(LabeledRelationsMixin, TenantScopedModelView, model=User):
     column_searchable_list = [User.email, User.full_name]
     can_delete = False
 
-    column_labels = {User.hashed_password: "Password"}
+    column_filters = [BooleanFilter(User.is_active, title="Active")]
+    column_labels = {
+        User.hashed_password: "Password",
+        User.is_active: "Active",
+        User.email: "Email",
+    }
     column_default_sort = [(User.id, True)]
     form_overrides = {User.hashed_password: AdminPasswordField}
 

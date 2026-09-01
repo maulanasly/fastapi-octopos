@@ -36,6 +36,54 @@
   </div>
 </div>
 
+{% if not onboarding.complete %}
+<div class="col-12 mb-3">
+  <div class="card border-0 shadow-sm" style="border-left: 4px solid #f59e0b !important;">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="mb-0" style="font-size: 0.9rem; font-weight: 700;"><i class="fa-solid fa-list-check me-2 text-warning"></i>Getting Started</h5>
+        <span class="badge bg-warning-lt">{{ 5 - (onboarding.has_categories|int + onboarding.has_products|int + onboarding.has_suppliers|int + onboarding.has_customers|int + onboarding.has_orders|int) }} steps remaining</span>
+      </div>
+      <div class="row g-2">
+        <div class="col-6 col-md-2">
+          <a href="/admin/category/list" class="btn w-100 btn-sm {% if onboarding.has_categories %}btn-success{% else %}btn-outline-warning{% endif %}">
+            {% if onboarding.has_categories %}<i class="fa-solid fa-check me-1"></i>{% else %}<i class="fa-solid fa-folder-tree me-1"></i>{% endif %}Category
+          </a>
+          <div class="text-secondary small text-center mt-1">{% if onboarding.has_categories %}Done{% else %}Create category{% endif %}</div>
+        </div>
+        <div class="col-6 col-md-2">
+          <a href="/admin/product/list" class="btn w-100 btn-sm {% if onboarding.has_products %}btn-success{% else %}btn-outline-warning{% endif %}">
+            {% if onboarding.has_products %}<i class="fa-solid fa-check me-1"></i>{% else %}<i class="fa-solid fa-cube me-1"></i>{% endif %}Product
+          </a>
+          <div class="text-secondary small text-center mt-1">{% if onboarding.has_products %}Done{% else %}Add product{% endif %}</div>
+        </div>
+        <div class="col-6 col-md-2">
+          <a href="/admin/supplier/list" class="btn w-100 btn-sm {% if onboarding.has_suppliers %}btn-success{% else %}btn-outline-warning{% endif %}">
+            {% if onboarding.has_suppliers %}<i class="fa-solid fa-check me-1"></i>{% else %}<i class="fa-solid fa-truck-field me-1"></i>{% endif %}Supplier
+          </a>
+          <div class="text-secondary small text-center mt-1">{% if onboarding.has_suppliers %}Done{% else %}Add supplier{% endif %}</div>
+        </div>
+        <div class="col-6 col-md-2">
+          <a href="/admin/customer/list" class="btn w-100 btn-sm {% if onboarding.has_customers %}btn-success{% else %}btn-outline-warning{% endif %}">
+            {% if onboarding.has_customers %}<i class="fa-solid fa-check me-1"></i>{% else %}<i class="fa-solid fa-user-group me-1"></i>{% endif %}Customer
+          </a>
+          <div class="text-secondary small text-center mt-1">{% if onboarding.has_customers %}Done{% else %}Add customer{% endif %}</div>
+        </div>
+        <div class="col-12 col-md-4">
+          <a href="/admin/order/list" class="btn w-100 btn-sm {% if onboarding.has_orders %}btn-success{% else %}btn-outline-warning{% endif %}">
+            {% if onboarding.has_orders %}<i class="fa-solid fa-check me-1"></i>{% else %}<i class="fa-solid fa-cart-shopping me-1"></i>{% endif %}First Order
+          </a>
+          <div class="text-secondary small text-center mt-1">{% if onboarding.has_orders %}Done{% else %}Create via POS{% endif %}</div>
+        </div>
+      </div>
+      <div class="progress mt-3" style="height: 6px;">
+        <div class="progress-bar bg-warning" style="width: {{ ((onboarding.has_categories|int + onboarding.has_products|int + onboarding.has_suppliers|int + onboarding.has_customers|int + onboarding.has_orders|int) / 5 * 100)|int }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- KPI Row -->
 <div class="col-12 mb-3">
   <div class="row row-cards">

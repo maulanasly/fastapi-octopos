@@ -1,5 +1,9 @@
 # pyrefly: ignore [missing-import]
-from sqladmin.filters import AllUniqueStringValuesFilter, ForeignKeyFilter
+from sqladmin.filters import (
+    AllUniqueStringValuesFilter,
+    BooleanFilter,
+    ForeignKeyFilter,
+)
 from starlette.requests import Request
 
 from app.admin.base import TenantScopedModelView
@@ -31,6 +35,8 @@ class SupplierAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Supplier
     column_searchable_list = [Supplier.name, Supplier.contact_email, Supplier.phone]
     column_sortable_list = [Supplier.created_at, Supplier.id]
     column_default_sort = [(Supplier.created_at, True)]
+    column_filters = [BooleanFilter(Supplier.is_active, title="Active")]
+    column_labels = {Supplier.name: "Supplier", Supplier.is_active: "Active"}
 
 
 class PurchaseOrderAdmin(
