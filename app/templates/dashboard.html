@@ -1,21 +1,29 @@
 {% extends "sqladmin/layout.html" %}
+{% block head_tail %}
+{{ super() }}
+<style>
+  /* Dashboard also ensures card/table overflow handling */
+  .card { min-width: 0; overflow: hidden; }
+  .table-responsive { max-width: 100%; }
+</style>
+{% endblock %}
 {% block content %}
 <div class="col-12 mb-3">
   <div class="card border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
-    <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between">
-      <div>
+    <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between" style="min-width: 0;">
+      <div class="flex-grow-1" style="min-width: 0; flex-basis: 200px;">
         <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Current Tenant</div>
-        <div class="h3 mb-0">
+        <div class="h3 mb-0 text-truncate" style="overflow-wrap:anywhere;">
           <i class="fa-solid fa-building me-2 text-primary"></i>{{ current_tenant.name if current_tenant else 'Unknown' }}
           <span class="text-secondary" style="font-size: 0.85rem;">(ID {{ current_tenant_id }})</span>
         </div>
         <div class="text-secondary small">All data below scoped to this tenant · period: {{ period_label }}</div>
       </div>
-      <form method="post" action="/admin/tenant" class="d-flex gap-2 align-items-end">
+      <form method="post" action="/admin/tenant" class="d-flex flex-wrap gap-2 align-items-end" style="min-width: 0;">
         <input type="hidden" name="next" value="/admin/" />
-        <div>
+        <div class="flex-grow-1" style="min-width: 180px; flex-basis: 180px;">
           <label class="form-label small mb-1">Switch tenant</label>
-          <select name="tenant_id" class="form-select form-select-sm" style="min-width: 200px;">
+          <select name="tenant_id" class="form-select form-select-sm w-100" style="min-width: 0;">
             {% for t in tenants %}
               <option value="{{ t.id }}" {% if t.id == current_tenant_id %}selected{% endif %}>{{ t.name }} ({{ t.slug }})</option>
             {% endfor %}
@@ -31,42 +39,42 @@
 <!-- KPI Row -->
 <div class="col-12 mb-3">
   <div class="row row-cards">
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <div class="col-12 col-sm-6 col-xl-3 mb-3 mb-xl-0">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #206bc4 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto"><span class="bg-blue-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-dollar-sign fa-lg"></i></span></div>
-            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Net Revenue (30d)</div><div class="h3 mb-0">{{ localized.net_revenue }}</div><div class="text-secondary small">{{ sales_summary.order_count }} orders · avg {{ localized.average_order_value }}</div></div>
+            <div class="col" style="min-width: 0;"><div class="text-secondary text-truncate" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Net Revenue (30d)</div><div class="h3 mb-0 text-truncate" style="font-size: 1.35rem; overflow-wrap:anywhere;">{{ localized.net_revenue }}</div><div class="text-secondary small text-truncate" style="overflow-wrap:anywhere;">{{ sales_summary.order_count }} orders · avg {{ localized.average_order_value }}</div></div>
           </div>
         </div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #2fb344 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <div class="col-12 col-sm-6 col-xl-3 mb-3 mb-xl-0">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #2fb344 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto"><span class="bg-green-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-shopping-bag fa-lg"></i></span></div>
-            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Gross vs Discount</div><div class="h3 mb-0">{{ localized.gross_revenue }}</div><div class="text-secondary small">Discount {{ localized.total_discounts }} · Refunds {{ localized.total_refunds }}</div></div>
+            <div class="col" style="min-width: 0;"><div class="text-secondary text-truncate" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Gross vs Discount</div><div class="h3 mb-0 text-truncate" style="font-size: 1.35rem; overflow-wrap:anywhere;">{{ localized.gross_revenue }}</div><div class="text-secondary small text-truncate" style="overflow-wrap:anywhere;">Discount {{ localized.total_discounts }} · Refunds {{ localized.total_refunds }}</div></div>
           </div>
         </div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #d63939 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <div class="col-12 col-sm-6 col-xl-3 mb-3 mb-xl-0">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #d63939 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto"><span class="bg-red-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-triangle-exclamation fa-lg"></i></span></div>
-            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Needs Attention</div><div class="h3 mb-0">{{ low_stock_count }} low-stock</div><div class="text-secondary small">{{ pending_invoice_count }} invoices · {{ pending_payment_count }} payments pending</div></div>
+            <div class="col" style="min-width: 0;"><div class="text-secondary text-truncate" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Needs Attention</div><div class="h3 mb-0 text-truncate" style="font-size: 1.35rem; overflow-wrap:anywhere;">{{ low_stock_count }} low-stock</div><div class="text-secondary small text-truncate" style="overflow-wrap:anywhere;">{{ pending_invoice_count }} invoices · {{ pending_payment_count }} payments pending</div></div>
           </div>
         </div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #4299e1 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #4299e1 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto"><span class="bg-cyan-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-cash-register fa-lg"></i></span></div>
-            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Operations</div><div class="h3 mb-0">{{ open_drawer_count }} open drawers</div><div class="text-secondary small">{{ draft_po_count }} draft POs · <a href="/admin/workflows">Workflows →</a></div></div>
+            <div class="col" style="min-width: 0;"><div class="text-secondary text-truncate" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Operations</div><div class="h3 mb-0 text-truncate" style="font-size: 1.35rem; overflow-wrap:anywhere;">{{ open_drawer_count }} open drawers</div><div class="text-secondary small text-truncate" style="overflow-wrap:anywhere;">{{ draft_po_count }} draft POs · <a href="/admin/workflows">Workflows →</a></div></div>
           </div>
         </div>
       </div>

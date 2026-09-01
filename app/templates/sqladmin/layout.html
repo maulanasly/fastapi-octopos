@@ -1,5 +1,14 @@
 {% extends "sqladmin/base.html" %}
 {% from 'sqladmin/_macros.html' import display_menu %}
+{% block head_tail %}
+<style>
+  .page-wrapper { overflow-x: hidden; min-width: 0; }
+  .page-body .container-fluid { overflow-x: hidden; }
+  .row.row-deck.row-cards { margin-left: 0; margin-right: 0; }
+  .card { min-width: 0; overflow: hidden; }
+  .table-responsive { max-width: 100%; }
+</style>
+{% endblock %}
 {% block body %}
 <div class="wrapper">
   <aside class="navbar navbar-expand-lg navbar-vertical navbar-expand-md navbar-dark" data-bs-theme="dark">
