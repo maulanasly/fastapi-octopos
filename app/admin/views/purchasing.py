@@ -36,7 +36,19 @@ class SupplierAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Supplier
     column_sortable_list = [Supplier.created_at, Supplier.id]
     column_default_sort = [(Supplier.created_at, True)]
     column_filters = [BooleanFilter(Supplier.is_active, title="Active")]
-    column_labels = {Supplier.name: "Supplier", Supplier.is_active: "Active"}
+    column_labels = {
+        Supplier.name: "Supplier",
+        Supplier.is_active: "Active",
+        Supplier.contact_email: "Email",
+    }
+    column_descriptions = {
+        Supplier.name: "Supplier display name, searchable",
+        Supplier.is_active: "Inactive suppliers not offered in workflows",
+    }
+    form_args = {
+        "name": {"render_kw": {"placeholder": "e.g. Acme Supplies"}},
+        "contact_email": {"render_kw": {"placeholder": "contact@supplier.com"}},
+    }
 
 
 class PurchaseOrderAdmin(

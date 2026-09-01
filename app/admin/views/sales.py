@@ -105,7 +105,13 @@ class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer
     column_sortable_list = [Customer.id, Customer.points_balance, Customer.created_at]
     column_default_sort = [(Customer.created_at, True)]
     column_filters = [BooleanFilter(Customer.is_active, title="Active")]
-    column_labels = {Customer.name: "Customer", Customer.is_active: "Active"}
+    column_labels = {
+        Customer.name: "Customer",
+        Customer.is_active: "Active",
+        Customer.email: "Email",
+        Customer.points_balance: "Points",
+    }
+    column_descriptions = {Customer.name: "Full name, searchable with email/phone"}
 
 
 class LoyaltyTransactionAdmin(
@@ -183,6 +189,7 @@ class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
         AllUniqueStringValuesFilter(Order.status, title="Status"),
         # Huge customer list: ID input avoids loading 10k customers
         OperationColumnFilter(Order.customer_id, title="Customer ID"),
+        OperationColumnFilter(Order.created_at, title="Created"),
     ]
     column_labels = {
         Order.id: "Order #",

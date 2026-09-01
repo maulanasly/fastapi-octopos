@@ -128,8 +128,8 @@ class PurchasingSettingAdmin(
 ):
     name = "Purchasing Automation"
     icon = "fa-solid fa-robot"
-    category = "System"
-    category_icon = "fa-solid fa-gear"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
 
     exclude_tenant_from_form = False
 

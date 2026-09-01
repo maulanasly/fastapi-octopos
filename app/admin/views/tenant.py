@@ -54,7 +54,7 @@ class TenantSwitchAdmin(BaseView):
     """Superuser tenant selector scoping panel writes and workflow/report
     queries to a chosen tenant (default: the seeded default tenant)."""
 
-    name = "Tenant"
+    name = "Active Tenant"
     icon = "fa-solid fa-building-circle-arrow-right"
     category = "Platform"
 

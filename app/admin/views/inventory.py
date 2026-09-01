@@ -92,6 +92,7 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
     ]
     column_filters = [
         ForeignKeyFilter(Product.category_id, Category.name, foreign_model=Category),
+        OperationColumnFilter(Product.stock_quantity, title="Stock"),
     ]
     column_labels = {
         Product.name: "Product / SKU",
