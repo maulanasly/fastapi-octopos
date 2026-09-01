@@ -1,39 +1,41 @@
-"""Admin views module."""
+"""Admin views module — aggregator keeps sqladmin registration stable."""
 
-from app.admin.views import (
-    CategoryAdmin,
-    CustomerAdmin,
-    DrawerSessionAdmin,
-    LocalizationSettingAdmin,
-    LoyaltyTransactionAdmin,
-    OrderAdmin,
-    OrderItemAdmin,
-    OrderTaxLineAdmin,
+from app.admin.views.access import (
     PermissionAdmin,
-    ProductAdmin,
-    PromotionAdmin,
+    RoleAdmin,
+    RolePermissionAdmin,
+    UserAdmin,
+    UserRoleAdmin,
+)
+from app.admin.views.inventory import CategoryAdmin, ProductAdmin, StockMovementAdmin
+from app.admin.views.operations import DrawerSessionAdmin, ShiftReconciliationAdmin
+from app.admin.views.purchasing import (
     PurchaseInvoiceAdmin,
     PurchaseInvoiceItemAdmin,
     PurchaseOrderAdmin,
     PurchaseOrderItemAdmin,
-    PurchasingSettingAdmin,
-    RefundAdmin,
-    RefundItemAdmin,
-    ReportsAdmin,
-    RoleAdmin,
-    RolePermissionAdmin,
-    ShiftReconciliationAdmin,
-    StockMovementAdmin,
     SupplierAdmin,
     SupplierPaymentAdmin,
-    SyncEventLogAdmin,
-    TaxRuleAdmin,
-    TenantAdmin,
-    TenantSwitchAdmin,
-    UserAdmin,
-    UserRoleAdmin,
-    WorkflowsAdmin,
 )
+from app.admin.views.reports import ReportsAdmin
+from app.admin.views.sales import (
+    CustomerAdmin,
+    LoyaltyTransactionAdmin,
+    OrderAdmin,
+    OrderItemAdmin,
+    OrderTaxLineAdmin,
+    PromotionAdmin,
+    RefundAdmin,
+    RefundItemAdmin,
+    TaxRuleAdmin,
+)
+from app.admin.views.system import (
+    LocalizationSettingAdmin,
+    PurchasingSettingAdmin,
+    SyncEventLogAdmin,
+)
+from app.admin.views.tenant import TenantAdmin, TenantSwitchAdmin
+from app.admin.views.workflows import WorkflowsAdmin
 
 all_admin_views = [
     WorkflowsAdmin,

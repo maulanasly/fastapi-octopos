@@ -270,11 +270,26 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(labelText: s.of('price')),
                 ),
-                TextField(
-                  controller: stock,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: s.of('stock')),
-                ),
+                if (product == null)
+                  TextField(
+                    controller: stock,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: '${s.of('stock')} (initial)'),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${s.of('stock')}: ${product.stockQuantity} — ${s.of('adjustStock')} via Inventory',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 DropdownButtonFormField<int>(
                   initialValue: categoryId,
                   decoration: InputDecoration(labelText: s.of('category')),
@@ -306,7 +321,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       'name': name.text.trim(),
       'sku': sku.text.trim(),
       'price': double.tryParse(price.text) ?? 0,
-      'stock_quantity': int.tryParse(stock.text) ?? 0,
+      if (product == null) 'stock_quantity': int.tryParse(stock.text) ?? 0,
       'category_id': ?categoryId,
     };
     try {

@@ -70,7 +70,15 @@ from fastapi.testclient import TestClient  # noqa: E402
 import app.core.security as _security_mod  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
-from app.admin import views as _admin_mod  # noqa: E402
+
+try:
+    from app.admin import views as _admin_mod  # noqa: E402
+except ImportError:
+    _admin_mod = None  # package now split
+try:
+    from app.admin.views import access as _admin_access_mod  # noqa: E402
+except ImportError:
+    _admin_access_mod = None
 from app.api.endpoints import auth as _auth_mod  # noqa: E402
 from app.core.database import SessionLocal  # noqa: E402
 
@@ -89,7 +97,9 @@ def _fast_verify(plain: str, hashed: str) -> bool:
 # import time (not in a fixture) so it is in place before any test module
 # does ``from app.core.security import verify_password``. Real bcrypt hashes
 # still verify (the fake falls back), so pre-existing hashes keep working.
-for _mod in (_security_mod, _auth_mod, _admin_mod):
+for _mod in (_security_mod, _auth_mod, _admin_mod, _admin_access_mod):
+    if _mod is None:
+        continue
     _mod.get_password_hash = _fast_hash
     _mod.verify_password = _fast_verify
 

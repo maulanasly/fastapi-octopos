@@ -68,6 +68,15 @@ class ProductUpdate(ProductBase):
     name: str | None = None
     sku: str | None = None
     price: float | None = None
+    # Preferred delta-based adjustment (intuitive, with note)
+    stock_delta: int | None = Field(
+        None, description="Stock delta (+/-), preferred over stock_quantity"
+    )
+    stock_note: str | None = Field(
+        None, max_length=255, description="Note for stock movement"
+    )
+    # Deprecated: absolute stock_quantity (kept one release for compat)
+    stock_quantity: int | None = Field(None, ge=0, deprecated=True)
 
 
 class Product(ProductBase):
