@@ -655,7 +655,12 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
             raise HTTPException(status_code=404)
         db = self.session_maker()
         try:
-            product = db.get(Product, int(pk))
+            selected_tenant = _selected_tenant_id(request)
+            product = (
+                db.query(Product)
+                .filter(Product.id == int(pk), Product.tenant_id == selected_tenant)
+                .first()
+            )
             if not product:
                 raise HTTPException(status_code=404)
 
@@ -754,7 +759,12 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
             raise HTTPException(status_code=404)
         db = self.session_maker()
         try:
-            product = db.get(Product, int(pk))
+            selected_tenant = _selected_tenant_id(request)
+            product = (
+                db.query(Product)
+                .filter(Product.id == int(pk), Product.tenant_id == selected_tenant)
+                .first()
+            )
             if not product:
                 raise HTTPException(status_code=404)
 

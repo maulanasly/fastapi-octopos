@@ -75,7 +75,9 @@ def get_replenishment_suggestions(
         db=db,
         products=products,
         lookback_days=lookback_days,
-        supplier_map=supplier_map_with_names(db, [product.id for product in products]),
+        supplier_map=supplier_map_with_names(
+            db, [product.id for product in products], tenant_id=current_user.tenant_id
+        ),
     )
 
     if only_reorder_needed:
