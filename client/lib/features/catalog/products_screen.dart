@@ -274,7 +274,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   TextField(
                     controller: stock,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: s.of('stock') + ' (initial)'),
+                    decoration: InputDecoration(labelText: '${s.of('stock')} (initial)'),
                   )
                 else
                   Padding(
