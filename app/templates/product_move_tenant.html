@@ -1,0 +1,61 @@
+{% extends "sqladmin/layout.html" %}
+
+{% block content %}
+<div class="col-12">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent border-0 py-3 d-flex justify-content-between align-items-center">
+      <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+        <i class="fa-solid fa-building-circle-arrow-right me-2 text-primary"></i>Move Product: {{ product.name }}
+      </h3>
+      <a href="/admin/product/details/{{ product.id }}" class="btn btn-outline-secondary btn-sm">
+        Back to product
+      </a>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-secondary py-2 small mb-3">
+        Current tenant: <strong>{{ current_tenant.name if current_tenant else 'Unknown' }}</strong> (ID {{ product.tenant_id }}) &middot;
+        SKU: <strong>{{ product.sku }}</strong> &middot;
+        Category: {{ product.category.name if product.category else '—' }}
+      </div>
+      <div class="alert alert-warning py-2 small mb-3">
+        Moving a product will change its <code>tenant_id</code>. SKU must be unique in the target tenant.
+        If the current category does not exist in the target tenant it will be cleared. Stock movements and
+        order references remain with the original tenant — move only products without active orders if possible.
+      </div>
+      <form method="post" action="">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="target_tenant_id">Target Tenant</label>
+            <select class="form-select" id="target_tenant_id" name="target_tenant_id" required>
+              <option value="">— Select tenant —</option>
+              {% for tenant in tenants %}
+                <option value="{{ tenant.id }}" {% if tenant.id == product.tenant_id %}disabled{% endif %}>
+                  {{ tenant.name }} (ID {{ tenant.id }}){% if tenant.id == product.tenant_id %} — current{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="new_category_id">Category in target tenant (optional)</label>
+            <input class="form-control" type="number" id="new_category_id" name="new_category_id" placeholder="Category ID or blank to clear" />
+            <div class="form-text">Leave blank to auto-clear if current category mismatches. If you set an ID it must belong to the target tenant.</div>
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-md-6">
+            <label class="form-label" for="new_sku">SKU (optional override)</label>
+            <input class="form-control" type="text" id="new_sku" name="new_sku" placeholder="{{ product.sku }}" maxlength="64" />
+            <div class="form-text">Leave blank to keep <code>{{ product.sku }}</code>. Must be unique in target tenant.</div>
+          </div>
+        </div>
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-arrow-right me-1"></i>Move Product
+          </button>
+          <a href="/admin/product/details/{{ product.id }}" class="btn btn-light ms-2">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

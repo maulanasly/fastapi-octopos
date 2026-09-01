@@ -830,6 +830,163 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         finally:
             db.close()
 
+    @action(
+        "move-tenant",
+        label="Move to Tenant",
+        confirmation_message=(
+            "Move this product to a different tenant? SKU must be unique in target."
+        ),
+    )
+    async def move_tenant_action(self, request: Request):
+        pk = request.query_params.get("pks", "").split(",")[0]
+        return RedirectResponse(
+            url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+        )
+
+    @expose("/move-tenant", methods=["GET", "POST"])
+    async def move_tenant_page(self, request: Request):
+        pk = request.query_params.get("pk")
+        if not pk:
+            raise HTTPException(status_code=404)
+        db = self.session_maker()
+        try:
+            product = db.get(Product, int(pk))
+            if not product:
+                raise HTTPException(status_code=404)
+            # Current tenant for display
+            current_tenant = db.get(Tenant, product.tenant_id)
+            if request.method == "POST":
+                form = await request.form()
+                raw_target = (form.get("target_tenant_id") or "").strip()
+                raw_new_sku = (form.get("new_sku") or "").strip()
+                raw_new_cat = (form.get("new_category_id") or "").strip()
+                if not raw_target.isdigit():
+                    Flash.error(
+                        request, "Select a valid target tenant.", "Invalid tenant"
+                    )
+                    return RedirectResponse(
+                        url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+                    )
+                target_tenant_id = int(raw_target)
+                if target_tenant_id == product.tenant_id:
+                    Flash.error(request, "Product is already in that tenant.", "No-op")
+                    return RedirectResponse(
+                        url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+                    )
+                target_tenant = db.get(Tenant, target_tenant_id)
+                if not target_tenant:
+                    Flash.error(request, "Target tenant not found.", "Invalid tenant")
+                    return RedirectResponse(
+                        url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+                    )
+                # Validate SKU uniqueness in target (use new_sku if provided else existing)
+                sku_to_check = raw_new_sku or product.sku
+                existing_sku = (
+                    db.query(Product)
+                    .filter(
+                        Product.tenant_id == target_tenant_id,
+                        Product.sku == sku_to_check,
+                    )
+                    .first()
+                )
+                if existing_sku and existing_sku.id != product.id:
+                    Flash.error(
+                        request,
+                        f"SKU '{sku_to_check}' already exists in target tenant.",
+                        "Duplicate SKU",
+                    )
+                    return RedirectResponse(
+                        url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+                    )
+                # Validate category in target tenant
+                new_category_id = None
+                if raw_new_cat != "":
+                    if not raw_new_cat.isdigit():
+                        Flash.error(
+                            request, "Category ID must be a number.", "Invalid category"
+                        )
+                        return RedirectResponse(
+                            url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+                        )
+                    new_category_id = int(raw_new_cat)
+                    cat = (
+                        db.query(Category)
+                        .filter(
+                            Category.id == new_category_id,
+                            Category.tenant_id == target_tenant_id,
+                        )
+                        .first()
+                    )
+                    if not cat:
+                        Flash.error(
+                            request,
+                            "Category not found in target tenant.",
+                            "Invalid category",
+                        )
+                        return RedirectResponse(
+                            url=f"/admin/product/move-tenant?pk={pk}", status_code=303
+                        )
+                else:
+                    # No explicit category supplied — auto-clear if current category mismatches
+                    if product.category_id is not None:
+                        old_cat = (
+                            db.query(Category)
+                            .filter(
+                                Category.id == product.category_id,
+                                Category.tenant_id == target_tenant_id,
+                            )
+                            .first()
+                        )
+                        if not old_cat:
+                            new_category_id = None
+                        else:
+                            new_category_id = product.category_id
+                    else:
+                        new_category_id = None
+
+                old_tenant_id = product.tenant_id
+                # Apply move
+                product.tenant_id = target_tenant_id
+                if raw_new_sku:
+                    product.sku = raw_new_sku
+                product.category_id = new_category_id
+
+                db.add(product)
+                log_action(
+                    db=db,
+                    action="admin.product_tenant_move",
+                    user_id=request.session.get("admin_user_id"),
+                    resource_type="product",
+                    resource_id=product.id,
+                    details={
+                        "from_tenant": old_tenant_id,
+                        "to_tenant": target_tenant_id,
+                        "sku": product.sku,
+                    },
+                )
+                db.commit()
+                Flash.success(
+                    request,
+                    f"Product moved from tenant {old_tenant_id} to {target_tenant_id}.",
+                )
+                return RedirectResponse(
+                    url=f"/admin/product/details/{product.id}", status_code=303
+                )
+
+            # GET — render form
+            tenants = db.query(Tenant).order_by(Tenant.id.asc()).all()
+            return await self.templates.TemplateResponse(
+                request,
+                "product_move_tenant.html",
+                context={
+                    "product": product,
+                    "current_tenant": current_tenant,
+                    "tenants": tenants,
+                },
+            )
+        finally:
+            db.close()
+
 
 class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promotion):
     name = "Promotions"
