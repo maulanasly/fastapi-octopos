@@ -13,6 +13,7 @@ from app.models.product import Category, Product
 from app.models.purchase import PurchaseInvoiceItem, PurchaseOrderItem
 from app.models.refund import RefundItem
 from app.models.stock_movement import StockMovement
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.product import Category as CategorySchema
 from app.schemas.product import (
@@ -49,15 +50,16 @@ def get_categories(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
+    tenant_id: int | None = Query(None, description="Tenant filter (superuser only)"),
     current_user: User = Depends(get_current_active_user),
 ):
-    categories = (
-        db.query(Category)
-        .filter(Category.tenant_id == current_user.tenant_id)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    query = db.query(Category)
+    if current_user.is_superuser:
+        if tenant_id is not None:
+            query = query.filter(Category.tenant_id == tenant_id)
+    else:
+        query = query.filter(Category.tenant_id == current_user.tenant_id)
+    categories = query.offset(skip).limit(limit).all()
     return categories
 
 
@@ -65,9 +67,20 @@ def get_categories(
 def create_category(
     category_in: CategoryCreate,
     db: Session = Depends(get_db),
+    tenant_id: int | None = Query(None, description="Tenant filter (superuser only)"),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    category = Category(**category_in.model_dump(), tenant_id=current_user.tenant_id)
+    if current_user.is_superuser:
+        effective_tenant = (
+            tenant_id if tenant_id is not None else current_user.tenant_id
+        )
+    else:
+        effective_tenant = current_user.tenant_id
+    if effective_tenant is None:
+        raise HTTPException(
+            status_code=400, detail="tenant_id is required for superuser"
+        ) from None
+    category = Category(**category_in.model_dump(), tenant_id=effective_tenant)
     db.add(category)
     db.commit()
     db.refresh(category)
@@ -81,14 +94,10 @@ def update_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    category = (
-        db.query(Category)
-        .filter(
-            Category.id == category_id,
-            Category.tenant_id == current_user.tenant_id,
-        )
-        .first()
-    )
+    q = db.query(Category).filter(Category.id == category_id)
+    if not current_user.is_superuser:
+        q = q.filter(Category.tenant_id == current_user.tenant_id)
+    category = q.first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
@@ -107,25 +116,23 @@ def delete_category(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    category = (
-        db.query(Category)
-        .filter(
-            Category.id == category_id,
-            Category.tenant_id == current_user.tenant_id,
-        )
-        .first()
-    )
+    q = db.query(Category).filter(Category.id == category_id)
+    if not current_user.is_superuser:
+        q = q.filter(Category.tenant_id == current_user.tenant_id)
+    category = q.first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    product_count = (
-        db.query(func.count(Product.id))
-        .filter(
-            Product.category_id == category_id,
-            Product.tenant_id == current_user.tenant_id,
-        )
-        .scalar()
+    # Count products in the same tenant as the category (or all if superuser unscoped)
+    count_q = db.query(func.count(Product.id)).filter(
+        Product.category_id == category_id,
     )
+    if not current_user.is_superuser:
+        count_q = count_q.filter(Product.tenant_id == current_user.tenant_id)
+    else:
+        # Superuser: count within the category's tenant to avoid cross-tenant block
+        count_q = count_q.filter(Product.tenant_id == category.tenant_id)
+    product_count = count_q.scalar()
     if product_count:
         raise HTTPException(
             status_code=400,
@@ -147,6 +154,7 @@ def delete_category(
 def search_products(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=100),
+    tenant_id: int | None = Query(None, description="Tenant filter (superuser only)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
@@ -163,31 +171,64 @@ def search_products(
             status_code=400,
             detail="Semantic search is not configured (EMBEDDING_PROVIDER=none)",
         )
-    products = (
-        db.execute(
-            text(
+    # Superuser bypass: no tenant filter when tenant_id is None, else filter to that tenant.
+    # Normal users always filter to their own tenant (ignore query param).
+    effective_tenant: int | None
+    if current_user.is_superuser:
+        effective_tenant = tenant_id
+    else:
+        effective_tenant = current_user.tenant_id
+
+    if effective_tenant is None:
+        # Superuser unscoped search
+        products = (
+            db.execute(
+                text(
+                    """
+                SELECT * FROM products
+                WHERE embedding IS NOT NULL
+                ORDER BY embedding <=> :query
+                LIMIT :limit
                 """
-            SELECT * FROM products
-            WHERE tenant_id = :tenant_id
-              AND embedding IS NOT NULL
-            ORDER BY embedding <=> :query
-            LIMIT :limit
-            """
-            ),
-            {
-                "tenant_id": current_user.tenant_id,
-                "query": "[" + ",".join(repr(v) for v in vector) + "]",
-                "limit": limit,
-            },
+                ),
+                {
+                    "query": "[" + ",".join(repr(v) for v in vector) + "]",
+                    "limit": limit,
+                },
+            )
+            .mappings()
+            .all()
         )
-        .mappings()
-        .all()
-    )
+    else:
+        products = (
+            db.execute(
+                text(
+                    """
+                SELECT * FROM products
+                WHERE tenant_id = :tenant_id
+                  AND embedding IS NOT NULL
+                ORDER BY embedding <=> :query
+                LIMIT :limit
+                """
+                ),
+                {
+                    "tenant_id": effective_tenant,
+                    "query": "[" + ",".join(repr(v) for v in vector) + "]",
+                    "limit": limit,
+                },
+            )
+            .mappings()
+            .all()
+        )
     if not products:
         return []
     ids = [row["id"] for row in products]
     order = {pid: idx for idx, pid in enumerate(ids)}
-    loaded = db.query(Product).filter(Product.id.in_(ids)).all()
+    # Defense-in-depth: re-apply tenant filter on reload
+    q2 = db.query(Product).filter(Product.id.in_(ids))
+    if effective_tenant is not None:
+        q2 = q2.filter(Product.tenant_id == effective_tenant)
+    loaded = q2.all()
     loaded.sort(key=lambda p: order[p.id])
     return loaded
 
@@ -200,10 +241,16 @@ def get_products(
     q: str | None = None,
     sku: str | None = None,
     category_id: int | None = None,
+    tenant_id: int | None = Query(None, description="Tenant filter (superuser only)"),
     response: Response = None,
     current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(Product).filter(Product.tenant_id == current_user.tenant_id)
+    if current_user.is_superuser:
+        query = db.query(Product)
+        if tenant_id is not None:
+            query = query.filter(Product.tenant_id == tenant_id)
+    else:
+        query = db.query(Product).filter(Product.tenant_id == current_user.tenant_id)
     if q:
         like = f"%{q.strip()}%"
         query = query.filter(
@@ -228,22 +275,32 @@ def get_products(
 def create_product(
     product_in: ProductCreate,
     db: Session = Depends(get_db),
+    tenant_id: int | None = Query(None, description="Tenant filter (superuser only)"),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
+    if current_user.is_superuser:
+        effective_tenant = (
+            tenant_id if tenant_id is not None else current_user.tenant_id
+        )
+    else:
+        effective_tenant = current_user.tenant_id
+    if effective_tenant is None:
+        raise HTTPException(
+            status_code=400, detail="tenant_id is required for superuser"
+        ) from None
     # check category if provided
     if product_in.category_id:
-        category = (
-            db.query(Category)
-            .filter(
-                Category.id == product_in.category_id,
-                Category.tenant_id == current_user.tenant_id,
-            )
-            .first()
-        )
+        q = db.query(Category).filter(Category.id == product_in.category_id)
+        if current_user.is_superuser:
+            # Superuser: category must belong to the target tenant
+            q = q.filter(Category.tenant_id == effective_tenant)
+        else:
+            q = q.filter(Category.tenant_id == current_user.tenant_id)
+        category = q.first()
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
 
-    product = Product(**product_in.model_dump(), tenant_id=current_user.tenant_id)
+    product = Product(**product_in.model_dump(), tenant_id=effective_tenant)
     product.embedding = embed_text(f"{product.name} {product.description or ''}")
     db.add(product)
     db.flush()
@@ -252,7 +309,7 @@ def create_product(
         db.add(
             StockMovement(
                 product_id=product.id,
-                tenant_id=current_user.tenant_id,
+                tenant_id=effective_tenant,
                 user_id=current_user.id,
                 movement_type="initial_stock",
                 quantity_before=0,
@@ -272,21 +329,86 @@ def update_product(
     product_id: int,
     product_in: ProductUpdate,
     db: Session = Depends(get_db),
+    tenant_id: int | None = Query(
+        None, alias="tenant_id", description="Move to tenant (superuser only)"
+    ),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    product = (
-        db.query(Product)
-        .filter(
-            Product.id == product_id,
-            Product.tenant_id == current_user.tenant_id,
-        )
-        .with_for_update()
-        .first()
-    )
+    q = db.query(Product).filter(Product.id == product_id)
+    if not current_user.is_superuser:
+        # Non-superuser cannot move between tenants
+        if tenant_id is not None and tenant_id != current_user.tenant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Only superuser can move products between tenants",
+            ) from None
+        q = q.filter(Product.tenant_id == current_user.tenant_id)
+    product = q.with_for_update().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
     update_data = product_in.model_dump(exclude_unset=True)
+    # Handle tenant move (superuser only) — must be before other field assignments
+    if tenant_id is not None and tenant_id != product.tenant_id:
+        if not current_user.is_superuser:
+            raise HTTPException(
+                status_code=403,
+                detail="Only superuser can move products between tenants",
+            ) from None
+        target_tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        if not target_tenant:
+            raise HTTPException(
+                status_code=404, detail="Target tenant not found"
+            ) from None
+        # SKU uniqueness in target tenant (use new sku if provided, else existing)
+        sku_to_check = update_data.get("sku", product.sku)
+        existing_sku = (
+            db.query(Product)
+            .filter(Product.tenant_id == tenant_id, Product.sku == sku_to_check)
+            .first()
+        )
+        if existing_sku and existing_sku.id != product.id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"SKU '{sku_to_check}' already exists in target tenant",
+            ) from None
+        # Category must belong to target tenant (or be cleared)
+        if "category_id" in update_data:
+            new_category_id = update_data["category_id"]
+            if new_category_id is not None:
+                cat = (
+                    db.query(Category)
+                    .filter(
+                        Category.id == new_category_id, Category.tenant_id == tenant_id
+                    )
+                    .first()
+                )
+                if not cat:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Category not found in target tenant (or not in same tenant as product)",
+                    ) from None
+        elif product.category_id is not None:
+            # No category update supplied; auto-clear orphaned category
+            old_cat = (
+                db.query(Category)
+                .filter(
+                    Category.id == product.category_id, Category.tenant_id == tenant_id
+                )
+                .first()
+            )
+            if not old_cat:
+                update_data["category_id"] = None
+        old_tenant = product.tenant_id
+        product.tenant_id = tenant_id
+        log_action(
+            db=db,
+            action="product.tenant_move",
+            user_id=current_user.id,
+            resource_type="product",
+            resource_id=product.id,
+            details={"from_tenant": old_tenant, "to_tenant": tenant_id},
+        )
     previous_stock_quantity = product.stock_quantity
     for field, value in update_data.items():
         setattr(product, field, value)
@@ -302,7 +424,7 @@ def update_product(
         db.add(
             StockMovement(
                 product_id=product.id,
-                tenant_id=current_user.tenant_id,
+                tenant_id=product.tenant_id,
                 user_id=current_user.id,
                 movement_type="manual_adjustment",
                 quantity_before=previous_stock_quantity,
@@ -334,46 +456,44 @@ def delete_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_permissions("products:manage")),
 ):
-    product = (
-        db.query(Product)
-        .filter(
-            Product.id == product_id,
-            Product.tenant_id == current_user.tenant_id,
-        )
-        .first()
-    )
+    q = db.query(Product).filter(Product.id == product_id)
+    if not current_user.is_superuser:
+        q = q.filter(Product.tenant_id == current_user.tenant_id)
+    product = q.first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    # Use product's tenant for reference checks (superuser case)
+    effective_tenant = product.tenant_id
     reference_counts = {
         "order item": db.query(func.count(OrderItem.id))
         .filter(
             OrderItem.product_id == product_id,
-            OrderItem.tenant_id == current_user.tenant_id,
+            OrderItem.tenant_id == effective_tenant,
         )
         .scalar(),
         "stock movement": db.query(func.count(StockMovement.id))
         .filter(
             StockMovement.product_id == product_id,
-            StockMovement.tenant_id == current_user.tenant_id,
+            StockMovement.tenant_id == effective_tenant,
         )
         .scalar(),
         "purchase order item": db.query(func.count(PurchaseOrderItem.id))
         .filter(
             PurchaseOrderItem.product_id == product_id,
-            PurchaseOrderItem.tenant_id == current_user.tenant_id,
+            PurchaseOrderItem.tenant_id == effective_tenant,
         )
         .scalar(),
         "purchase invoice item": db.query(func.count(PurchaseInvoiceItem.id))
         .filter(
             PurchaseInvoiceItem.product_id == product_id,
-            PurchaseInvoiceItem.tenant_id == current_user.tenant_id,
+            PurchaseInvoiceItem.tenant_id == effective_tenant,
         )
         .scalar(),
         "refund item": db.query(func.count(RefundItem.id))
         .filter(
             RefundItem.product_id == product_id,
-            RefundItem.tenant_id == current_user.tenant_id,
+            RefundItem.tenant_id == effective_tenant,
         )
         .scalar(),
     }
@@ -412,14 +532,10 @@ def upload_product_image(
     re-encoded as WebP; a mobile-friendly thumbnail is generated alongside
     it. Both files are stored under ``/media/<tenant_id>/products/``.
     """
-    product = (
-        db.query(Product)
-        .filter(
-            Product.id == product_id,
-            Product.tenant_id == current_user.tenant_id,
-        )
-        .first()
-    )
+    q = db.query(Product).filter(Product.id == product_id)
+    if not current_user.is_superuser:
+        q = q.filter(Product.tenant_id == current_user.tenant_id)
+    product = q.first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -436,13 +552,14 @@ def upload_product_image(
     file_stem = uuid.uuid4().hex
     original_name = f"{file_stem}_orig.webp"
     thumbnail_name = f"{file_stem}_thumb.webp"
-    tenant_dir = product_media_dir(current_user.tenant_id)
+    effective_tenant = product.tenant_id
+    tenant_dir = product_media_dir(effective_tenant)
     (tenant_dir / original_name).write_bytes(original_bytes)
     (tenant_dir / thumbnail_name).write_bytes(thumbnail_bytes)
 
     old_image_url, old_thumbnail_url = product.image_url, product.thumbnail_url
-    product.image_url = f"/media/{current_user.tenant_id}/products/{original_name}"
-    product.thumbnail_url = f"/media/{current_user.tenant_id}/products/{thumbnail_name}"
+    product.image_url = f"/media/{effective_tenant}/products/{original_name}"
+    product.thumbnail_url = f"/media/{effective_tenant}/products/{thumbnail_name}"
     db.add(product)
     try:
         db.commit()
@@ -463,14 +580,10 @@ def delete_product_image(
     current_user: User = Depends(require_permissions("products:manage")),
 ):
     """Remove the product photo and its thumbnail."""
-    product = (
-        db.query(Product)
-        .filter(
-            Product.id == product_id,
-            Product.tenant_id == current_user.tenant_id,
-        )
-        .first()
-    )
+    q = db.query(Product).filter(Product.id == product_id)
+    if not current_user.is_superuser:
+        q = q.filter(Product.tenant_id == current_user.tenant_id)
+    product = q.first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 

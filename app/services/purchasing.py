@@ -497,10 +497,10 @@ def _supplier_for_products(
 
 
 def supplier_map_with_names(
-    db: Session, product_ids: list[int]
+    db: Session, product_ids: list[int], tenant_id: int | None = None
 ) -> dict[int, tuple[int, str]]:
     """Supplier resolution keyed by product, including the supplier name."""
-    ids = _supplier_for_products(db, product_ids)
+    ids = _supplier_for_products(db, product_ids, tenant_id=tenant_id)
     if not ids:
         return {}
     names = dict(
@@ -575,7 +575,7 @@ def batch_generate_purchase_orders_from_replenishment(
     if not products:
         return {"purchase_orders": [], "skipped_products": []}
 
-    pending_products = _products_already_in_pending_po(db)
+    pending_products = _products_already_in_pending_po(db, tenant_id=tenant_id)
     candidates: list[Product] = []
     skipped: list[dict] = []
     for product in products:
@@ -596,7 +596,7 @@ def batch_generate_purchase_orders_from_replenishment(
         products=candidates,
         lookback_days=payload.lookback_days,
         supplier_map=supplier_map_with_names(
-            db, [product.id for product in candidates]
+            db, [product.id for product in candidates], tenant_id=tenant_id
         ),
     )
 
