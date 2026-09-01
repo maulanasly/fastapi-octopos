@@ -25,6 +25,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 # pyrefly: ignore [missing-import]
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse, Response
 from starlette.staticfiles import StaticFiles
 
 from app.admin import all_admin_views
@@ -290,7 +291,41 @@ class AdminAuth(AuthenticationBackend):
 
 
 authentication_backend = AdminAuth(secret_key=settings.SECRET_KEY)
-admin = Admin(
+
+
+class DashboardAdmin(Admin):
+    """Admin with tenant-scoped dashboard as index."""
+
+    async def index(self, request: Request) -> Response:
+        if not await self.authentication_backend.authenticate(request):
+            return RedirectResponse(url="/admin/login", status_code=303)
+        from app.admin.base import _selected_tenant_id
+        from app.admin.views.dashboard import (
+            build_dashboard_data,
+            get_tenant_switcher_context,
+        )
+        from app.core.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            tenant_id = _selected_tenant_id(request)
+            data = build_dashboard_data(db, tenant_id, period="30d")
+            switcher = get_tenant_switcher_context(db, tenant_id)
+        finally:
+            db.close()
+        return await self.templates.TemplateResponse(
+            request,
+            "dashboard.html",
+            context={
+                "request": request,
+                "title": "Dashboard",
+                **data,
+                **switcher,
+            },
+        )
+
+
+admin = DashboardAdmin(
     app=app,
     engine=engine,
     templates_dir="app/templates",

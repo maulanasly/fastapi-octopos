@@ -63,8 +63,12 @@ class TenantSwitchAdmin(BaseView):
         if request.method == "POST":
             form = await request.form()
             raw = form.get("tenant_id")
+            nxt = (form.get("next") or "").strip()
             if str(raw).isdigit():
                 request.session["admin_tenant_id"] = int(raw)
+                # Allow dashboard inline switcher to return to originating page
+                if nxt.startswith("/admin"):
+                    return RedirectResponse(url=nxt, status_code=303)
                 return RedirectResponse(url="/admin/tenant", status_code=303)
         db = SessionLocal()
         try:

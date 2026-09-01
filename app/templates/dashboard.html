@@ -1,0 +1,166 @@
+{% extends "sqladmin/layout.html" %}
+{% block content %}
+<div class="col-12 mb-3">
+  <div class="card border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
+    <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div>
+        <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Current Tenant</div>
+        <div class="h3 mb-0">
+          <i class="fa-solid fa-building me-2 text-primary"></i>{{ current_tenant.name if current_tenant else 'Unknown' }}
+          <span class="text-secondary" style="font-size: 0.85rem;">(ID {{ current_tenant_id }})</span>
+        </div>
+        <div class="text-secondary small">All data below scoped to this tenant · period: {{ period_label }}</div>
+      </div>
+      <form method="post" action="/admin/tenant" class="d-flex gap-2 align-items-end">
+        <input type="hidden" name="next" value="/admin/" />
+        <div>
+          <label class="form-label small mb-1">Switch tenant</label>
+          <select name="tenant_id" class="form-select form-select-sm" style="min-width: 200px;">
+            {% for t in tenants %}
+              <option value="{{ t.id }}" {% if t.id == current_tenant_id %}selected{% endif %}>{{ t.name }} ({{ t.slug }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-arrow-right me-1"></i>Switch</button>
+        <a href="/admin/tenant" class="btn btn-outline-secondary btn-sm">Manage</a>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Row -->
+<div class="col-12 mb-3">
+  <div class="row row-cards">
+    <div class="col-md-3">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto"><span class="bg-blue-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-dollar-sign fa-lg"></i></span></div>
+            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Net Revenue (30d)</div><div class="h3 mb-0">{{ localized.net_revenue }}</div><div class="text-secondary small">{{ sales_summary.order_count }} orders · avg {{ localized.average_order_value }}</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #2fb344 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto"><span class="bg-green-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-shopping-bag fa-lg"></i></span></div>
+            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Gross vs Discount</div><div class="h3 mb-0">{{ localized.gross_revenue }}</div><div class="text-secondary small">Discount {{ localized.total_discounts }} · Refunds {{ localized.total_refunds }}</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #d63939 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto"><span class="bg-red-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-triangle-exclamation fa-lg"></i></span></div>
+            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Needs Attention</div><div class="h3 mb-0">{{ low_stock_count }} low-stock</div><div class="text-secondary small">{{ pending_invoice_count }} invoices · {{ pending_payment_count }} payments pending</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #4299e1 !important;">
+        <div class="card-body">
+          <div class="row align-items-center">
+            <div class="col-auto"><span class="bg-cyan-lt avatar" style="width: 48px; height: 48px;"><i class="fa-solid fa-cash-register fa-lg"></i></span></div>
+            <div class="col"><div class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;">Operations</div><div class="h3 mb-0">{{ open_drawer_count }} open drawers</div><div class="text-secondary small">{{ draft_po_count }} draft POs · <a href="/admin/workflows">Workflows →</a></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Needs Attention -->
+<div class="col-md-6">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent py-3"><h3 class="card-title mb-0" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;"><i class="fa-solid fa-list-check me-2 text-primary"></i>Review Queue</h3></div>
+    <div class="card-body">
+      <div class="mb-2"><strong>Pending Invoices:</strong> {{ pending_invoice_count }} · <a href="/admin/workflows/review">Review →</a></div>
+      <div class="mb-2"><strong>Pending Payments:</strong> {{ pending_payment_count }} · <a href="/admin/workflows/review">Review →</a></div>
+      <div class="mb-2"><strong>Draft POs:</strong> {{ draft_po_count }} · <a href="/admin/workflows/restock">Restock →</a></div>
+      <div><strong>Low Stock:</strong> {{ low_stock_count }} products · {% if low_stock_products %}<a href="#low-stock">View below</a>{% else %}<span class="text-success">Healthy</span>{% endif %}</div>
+    </div>
+  </div>
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-header bg-transparent py-3"><h3 class="card-title mb-0" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;"><i class="fa-solid fa-trophy me-2 text-warning"></i>Top Products (30d)</h3></div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead><tr class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;"><th>Product</th><th class="text-end">Sold</th><th class="text-end">Revenue</th></tr></thead>
+        <tbody>
+          {% for p in top_products %}
+            <tr><td>{{ p.product_name }} <span class="text-secondary" style="font-size: 0.8rem;">{{ p.product_sku }}</span></td><td class="text-end">{{ p.total_quantity_sold }}</td><td class="text-end">{{ p.total_revenue_formatted }}</td></tr>
+          {% else %}
+            <tr><td colspan="3" class="text-center text-secondary py-3">No data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer text-end"><a href="/admin/reports?period=30d" class="btn btn-outline-primary btn-sm">Full Report →</a></div>
+  </div>
+</div>
+
+<div class="col-md-6">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent py-3"><h3 class="card-title mb-0" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;"><i class="fa-solid fa-clock-rotate-left me-2 text-secondary"></i>Recent Orders</h3></div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead><tr class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;"><th>#</th><th>Customer</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+        <tbody>
+          {% for o in recent_orders %}
+            <tr><td><a href="/admin/order/details/{{ o.id }}">#{{ o.id }}</a></td><td>{{ o.customer.name if o.customer else '—' }}</td><td><span class="badge bg-secondary-lt">{{ o.status }}</span></td><td class="text-end">{{ "%.2f"|format(o.grand_total_amount or o.total_amount or 0) }}</td></tr>
+          {% else %}
+            <tr><td colspan="4" class="text-center text-secondary py-3">No orders</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer text-end"><a href="/admin/order/list" class="btn btn-outline-secondary btn-sm">All Orders →</a></div>
+  </div>
+  <div class="card border-0 shadow-sm mt-3">
+    <div class="card-header bg-transparent py-3"><h3 class="card-title mb-0" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;"><i class="fa-solid fa-arrows-left-right-to-line me-2 text-info"></i>Recent Stock Movements</h3></div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead><tr class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;"><th>Product</th><th>Type</th><th class="text-end">Delta</th></tr></thead>
+        <tbody>
+          {% for m in recent_movements %}
+            <tr><td>{{ m.product.name if m.product else 'ID ' ~ m.product_id }}</td><td><span class="badge bg-secondary-lt">{{ m.movement_type }}</span></td><td class="text-end {% if m.quantity_delta >=0 %}text-success{% else %}text-danger{% endif %}">{{ m.quantity_delta }}</td></tr>
+          {% else %}
+            <tr><td colspan="3" class="text-center text-secondary py-3">No movements</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer text-end"><a href="/admin/stock-movement/list" class="btn btn-outline-secondary btn-sm">All Movements →</a></div>
+  </div>
+</div>
+
+<div class="col-12 mt-3" id="low-stock">
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent py-3"><h3 class="card-title mb-0" style="font-size: 0.8rem; text-transform: uppercase; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Low Stock (unified threshold)</h3></div>
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table">
+        <thead><tr class="text-secondary" style="font-size: 0.7rem; text-transform: uppercase; font-weight: 700;"><th>Product</th><th>SKU</th><th class="text-end">Stock</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for p in low_stock_products[:5] %}
+            <tr><td>{{ p.name }}</td><td>{{ p.sku }}</td><td class="text-end">{{ p.stock_quantity }}</td><td><a href="/admin/product/adjust-stock?pk={{ p.id }}" class="btn btn-outline-primary btn-sm">Restock</a></td></tr>
+          {% else %}
+            <tr><td colspan="4" class="text-center text-success py-3">All stock healthy</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if low_stock_products|length > 5 %}
+      <div class="card-footer text-center"><a href="/admin/reports?period=30d#low-stock" class="btn btn-sm btn-outline-secondary">View all {{ low_stock_products|length }} →</a></div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="col-12 mt-3 text-center">
+  <a href="/admin/reports?period=30d" class="btn btn-primary"><i class="fa-solid fa-chart-line me-1"></i>Open Full Reports Dashboard</a>
+  <a href="/admin/workflows" class="btn btn-outline-primary ms-2"><i class="fa-solid fa-wand-magic-sparkles me-1"></i>Workflows</a>
+</div>
+{% endblock %}
