@@ -64,7 +64,9 @@ services:
       retries: 3
 
 volumes:
-  # Per-project postgres volume; uses COMPOSE_PROJECT_NAME prefix.
-  # Previously pinned to fastapi-octopos-multi-tenant_octopos_pgdata for migration.
+  # Pinned for backward compat — existing prod data lives in
+  # fastapi-octopos-multi-tenant_octopos_pgdata. New clones can override
+  # via COMPOSE_PROJECT_NAME or `external: true`.
   octopos_pgdata:
+    name: fastapi-octopos-multi-tenant_octopos_pgdata
   media:

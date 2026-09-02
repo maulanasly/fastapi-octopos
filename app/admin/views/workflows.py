@@ -127,7 +127,9 @@ class WorkflowsAdmin(BaseView):
             tenant_id = _selected_tenant_id(request)
             # Unified low-stock via replenishment.should_reorder
             all_products = (
-                db.query(Product).filter(Product.tenant_id == tenant_id).all()
+                db.query(Product)
+                .filter(Product.tenant_id == tenant_id, Product.deleted_at.is_(None))
+                .all()
             )
             low_stock_count = sum(
                 1
@@ -207,7 +209,9 @@ class WorkflowsAdmin(BaseView):
             }
             tenant_id = _selected_tenant_id(request)
             all_products = (
-                db.query(Product).filter(Product.tenant_id == tenant_id).all()
+                db.query(Product)
+                .filter(Product.tenant_id == tenant_id, Product.deleted_at.is_(None))
+                .all()
             )
             candidates = [p for p in all_products if p.id not in pending_product_ids]
             suggestions = build_replenishment_suggestions(
@@ -447,7 +451,8 @@ class WorkflowsAdmin(BaseView):
             )
             search_q = (request.query_params.get("q") or "").strip()
             catalog_q = db.query(Product).filter(
-                Product.tenant_id == _selected_tenant_id(request)
+                Product.tenant_id == _selected_tenant_id(request),
+                Product.deleted_at.is_(None),
             )
             if search_q:
                 like = f"%{search_q}%"
