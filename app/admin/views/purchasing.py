@@ -144,11 +144,21 @@ class PurchaseInvoiceAdmin(
             PurchaseInvoice.supplier_id, Supplier.name, foreign_model=Supplier
         ),
         AllUniqueStringValuesFilter(PurchaseInvoice.status, title="Status"),
+        BooleanFilter(PurchaseInvoice.has_quantity_variance, title="Qty Variance"),
+        BooleanFilter(PurchaseInvoice.has_price_variance, title="Price Variance"),
     ]
     column_labels = {
         PurchaseInvoice.invoice_number: "Invoice #",
         PurchaseInvoice.status: "Status",
         PurchaseInvoice.supplier: "Supplier",
+        PurchaseInvoice.has_quantity_variance: "Qty Variance",
+        PurchaseInvoice.has_price_variance: "Price Variance",
+        PurchaseInvoice.variance_amount: "Variance",
+        PurchaseInvoice.total_amount: "Total",
+    }
+    column_descriptions = {
+        PurchaseInvoice.has_quantity_variance: "Billed quantity differs from ordered",
+        PurchaseInvoice.has_price_variance: "Billed price differs from expected",
     }
     can_create = False
     can_edit = False

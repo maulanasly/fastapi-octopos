@@ -21,6 +21,7 @@ from app.core.audit import log_action
 from app.models.product import Category, Product
 from app.models.stock_movement import StockMovement
 from app.models.tenant import Tenant
+from app.models.user import User
 from app.services.images import (
     _MAX_IMAGE_BYTES,
     delete_media_file,
@@ -44,8 +45,16 @@ class CategoryAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Category
     column_searchable_list = [Category.name]
     column_default_sort = [(Category.updated_at, True)]
     form_overrides = {"color": ColorField}
-    column_labels = {Category.name: "Category"}
-    column_descriptions = {Category.name: "Short category name, searchable"}
+    column_labels = {
+        Category.name: "Category",
+        Category.description: "Description",
+        Category.color: "Color",
+    }
+    column_descriptions = {
+        Category.name: "Short category name, searchable",
+        Category.color: "Hex color for POS tiles — pick from palette or enter custom hex",
+        Category.description: "Optional description for back-office reference",
+    }
 
 
 class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
@@ -532,11 +541,39 @@ class StockMovementAdmin(
         AllUniqueStringValuesFilter(StockMovement.movement_type, title="Movement Type"),
         # Huge product list: use ID input instead of dropdown (avoids loading 10k options)
         OperationColumnFilter(StockMovement.product_id, title="Product ID"),
+        ForeignKeyFilter(StockMovement.user_id, User.email, foreign_model=User),
+        OperationColumnFilter(StockMovement.created_at, title="Created"),
     ]
     column_labels = {
         StockMovement.movement_type: "Movement Type",
         StockMovement.product: "Product",
+        StockMovement.user: "Actor",
+        StockMovement.quantity_before: "Before",
+        StockMovement.quantity_delta: "Delta",
+        StockMovement.quantity_after: "After",
+        StockMovement.order_id: "Order ID",
+        StockMovement.refund_id: "Refund ID",
+        StockMovement.created_at: "Created",
     }
+    column_descriptions = {
+        StockMovement.movement_type: "Ledger type: sale, restock, manual_adjustment, refund",
+    }
+    column_details_list = [
+        StockMovement.id,
+        StockMovement.product,
+        StockMovement.user,
+        StockMovement.movement_type,
+        StockMovement.quantity_before,
+        StockMovement.quantity_delta,
+        StockMovement.quantity_after,
+        StockMovement.order,
+        StockMovement.order_item,
+        StockMovement.purchase_order,
+        StockMovement.purchase_order_item,
+        StockMovement.refund,
+        StockMovement.note,
+        StockMovement.created_at,
+    ]
     can_create = False
     can_edit = False
     can_delete = False

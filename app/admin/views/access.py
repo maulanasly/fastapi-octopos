@@ -86,6 +86,16 @@ class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
     column_searchable_list = [Role.name, Role.description]
     column_sortable_list = [Role.id, Role.name]
     column_default_sort = [(Role.id, True)]
+    column_filters = [BooleanFilter(Role.is_system, title="System")]
+    column_labels = {
+        Role.name: "Role",
+        Role.description: "Description",
+        Role.is_system: "System Role",
+        Role.permissions: "Permissions",
+    }
+    column_descriptions = {
+        Role.is_system: "System roles cannot be edited or deleted",
+    }
 
     async def check_can_edit(self, request: Request, model: Role) -> bool:
         if getattr(model, "is_system", False):

@@ -8,7 +8,12 @@ from app.admin.views.access import (
     UserRoleAdmin,
 )
 from app.admin.views.inventory import CategoryAdmin, ProductAdmin, StockMovementAdmin
-from app.admin.views.operations import DrawerSessionAdmin, ShiftReconciliationAdmin
+from app.admin.views.operations import (
+    AuditLogAdmin,
+    DrawerSessionAdmin,
+    PaymentAdmin,
+    ShiftReconciliationAdmin,
+)
 from app.admin.views.purchasing import (
     PurchaseInvoiceAdmin,
     PurchaseInvoiceItemAdmin,
@@ -58,9 +63,10 @@ all_admin_views = [
     PurchaseOrderAdmin,
     PurchaseInvoiceAdmin,
     SupplierPaymentAdmin,
-    # Operations — cash & shifts
+    # Operations — cash & shifts & payments
     DrawerSessionAdmin,
     ShiftReconciliationAdmin,
+    PaymentAdmin,
     # Reports — KPIs
     ReportsAdmin,
     # Administration — tenant-scoped settings & RBAC
@@ -68,6 +74,7 @@ all_admin_views = [
     RoleAdmin,
     LocalizationSettingAdmin,
     PurchasingSettingAdmin,
+    AuditLogAdmin,
     # Hidden detail/audit — kept for detail routes, not in menu
     OrderItemAdmin,
     OrderTaxLineAdmin,
