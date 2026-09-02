@@ -79,6 +79,7 @@ class PurchaseOrderAdmin(
         AllUniqueStringValuesFilter(PurchaseOrder.status, title="Status"),
     ]
     column_labels = {PurchaseOrder.status: "Status", PurchaseOrder.supplier: "Supplier"}
+    list_template = "purchase_order_list.html"
     can_create = False
     can_edit = False
     can_delete = False
@@ -160,6 +161,7 @@ class PurchaseInvoiceAdmin(
         PurchaseInvoice.has_quantity_variance: "Billed quantity differs from ordered",
         PurchaseInvoice.has_price_variance: "Billed price differs from expected",
     }
+    list_template = "purchase_invoice_list.html"
     can_create = False
     can_edit = False
     can_delete = False
@@ -245,6 +247,7 @@ class SupplierPaymentAdmin(
         SupplierPayment.supplier: "Supplier",
         SupplierPayment.payment_method: "Payment Method",
     }
+    list_template = "supplier_payment_list.html"
     can_create = False
     can_edit = False
     can_delete = False

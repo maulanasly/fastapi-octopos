@@ -445,12 +445,16 @@ class WorkflowsAdmin(BaseView):
                 .order_by(Supplier.name.asc())
                 .all()
             )
-            catalog_products = (
-                db.query(Product)
-                .filter(Product.tenant_id == _selected_tenant_id(request))
-                .order_by(Product.name.asc())
-                .all()
+            search_q = (request.query_params.get("q") or "").strip()
+            catalog_q = db.query(Product).filter(
+                Product.tenant_id == _selected_tenant_id(request)
             )
+            if search_q:
+                like = f"%{search_q}%"
+                catalog_q = catalog_q.filter(
+                    (Product.name.ilike(like)) | (Product.sku.ilike(like))
+                )
+            catalog_products = catalog_q.order_by(Product.name.asc()).limit(50).all()
             selected_po = None
             po_id = request.query_params.get("po_id")
             if po_id:

@@ -1,0 +1,5 @@
+{% extends "sqladmin/list.html" %}
+{% block model_list_table %}
+<div class="alert alert-light border py-2 small mb-2"><i class="fa-solid fa-arrows-left-right-to-line me-1"></i>Stock movements are ledger entries — created automatically by sales, restock receives, refunds, or <a href="/admin/product/list">Product → Adjust Stock</a>. This list is read-only.</div>
+{{ super() }}
+{% endblock %}

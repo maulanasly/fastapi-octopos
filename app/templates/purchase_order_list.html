@@ -1,0 +1,5 @@
+{% extends "sqladmin/list.html" %}
+{% block model_list_table %}
+<div class="alert alert-info py-2 small mb-2"><i class="fa-solid fa-info-circle me-1"></i>Purchase orders are created via <a href="/admin/workflows/restock?step=generate">Workflows → Restock → Create PO</a>. This list is read-only.</div>
+{{ super() }}
+{% endblock %}

@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_LOCKOUT_MINUTES: int = 15
 
+    # Client POS URL for admin First Order handoff (opens in new tab)
+    CLIENT_POS_URL: str = "http://localhost:3001/pos"
+
     # Product images
     MEDIA_DIR: str = "media"
 

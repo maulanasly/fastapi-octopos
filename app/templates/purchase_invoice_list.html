@@ -1,0 +1,5 @@
+{% extends "sqladmin/list.html" %}
+{% block model_list_table %}
+<div class="alert alert-info py-2 small mb-2"><i class="fa-solid fa-info-circle me-1"></i>Invoices are created from received POs via <a href="/admin/workflows/invoice">Workflows → Invoicing</a> and reviewed in <a href="/admin/workflows/review">Review Queue</a>. This list is read-only.</div>
+{{ super() }}
+{% endblock %}

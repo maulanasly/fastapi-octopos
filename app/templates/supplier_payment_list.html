@@ -1,0 +1,5 @@
+{% extends "sqladmin/list.html" %}
+{% block model_list_table %}
+<div class="alert alert-info py-2 small mb-2"><i class="fa-solid fa-info-circle me-1"></i>Supplier payments are approved in <a href="/admin/workflows/review">Workflows → Review Queue</a> (or via API). This list is read-only.</div>
+{{ super() }}
+{% endblock %}

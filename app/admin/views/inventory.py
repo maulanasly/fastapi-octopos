@@ -115,11 +115,22 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.sku: "Unique per tenant — use Suggest SKU button",
         Product.price: "Selling price (display currency)",
         Product.category: "Optional category for filtering",
+        Product.reorder_point: "When stock ≤ this, Recommender flags reorder (e.g. 10)",
+        Product.min_stock: "Minimum stock target for replenishment (e.g. 5)",
+        Product.max_stock: "Maximum stock capacity (e.g. 50)",
+        Product.lead_time_days: "Supplier lead time in days (e.g. 3)",
+        Product.unit_cost: "Cost per unit for margin calculation",
+        Product.stock_quantity: "Current stock — ledger-managed, use Adjust Stock",
     }
     form_args = {
         "name": {"render_kw": {"placeholder": "e.g. Cafe Latte"}},
         "sku": {"render_kw": {"placeholder": "e.g. SKU-CAFE-LATTE"}},
         "price": {"render_kw": {"placeholder": "12.50"}},
+        "reorder_point": {"render_kw": {"placeholder": "10"}},
+        "min_stock": {"render_kw": {"placeholder": "5"}},
+        "max_stock": {"render_kw": {"placeholder": "50"}},
+        "lead_time_days": {"render_kw": {"placeholder": "3"}},
+        "unit_cost": {"render_kw": {"placeholder": "8.00"}},
     }
 
     # Stock is ledger-managed via the stock-adjustment action below; never
@@ -131,6 +142,28 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.thumbnail_url,
         Product.embedding,  # managed by the embedding service / backfill script
     ]
+
+    async def on_model_change(
+        self, data: dict, model: Product, is_created: bool, request: Request
+    ) -> None:  # type: ignore[override]
+        await super().on_model_change(data, model, is_created, request)
+        if is_created:
+            # Banner CTA: stock starts at 0, point to Adjust Stock presets
+            try:
+                # model.id may be None until flush; guard and use fallback text
+                pid = getattr(model, "id", None) or getattr(model, "sku", "")
+                link = (
+                    f"/admin/product/adjust-stock?pk={pid}"
+                    if pid
+                    else "/admin/product/list"
+                )
+                # Flash renders safe HTML via |safe in layout, but sqladmin escapes; keep plain text with link hint
+                Flash.success(
+                    request,
+                    f'Product "{model.name}" created — stock is 0. Set opening stock: {link} [+5][+25][+50] presets inside.',
+                )
+            except Exception:
+                pass
 
     @expose("/suggest-sku", methods=["GET"])
     async def suggest_sku(self, request: Request):
@@ -558,6 +591,7 @@ class StockMovementAdmin(
     column_descriptions = {
         StockMovement.movement_type: "Ledger type: sale, restock, manual_adjustment, refund",
     }
+    list_template = "stock_movement_list.html"
     column_details_list = [
         StockMovement.id,
         StockMovement.product,
