@@ -2317,6 +2317,521 @@ class OutboxPaymentsCompanion extends UpdateCompanion<OutboxPayment> {
   }
 }
 
+class $OutboxEventsTable extends OutboxEvents
+    with TableInfo<$OutboxEventsTable, OutboxEvent> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OutboxEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _eventTypeMeta = const VerificationMeta(
+    'eventType',
+  );
+  @override
+  late final GeneratedColumn<String> eventType = GeneratedColumn<String>(
+    'event_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _clientEventIdMeta = const VerificationMeta(
+    'clientEventId',
+  );
+  @override
+  late final GeneratedColumn<String> clientEventId = GeneratedColumn<String>(
+    'client_event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'UNIQUE NOT NULL',
+  );
+  static const VerificationMeta _payloadJsonMeta = const VerificationMeta(
+    'payloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> payloadJson = GeneratedColumn<String>(
+    'payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idempotencyKeyMeta = const VerificationMeta(
+    'idempotencyKey',
+  );
+  @override
+  late final GeneratedColumn<String> idempotencyKey = GeneratedColumn<String>(
+    'idempotency_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    eventType,
+    clientEventId,
+    payloadJson,
+    idempotencyKey,
+    status,
+    createdAt,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'outbox_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OutboxEvent> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('event_type')) {
+      context.handle(
+        _eventTypeMeta,
+        eventType.isAcceptableOrUnknown(data['event_type']!, _eventTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_eventTypeMeta);
+    }
+    if (data.containsKey('client_event_id')) {
+      context.handle(
+        _clientEventIdMeta,
+        clientEventId.isAcceptableOrUnknown(
+          data['client_event_id']!,
+          _clientEventIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_clientEventIdMeta);
+    }
+    if (data.containsKey('payload_json')) {
+      context.handle(
+        _payloadJsonMeta,
+        payloadJson.isAcceptableOrUnknown(
+          data['payload_json']!,
+          _payloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadJsonMeta);
+    }
+    if (data.containsKey('idempotency_key')) {
+      context.handle(
+        _idempotencyKeyMeta,
+        idempotencyKey.isAcceptableOrUnknown(
+          data['idempotency_key']!,
+          _idempotencyKeyMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_idempotencyKeyMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OutboxEvent map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OutboxEvent(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      eventType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}event_type'],
+      )!,
+      clientEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_event_id'],
+      )!,
+      payloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json'],
+      )!,
+      idempotencyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}idempotency_key'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $OutboxEventsTable createAlias(String alias) {
+    return $OutboxEventsTable(attachedDatabase, alias);
+  }
+}
+
+class OutboxEvent extends DataClass implements Insertable<OutboxEvent> {
+  final int id;
+  final String eventType;
+  final String clientEventId;
+  final String payloadJson;
+  final String idempotencyKey;
+  final String status;
+  final String createdAt;
+  final String? lastError;
+  const OutboxEvent({
+    required this.id,
+    required this.eventType,
+    required this.clientEventId,
+    required this.payloadJson,
+    required this.idempotencyKey,
+    required this.status,
+    required this.createdAt,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['event_type'] = Variable<String>(eventType);
+    map['client_event_id'] = Variable<String>(clientEventId);
+    map['payload_json'] = Variable<String>(payloadJson);
+    map['idempotency_key'] = Variable<String>(idempotencyKey);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<String>(createdAt);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  OutboxEventsCompanion toCompanion(bool nullToAbsent) {
+    return OutboxEventsCompanion(
+      id: Value(id),
+      eventType: Value(eventType),
+      clientEventId: Value(clientEventId),
+      payloadJson: Value(payloadJson),
+      idempotencyKey: Value(idempotencyKey),
+      status: Value(status),
+      createdAt: Value(createdAt),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory OutboxEvent.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OutboxEvent(
+      id: serializer.fromJson<int>(json['id']),
+      eventType: serializer.fromJson<String>(json['eventType']),
+      clientEventId: serializer.fromJson<String>(json['clientEventId']),
+      payloadJson: serializer.fromJson<String>(json['payloadJson']),
+      idempotencyKey: serializer.fromJson<String>(json['idempotencyKey']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'eventType': serializer.toJson<String>(eventType),
+      'clientEventId': serializer.toJson<String>(clientEventId),
+      'payloadJson': serializer.toJson<String>(payloadJson),
+      'idempotencyKey': serializer.toJson<String>(idempotencyKey),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<String>(createdAt),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  OutboxEvent copyWith({
+    int? id,
+    String? eventType,
+    String? clientEventId,
+    String? payloadJson,
+    String? idempotencyKey,
+    String? status,
+    String? createdAt,
+    Value<String?> lastError = const Value.absent(),
+  }) => OutboxEvent(
+    id: id ?? this.id,
+    eventType: eventType ?? this.eventType,
+    clientEventId: clientEventId ?? this.clientEventId,
+    payloadJson: payloadJson ?? this.payloadJson,
+    idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  OutboxEvent copyWithCompanion(OutboxEventsCompanion data) {
+    return OutboxEvent(
+      id: data.id.present ? data.id.value : this.id,
+      eventType: data.eventType.present ? data.eventType.value : this.eventType,
+      clientEventId: data.clientEventId.present
+          ? data.clientEventId.value
+          : this.clientEventId,
+      payloadJson: data.payloadJson.present
+          ? data.payloadJson.value
+          : this.payloadJson,
+      idempotencyKey: data.idempotencyKey.present
+          ? data.idempotencyKey.value
+          : this.idempotencyKey,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutboxEvent(')
+          ..write('id: $id, ')
+          ..write('eventType: $eventType, ')
+          ..write('clientEventId: $clientEventId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    eventType,
+    clientEventId,
+    payloadJson,
+    idempotencyKey,
+    status,
+    createdAt,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OutboxEvent &&
+          other.id == this.id &&
+          other.eventType == this.eventType &&
+          other.clientEventId == this.clientEventId &&
+          other.payloadJson == this.payloadJson &&
+          other.idempotencyKey == this.idempotencyKey &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt &&
+          other.lastError == this.lastError);
+}
+
+class OutboxEventsCompanion extends UpdateCompanion<OutboxEvent> {
+  final Value<int> id;
+  final Value<String> eventType;
+  final Value<String> clientEventId;
+  final Value<String> payloadJson;
+  final Value<String> idempotencyKey;
+  final Value<String> status;
+  final Value<String> createdAt;
+  final Value<String?> lastError;
+  const OutboxEventsCompanion({
+    this.id = const Value.absent(),
+    this.eventType = const Value.absent(),
+    this.clientEventId = const Value.absent(),
+    this.payloadJson = const Value.absent(),
+    this.idempotencyKey = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastError = const Value.absent(),
+  });
+  OutboxEventsCompanion.insert({
+    this.id = const Value.absent(),
+    required String eventType,
+    required String clientEventId,
+    required String payloadJson,
+    required String idempotencyKey,
+    this.status = const Value.absent(),
+    required String createdAt,
+    this.lastError = const Value.absent(),
+  }) : eventType = Value(eventType),
+       clientEventId = Value(clientEventId),
+       payloadJson = Value(payloadJson),
+       idempotencyKey = Value(idempotencyKey),
+       createdAt = Value(createdAt);
+  static Insertable<OutboxEvent> custom({
+    Expression<int>? id,
+    Expression<String>? eventType,
+    Expression<String>? clientEventId,
+    Expression<String>? payloadJson,
+    Expression<String>? idempotencyKey,
+    Expression<String>? status,
+    Expression<String>? createdAt,
+    Expression<String>? lastError,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (eventType != null) 'event_type': eventType,
+      if (clientEventId != null) 'client_event_id': clientEventId,
+      if (payloadJson != null) 'payload_json': payloadJson,
+      if (idempotencyKey != null) 'idempotency_key': idempotencyKey,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastError != null) 'last_error': lastError,
+    });
+  }
+
+  OutboxEventsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? eventType,
+    Value<String>? clientEventId,
+    Value<String>? payloadJson,
+    Value<String>? idempotencyKey,
+    Value<String>? status,
+    Value<String>? createdAt,
+    Value<String?>? lastError,
+  }) {
+    return OutboxEventsCompanion(
+      id: id ?? this.id,
+      eventType: eventType ?? this.eventType,
+      clientEventId: clientEventId ?? this.clientEventId,
+      payloadJson: payloadJson ?? this.payloadJson,
+      idempotencyKey: idempotencyKey ?? this.idempotencyKey,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      lastError: lastError ?? this.lastError,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (eventType.present) {
+      map['event_type'] = Variable<String>(eventType.value);
+    }
+    if (clientEventId.present) {
+      map['client_event_id'] = Variable<String>(clientEventId.value);
+    }
+    if (payloadJson.present) {
+      map['payload_json'] = Variable<String>(payloadJson.value);
+    }
+    if (idempotencyKey.present) {
+      map['idempotency_key'] = Variable<String>(idempotencyKey.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutboxEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('eventType: $eventType, ')
+          ..write('clientEventId: $clientEventId, ')
+          ..write('payloadJson: $payloadJson, ')
+          ..write('idempotencyKey: $idempotencyKey, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2327,6 +2842,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final $OutboxOrdersTable outboxOrders = $OutboxOrdersTable(this);
   late final $OutboxPaymentsTable outboxPayments = $OutboxPaymentsTable(this);
+  late final $OutboxEventsTable outboxEvents = $OutboxEventsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2337,6 +2853,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     syncMeta,
     outboxOrders,
     outboxPayments,
+    outboxEvents,
   ];
 }
 
@@ -3530,6 +4047,263 @@ typedef $$OutboxPaymentsTableProcessedTableManager =
       OutboxPayment,
       PrefetchHooks Function()
     >;
+typedef $$OutboxEventsTableCreateCompanionBuilder =
+    OutboxEventsCompanion Function({
+      Value<int> id,
+      required String eventType,
+      required String clientEventId,
+      required String payloadJson,
+      required String idempotencyKey,
+      Value<String> status,
+      required String createdAt,
+      Value<String?> lastError,
+    });
+typedef $$OutboxEventsTableUpdateCompanionBuilder =
+    OutboxEventsCompanion Function({
+      Value<int> id,
+      Value<String> eventType,
+      Value<String> clientEventId,
+      Value<String> payloadJson,
+      Value<String> idempotencyKey,
+      Value<String> status,
+      Value<String> createdAt,
+      Value<String?> lastError,
+    });
+
+class $$OutboxEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $OutboxEventsTable> {
+  $$OutboxEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientEventId => $composableBuilder(
+    column: $table.clientEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$OutboxEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $OutboxEventsTable> {
+  $$OutboxEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get eventType => $composableBuilder(
+    column: $table.eventType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientEventId => $composableBuilder(
+    column: $table.clientEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$OutboxEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OutboxEventsTable> {
+  $$OutboxEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get eventType =>
+      $composableBuilder(column: $table.eventType, builder: (column) => column);
+
+  GeneratedColumn<String> get clientEventId => $composableBuilder(
+    column: $table.clientEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJson => $composableBuilder(
+    column: $table.payloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get idempotencyKey => $composableBuilder(
+    column: $table.idempotencyKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$OutboxEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OutboxEventsTable,
+          OutboxEvent,
+          $$OutboxEventsTableFilterComposer,
+          $$OutboxEventsTableOrderingComposer,
+          $$OutboxEventsTableAnnotationComposer,
+          $$OutboxEventsTableCreateCompanionBuilder,
+          $$OutboxEventsTableUpdateCompanionBuilder,
+          (
+            OutboxEvent,
+            BaseReferences<_$AppDatabase, $OutboxEventsTable, OutboxEvent>,
+          ),
+          OutboxEvent,
+          PrefetchHooks Function()
+        > {
+  $$OutboxEventsTableTableManager(_$AppDatabase db, $OutboxEventsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OutboxEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OutboxEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OutboxEventsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> eventType = const Value.absent(),
+                Value<String> clientEventId = const Value.absent(),
+                Value<String> payloadJson = const Value.absent(),
+                Value<String> idempotencyKey = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> createdAt = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+              }) => OutboxEventsCompanion(
+                id: id,
+                eventType: eventType,
+                clientEventId: clientEventId,
+                payloadJson: payloadJson,
+                idempotencyKey: idempotencyKey,
+                status: status,
+                createdAt: createdAt,
+                lastError: lastError,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String eventType,
+                required String clientEventId,
+                required String payloadJson,
+                required String idempotencyKey,
+                Value<String> status = const Value.absent(),
+                required String createdAt,
+                Value<String?> lastError = const Value.absent(),
+              }) => OutboxEventsCompanion.insert(
+                id: id,
+                eventType: eventType,
+                clientEventId: clientEventId,
+                payloadJson: payloadJson,
+                idempotencyKey: idempotencyKey,
+                status: status,
+                createdAt: createdAt,
+                lastError: lastError,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$OutboxEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OutboxEventsTable,
+      OutboxEvent,
+      $$OutboxEventsTableFilterComposer,
+      $$OutboxEventsTableOrderingComposer,
+      $$OutboxEventsTableAnnotationComposer,
+      $$OutboxEventsTableCreateCompanionBuilder,
+      $$OutboxEventsTableUpdateCompanionBuilder,
+      (
+        OutboxEvent,
+        BaseReferences<_$AppDatabase, $OutboxEventsTable, OutboxEvent>,
+      ),
+      OutboxEvent,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3544,4 +4318,6 @@ class $AppDatabaseManager {
       $$OutboxOrdersTableTableManager(_db, _db.outboxOrders);
   $$OutboxPaymentsTableTableManager get outboxPayments =>
       $$OutboxPaymentsTableTableManager(_db, _db.outboxPayments);
+  $$OutboxEventsTableTableManager get outboxEvents =>
+      $$OutboxEventsTableTableManager(_db, _db.outboxEvents);
 }

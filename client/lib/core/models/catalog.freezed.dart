@@ -811,7 +811,7 @@ return $default(_that.serverTime,_that.categories,_that.products,_that.deletedCa
 @JsonSerializable()
 
 class _CatalogDelta implements CatalogDelta {
-  const _CatalogDelta({required this.serverTime, List<Category> categories = const [], List<Product> products = const [], List<int> deletedCategoryIds = const [], List<int> deletedProductIds = const []}): _categories = categories,_products = products,_deletedCategoryIds = deletedCategoryIds,_deletedProductIds = deletedProductIds;
+  const _CatalogDelta({required this.serverTime, final  List<Category> categories = const [], final  List<Product> products = const [], final  List<int> deletedCategoryIds = const [], final  List<int> deletedProductIds = const []}): _categories = categories,_products = products,_deletedCategoryIds = deletedCategoryIds,_deletedProductIds = deletedProductIds;
   factory _CatalogDelta.fromJson(Map<String, dynamic> json) => _$CatalogDeltaFromJson(json);
 
 @override final  String serverTime;

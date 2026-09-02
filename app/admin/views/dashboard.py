@@ -29,6 +29,9 @@ from app.services.reports import (
     get_top_products_data,
 )
 
+DASHBOARD_CACHE_SECONDS = 60
+_dashboard_cache: dict[tuple[int, str], tuple[float, dict]] = {}
+
 
 def _period_start(period: str) -> tuple[datetime | None, datetime | None]:
     now = datetime.now(UTC)
@@ -47,6 +50,13 @@ def _period_start(period: str) -> tuple[datetime | None, datetime | None]:
 
 def build_dashboard_data(db, tenant_id: int, period: str = "30d") -> dict:
     period = period if period in ("today", "7d", "30d", "month", "all") else "30d"
+    # 60s per-tenant cache (stale Reports tolerable per user)
+    cache_key = (tenant_id, period)
+    cached = _dashboard_cache.get(cache_key)
+    now_ts = datetime.now(UTC).timestamp()
+    if cached and now_ts - cached[0] < DASHBOARD_CACHE_SECONDS:
+        # shallow copy to avoid caller mutation
+        return {k: v for k, v in cached[1].items()}
     start_date, end_date = _period_start(period)
     # Normalize to tenant-scoped queries
     sales_summary = get_sales_summary_data(
@@ -181,7 +191,7 @@ def build_dashboard_data(db, tenant_id: int, period: str = "30d") -> dict:
         for row in top_products
     ]
 
-    return {
+    result = {
         "period": period,
         "period_label": {
             "today": "Today",
@@ -215,6 +225,8 @@ def build_dashboard_data(db, tenant_id: int, period: str = "30d") -> dict:
             "complete": onboarding_complete,
         },
     }
+    _dashboard_cache[cache_key] = (now_ts, result)
+    return result
 
 
 def get_tenant_switcher_context(db, current_tenant_id: int) -> dict:

@@ -482,7 +482,7 @@ return $default(_that.id,_that.name,_that.description,_that.isSystem,_that.permi
 @JsonSerializable()
 
 class _RoleInfo implements RoleInfo {
-  const _RoleInfo({required this.id, required this.name, this.description, this.isSystem = false, @JsonKey(fromJson: permsFromJson, toJson: permsToJson) List<String> permissions = const []}): _permissions = permissions;
+  const _RoleInfo({required this.id, required this.name, this.description, this.isSystem = false, @JsonKey(fromJson: permsFromJson, toJson: permsToJson) final  List<String> permissions = const []}): _permissions = permissions;
   factory _RoleInfo.fromJson(Map<String, dynamic> json) => _$RoleInfoFromJson(json);
 
 @override final  int id;
@@ -765,7 +765,7 @@ return $default(_that.id,_that.email,_that.fullName,_that.isActive,_that.isSuper
 @JsonSerializable()
 
 class _UserProfile implements UserProfile {
-  const _UserProfile({required this.id, required this.email, this.fullName, this.isActive = true, this.isSuperuser = false, this.tenantId, @JsonKey(fromJson: rolesFromJson, toJson: rolesToJson) List<String> roles = const []}): _roles = roles;
+  const _UserProfile({required this.id, required this.email, this.fullName, this.isActive = true, this.isSuperuser = false, this.tenantId, @JsonKey(fromJson: rolesFromJson, toJson: rolesToJson) final  List<String> roles = const []}): _roles = roles;
   factory _UserProfile.fromJson(Map<String, dynamic> json) => _$UserProfileFromJson(json);
 
 @override final  int id;
