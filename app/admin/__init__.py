@@ -39,6 +39,7 @@ from app.admin.views.system import (
     PurchasingSettingAdmin,
     SyncEventLogAdmin,
 )
+from app.admin.views.dashboard import SeedDemoAdmin
 from app.admin.views.tenant import TenantAdmin, TenantSwitchAdmin
 from app.admin.views.workflows import WorkflowsAdmin
 
@@ -46,6 +47,7 @@ all_admin_views = [
     # Platform — tenant context first (scopes all writes)
     TenantSwitchAdmin,
     TenantAdmin,
+    SeedDemoAdmin,
     # Workflows — guided daily tasks
     WorkflowsAdmin,
     # Sales — Orders, Customers, Marketing (merged for daily ops)

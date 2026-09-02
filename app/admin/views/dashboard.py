@@ -1,6 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
+# pyrefly: ignore [missing-import]
+from sqladmin import BaseView, expose
 from sqlalchemy.orm import joinedload
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 from app.core.localization import format_currency, get_localization_setting
 from app.models.customer import Customer
@@ -221,3 +225,116 @@ def get_tenant_switcher_context(db, current_tenant_id: int) -> dict:
         "current_tenant": current,
         "current_tenant_id": current_tenant_id,
     }
+
+
+class SeedDemoAdmin(BaseView):
+    name = "Seed Demo"
+    identity = "seed-demo"
+
+    def is_visible(self, request) -> bool:  # type: ignore[override]
+        return False
+
+    @expose("/seed-demo", methods=["POST"])
+    async def seed_demo(self, request: Request):
+        from sqladmin import Flash
+
+        from app.admin.base import _selected_tenant_id
+        from app.core.database import SessionLocal
+
+        tenant_id = _selected_tenant_id(request)
+        db = SessionLocal()
+        try:
+            # Only for superuser and empty catalog to avoid clutter
+            has_products = (
+                db.query(Product).filter(Product.tenant_id == tenant_id).count() > 0
+            )
+            if has_products:
+                Flash.warning(request, "Demo catalog already exists for this store.")
+                return RedirectResponse(url="/admin/", status_code=303)
+            # Create demo categories, suppliers, products
+            cat_bev = Category(
+                name="Beverages",
+                description="Demo beverages",
+                tenant_id=tenant_id,
+                color="#a8d8ff",
+            )
+            cat_snack = Category(
+                name="Snacks",
+                description="Demo snacks",
+                tenant_id=tenant_id,
+                color="#ffd8a8",
+            )
+            db.add_all([cat_bev, cat_snack])
+            db.flush()
+            sup1 = Supplier(
+                name="Demo Supplier A",
+                contact_email="demo-a@example.com",
+                is_active=True,
+                tenant_id=tenant_id,
+            )
+            sup2 = Supplier(
+                name="Demo Supplier B",
+                contact_email="demo-b@example.com",
+                is_active=True,
+                tenant_id=tenant_id,
+            )
+            db.add_all([sup1, sup2])
+            db.flush()
+            products = [
+                Product(
+                    name="Cafe Latte",
+                    sku=f"SKU-LATTE-{tenant_id}",
+                    price=4.5,
+                    stock_quantity=25,
+                    reorder_point=10,
+                    min_stock=5,
+                    max_stock=50,
+                    lead_time_days=2,
+                    tenant_id=tenant_id,
+                    category_id=cat_bev.id,
+                ),
+                Product(
+                    name="Espresso",
+                    sku=f"SKU-ESP-{tenant_id}",
+                    price=3.0,
+                    stock_quantity=18,
+                    reorder_point=10,
+                    tenant_id=tenant_id,
+                    category_id=cat_bev.id,
+                ),
+                Product(
+                    name="Croissant",
+                    sku=f"SKU-CRO-{tenant_id}",
+                    price=3.5,
+                    stock_quantity=12,
+                    reorder_point=8,
+                    tenant_id=tenant_id,
+                    category_id=cat_snack.id,
+                ),
+                Product(
+                    name="Muffin",
+                    sku=f"SKU-MUF-{tenant_id}",
+                    price=2.8,
+                    stock_quantity=8,
+                    reorder_point=10,
+                    tenant_id=tenant_id,
+                    category_id=cat_snack.id,
+                ),
+                Product(
+                    name="Iced Tea",
+                    sku=f"SKU-TEA-{tenant_id}",
+                    price=3.2,
+                    stock_quantity=15,
+                    reorder_point=10,
+                    tenant_id=tenant_id,
+                    category_id=cat_bev.id,
+                ),
+            ]
+            db.add_all(products)
+            db.commit()
+            Flash.success(
+                request, "Demo catalog seeded — 5 products, 2 suppliers, 2 categories."
+            )
+        finally:
+            db.close()
+        return RedirectResponse(url="/admin/", status_code=303)

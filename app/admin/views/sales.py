@@ -48,6 +48,20 @@ class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promoti
         Promotion.code: "Promo Code",
         Promotion.name: "Promotion",
         Promotion.is_active: "Active",
+        Promotion.discount_type: "Type",
+        Promotion.discount_value: "Value",
+        Promotion.applies_to: "Applies To",
+    }
+    column_descriptions = {
+        Promotion.code: "Code customers enter at checkout",
+        Promotion.discount_type: "percentage or fixed amount",
+        Promotion.discount_value: "e.g. 10 for 10% or 5000 for fixed",
+        Promotion.applies_to: "order or specific product scope",
+        Promotion.is_active: "Inactive promos hidden at POS",
+    }
+    form_args = {
+        "code": {"render_kw": {"placeholder": "e.g. WELCOME10"}},
+        "discount_value": {"render_kw": {"placeholder": "10"}},
     }
 
 
@@ -83,6 +97,17 @@ class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
         TaxRule.is_active: "Active",
         TaxRule.tax_scope: "Scope",
         TaxRule.tax_mode: "Mode",
+        TaxRule.rate: "Rate",
+    }
+    column_descriptions = {
+        TaxRule.rate: "0.10 = 10%  (e.g. 0.07 for 7%)",
+        TaxRule.tax_scope: "order-wide or per-product",
+        TaxRule.tax_mode: "exclusive (added) vs inclusive (included)",
+        TaxRule.is_active: "Inactive rules not applied at checkout",
+    }
+    form_args = {
+        "rate": {"render_kw": {"placeholder": "0.10"}},
+        "name": {"render_kw": {"placeholder": "e.g. VAT 10%"}},
     }
 
 

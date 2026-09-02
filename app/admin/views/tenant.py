@@ -13,7 +13,7 @@ from app.models.tenant import Tenant
 class TenantAdmin(ModelView, model=Tenant):
     """Platform-level tenant registry (create, toggle active)."""
 
-    name = "Tenants"
+    name = "Stores"
     icon = "fa-solid fa-building"
     category = "Platform"
     category_icon = "fa-solid fa-globe"
@@ -30,6 +30,15 @@ class TenantAdmin(ModelView, model=Tenant):
     # A blank slug is allowed in the form: it is auto-generated from the name
     # (or uniquified) in on_model_change. Tenant.slug carries a client-side
     # default so sqladmin does not scaffold InputRequired on it.
+    column_labels = {
+        Tenant.name: "Store Name",
+        Tenant.slug: "Store Slug",
+        Tenant.is_active: "Active",
+    }
+    column_descriptions = {
+        Tenant.slug: "URL slug — auto-generated from name if left blank (e.g. My Cafe → my-cafe)",
+        Tenant.is_active: "Inactive stores hidden from login and POS",
+    }
     column_default_sort = [(Tenant.id, True)]
 
     async def on_model_change(
@@ -54,7 +63,7 @@ class TenantSwitchAdmin(BaseView):
     """Superuser tenant selector scoping panel writes and workflow/report
     queries to a chosen tenant (default: the seeded default tenant)."""
 
-    name = "Active Tenant"
+    name = "Current Store"
     icon = "fa-solid fa-building-circle-arrow-right"
     category = "Platform"
 
@@ -74,6 +83,9 @@ class TenantSwitchAdmin(BaseView):
         try:
             tenants = db.query(Tenant).order_by(Tenant.id.asc()).all()
             current_tenant_id = _selected_tenant_id(request)
+            current_tenant = next(
+                (t for t in tenants if t.id == current_tenant_id), None
+            )
         finally:
             db.close()
         return await self.templates.TemplateResponse(
@@ -81,6 +93,7 @@ class TenantSwitchAdmin(BaseView):
             "tenant_switch.html",
             context={
                 "tenants": tenants,
+                "current_tenant": current_tenant,
                 "current_tenant_id": current_tenant_id,
             },
         )

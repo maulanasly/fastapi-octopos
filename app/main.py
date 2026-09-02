@@ -304,6 +304,7 @@ class DashboardAdmin(Admin):
             build_dashboard_data,
             get_tenant_switcher_context,
         )
+        from app.core.config import settings
         from app.core.database import SessionLocal
 
         db = SessionLocal()
@@ -311,6 +312,11 @@ class DashboardAdmin(Admin):
             tenant_id = _selected_tenant_id(request)
             data = build_dashboard_data(db, tenant_id, period="30d")
             switcher = get_tenant_switcher_context(db, tenant_id)
+            current_tenant = switcher.get("current_tenant")
+            pos_url = settings.CLIENT_POS_URL
+            if current_tenant and getattr(current_tenant, "slug", None):
+                pos_url = f"{pos_url}?store={current_tenant.slug}"
+            # Flash from POS return (?pos_order=1) handled in template via query param
         finally:
             db.close()
         return await self.templates.TemplateResponse(
@@ -319,6 +325,7 @@ class DashboardAdmin(Admin):
             context={
                 "request": request,
                 "title": "Dashboard",
+                "pos_url": pos_url,
                 **data,
                 **switcher,
             },
