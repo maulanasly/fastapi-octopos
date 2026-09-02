@@ -23,19 +23,19 @@
 <!-- Metric Cards Row -->
 <div class="col-12 mb-3">
   <div class="row row-cards">
-    <!-- Total Revenue -->
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #206bc4 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <!-- Net Revenue -->
+    <div class="col-12 col-sm-6 col-xl-3 mb-3 mb-xl-0">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #206bc4 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto">
               <span class="bg-blue-lt text-blue avatar" style="width: 48px; height: 48px;">
                 <i class="fa-solid fa-dollar-sign fa-lg"></i>
               </span>
             </div>
-            <div class="col">
-              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Net Revenue</div>
-              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+            <div class="col" style="min-width: 0;">
+              <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Net Revenue</div>
+              <div class="h1 mb-0 font-weight-bold text-truncate" style="font-size: 1.5rem; color: #1e293b; overflow-wrap: anywhere;">
                 {{ localized.net_revenue }}
               </div>
             </div>
@@ -44,19 +44,19 @@
       </div>
     </div>
 
-    <!-- Completed Orders -->
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #d63939 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <!-- Total Refunds -->
+    <div class="col-12 col-sm-6 col-xl-3 mb-3 mb-xl-0">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #d63939 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto">
               <span class="bg-red-lt text-red avatar" style="width: 48px; height: 48px;">
                 <i class="fa-solid fa-rotate-left fa-lg"></i>
               </span>
             </div>
-            <div class="col">
-              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Refunds</div>
-              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+            <div class="col" style="min-width: 0;">
+              <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Refunds</div>
+              <div class="h1 mb-0 font-weight-bold text-truncate" style="font-size: 1.5rem; color: #1e293b; overflow-wrap: anywhere;">
                 {{ localized.total_refunds }}
               </div>
             </div>
@@ -66,18 +66,18 @@
     </div>
 
     <!-- Completed Orders -->
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #2fb344 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <div class="col-12 col-sm-6 col-xl-3 mb-3 mb-sm-0">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #2fb344 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto">
               <span class="bg-green-lt text-green avatar" style="width: 48px; height: 48px;">
                 <i class="fa-solid fa-shopping-bag fa-lg"></i>
               </span>
             </div>
-            <div class="col">
-              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Completed Orders</div>
-              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+            <div class="col" style="min-width: 0;">
+              <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Completed Orders</div>
+              <div class="h1 mb-0 font-weight-bold text-truncate" style="font-size: 1.5rem; color: #1e293b; overflow-wrap: anywhere;">
                 {{ sales_summary.order_count }}
               </div>
             </div>
@@ -87,18 +87,18 @@
     </div>
 
     <!-- Average Order Value -->
-    <div class="col-md-3">
-      <div class="card card-sm border-0 shadow-sm" style="border-left: 4px solid #4299e1 !important;">
-        <div class="card-body">
-          <div class="row align-items-center">
+    <div class="col-12 col-sm-6 col-xl-3">
+      <div class="card card-sm border-0 shadow-sm h-100" style="border-left: 4px solid #4299e1 !important; min-width: 0;">
+        <div class="card-body" style="min-width: 0;">
+          <div class="row align-items-center g-2" style="min-width: 0;">
             <div class="col-auto">
               <span class="bg-cyan-lt text-cyan avatar" style="width: 48px; height: 48px;">
                 <i class="fa-solid fa-calculator fa-lg"></i>
               </span>
             </div>
-            <div class="col">
-              <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Average Order Value</div>
-              <div class="h1 mb-0 font-weight-bold" style="font-size: 1.8rem; color: #1e293b;">
+            <div class="col" style="min-width: 0;">
+              <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Average Order Value</div>
+              <div class="h1 mb-0 font-weight-bold text-truncate" style="font-size: 1.5rem; color: #1e293b; overflow-wrap: anywhere;">
                 {{ localized.average_order_value }}
               </div>
             </div>
@@ -118,62 +118,62 @@
       </h3>
     </div>
     <div class="card-body pt-0">
-      <div class="row row-cards">
-        <div class="col-md-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Gross Revenue</div>
-          <div class="h2 mb-0">{{ localized.gross_revenue }}</div>
+      <div class="row row-cards g-2">
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Gross Revenue</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.gross_revenue }}</div>
         </div>
-        <div class="col-md-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Total Discounts</div>
-          <div class="h2 mb-0">{{ localized.total_discounts }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Total Discounts</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.total_discounts }}</div>
         </div>
-        <div class="col-md-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Active Customers</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Active Customers</div>
           <div class="h2 mb-0">{{ executive_summary.active_customers_count }}</div>
         </div>
-        <div class="col-md-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Points Issued / Redeemed</div>
-          <div class="h2 mb-0">{{ executive_summary.points_issued }} / {{ executive_summary.points_redeemed }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Points Issued / Redeemed</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ executive_summary.points_issued }} / {{ executive_summary.points_redeemed }}</div>
         </div>
-        <div class="col-md-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Open Purchase Orders</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Open Purchase Orders</div>
           <div class="h2 mb-0">{{ executive_summary.open_purchase_orders_count }}</div>
         </div>
-        <div class="col-md-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Purchase Received Value</div>
-          <div class="h2 mb-0">{{ localized.purchase_received_value }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Purchase Received Value</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.purchase_received_value }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Reconciled Shifts</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Reconciled Shifts</div>
           <div class="h2 mb-0">{{ executive_summary.reconciled_shift_count }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Avg Cash Variance</div>
-          <div class="h2 mb-0">{{ localized.average_cash_variance }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Avg Cash Variance</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.average_cash_variance }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoices</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoices</div>
           <div class="h2 mb-0">{{ executive_summary.invoice_count }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Pending Invoice Review</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Pending Invoice Review</div>
           <div class="h2 mb-0">{{ executive_summary.invoice_pending_review_count }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Approved Invoice Total</div>
-          <div class="h2 mb-0">{{ localized.invoice_approved_total }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Approved Invoice Total</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.invoice_approved_total }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoice Variance Total</div>
-          <div class="h2 mb-0">{{ localized.invoice_variance_total }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Invoice Variance Total</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.invoice_variance_total }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Supplier Paid Total</div>
-          <div class="h2 mb-0">{{ localized.supplier_paid_total }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Supplier Paid Total</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.supplier_paid_total }}</div>
         </div>
-        <div class="col-md-3 mt-3">
-          <div class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Supplier Outstanding</div>
-          <div class="h2 mb-0">{{ localized.supplier_outstanding }}</div>
+        <div class="col-6 col-md-3" style="min-width: 0;">
+          <div class="text-secondary text-truncate" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700;">Supplier Outstanding</div>
+          <div class="h2 mb-0 text-truncate" style="overflow-wrap:anywhere;">{{ localized.supplier_outstanding }}</div>
         </div>
       </div>
     </div>
@@ -181,15 +181,15 @@
 </div>
 
 <!-- Main Reporting Data Row -->
-<div class="col-md-7">
-  <div class="card border-0 shadow-sm">
+<div class="col-12 col-lg-7 mb-3 mb-lg-0">
+  <div class="card border-0 shadow-sm" style="min-width: 0; overflow: hidden;">
     <div class="card-header bg-transparent border-0 py-3">
       <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
         <i class="fa-solid fa-trophy me-2 text-warning"></i>Top Selling Products
       </h3>
     </div>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table table-hover">
+      <table class="table table-vcenter card-table table-hover" style="min-width: 480px;">
         <thead>
           <tr class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; background-color: #f8fafc;">
             <th>Product Name</th>
@@ -219,15 +219,15 @@
   </div>
 </div>
 
-<div class="col-md-5">
-  <div class="card border-0 shadow-sm">
+<div class="col-12 col-lg-5">
+  <div class="card border-0 shadow-sm" style="min-width: 0; overflow: hidden;">
     <div class="card-header bg-transparent border-0 py-3">
       <h3 class="card-title text-secondary mb-0" style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
         <i class="fa-solid fa-tags me-2 text-info"></i>Sales by Category
       </h3>
     </div>
     <div class="table-responsive">
-      <table class="table table-vcenter card-table table-hover">
+      <table class="table table-vcenter card-table table-hover" style="min-width: 320px;">
         <thead>
           <tr class="text-secondary" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; background-color: #f8fafc;">
             <th>Category</th>
@@ -361,28 +361,27 @@
 </div>
 
 <!-- Shift Reports Row -->
-<div class="row">
-  <div class="col-12">
-    <div class="card shadow-sm mb-4">
-      <div class="card-header py-3">
-        <h5 class="card-title mb-0"><i class="fa-solid fa-print me-2"></i>Shift Reports (Z-Reports)</h5>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-hover align-middle mb-0">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Drawer</th>
-              <th>Cashier</th>
-              <th>Closed At</th>
-              <th class="text-end">Gross Sales</th>
-              <th class="text-end">Net Sales</th>
-              <th class="text-end">Variance</th>
-              <th class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for shift in shift_reports %}
+<div class="col-12">
+  <div class="card shadow-sm mb-4" style="min-width: 0; overflow: hidden;">
+    <div class="card-header py-3">
+      <h5 class="card-title mb-0"><i class="fa-solid fa-print me-2"></i>Shift Reports (Z-Reports)</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="min-width: 720px;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Drawer</th>
+            <th>Cashier</th>
+            <th>Closed At</th>
+            <th class="text-end">Gross Sales</th>
+            <th class="text-end">Net Sales</th>
+            <th class="text-end">Variance</th>
+            <th class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for shift in shift_reports %}
               <tr>
                 <td>{{ shift.id }}</td>
                 <td>{{ shift.drawer_session_id }}</td>
@@ -409,5 +408,4 @@
       </div>
     </div>
   </div>
-</div>
 {% endblock %}

@@ -1,14 +1,18 @@
 /// Inventory: stock movements, replenishment suggestions, manual adjust.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_client.dart';
 import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/models.dart';
+import '../../core/pagination.dart';
 import '../../core/strings.dart';
 import '../pos/catalog_controller.dart';
 
@@ -24,6 +28,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   late Future<List<StockMovement>> _movements;
   late Future<List<ReplenishmentSuggestion>> _suggestions;
   String? _typeFilter;
+  int? _productIdFilter;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  int _movementsLimit = 100;
+  final _productIdController = TextEditingController();
   bool _onlyReorder = true;
   List<Supplier> _suppliers = const [];
   final Map<int, _SuggestionRow> _rows = {};
@@ -35,15 +44,209 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     _reload();
   }
 
+  @override
+  void dispose() {
+    _productIdController.dispose();
+    for (final r in _rows.values) {
+      r.qty.dispose();
+      r.cost.dispose();
+    }
+    super.dispose();
+  }
+
   void _reload() {
-    _movements = ref
-        .read(inventoryRepositoryProvider)
-        .movements(movementType: _typeFilter);
+    _movements = ref.read(inventoryRepositoryProvider).movements(
+          movementType: _typeFilter,
+          productId: _productIdFilter,
+          startDate: _startDate,
+          endDate: _endDate,
+          pagination: PaginationParams(limit: _movementsLimit),
+        );
     _suggestions = ref
         .read(inventoryRepositoryProvider)
         .suggestions(onlyReorder: _onlyReorder);
     _rows.clear();
     _loadSuppliers();
+  }
+
+  bool get _hasActiveMovementFilters =>
+      _typeFilter != null || _productIdFilter != null || _startDate != null || _endDate != null;
+
+  void _clearMovementFilters() {
+    setState(() {
+      _typeFilter = null;
+      _productIdFilter = null;
+      _startDate = null;
+      _endDate = null;
+      _movementsLimit = 100;
+      _productIdController.clear();
+      _reload();
+    });
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked.start;
+      _endDate = picked.end;
+      _movementsLimit = 100;
+      _reload();
+    });
+  }
+
+  void _applyProductFilter() {
+    final raw = _productIdController.text.trim();
+    final pid = int.tryParse(raw);
+    setState(() {
+      _productIdFilter = pid;
+      _movementsLimit = 100;
+      _reload();
+    });
+  }
+
+  Future<void> _pickProduct() async {
+    final s = ref.read(stringsProvider);
+    final searchCtrl = TextEditingController();
+    List<Product> results = [];
+    bool searching = false;
+    String? error;
+    Timer? debounce;
+
+    final selected = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(s.of('selectProduct')),
+          content: SizedBox(
+            width: 400,
+            height: 360,
+            child: Column(
+              children: [
+                TextField(
+                  controller: searchCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Search product (name/SKU)',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    isDense: true,
+                  ),
+                  onChanged: (v) {
+                    debounce?.cancel();
+                    debounce = Timer(const Duration(milliseconds: 400), () async {
+                      final q = v.trim();
+                      if (q.isEmpty) {
+                        setD(() {
+                          results = [];
+                          error = null;
+                          searching = false;
+                        });
+                        return;
+                      }
+                      setD(() {
+                        searching = true;
+                        error = null;
+                      });
+                      try {
+                        // Use API directly for name search with limit 20 (handles huge catalog)
+                        final dio = ref.read(apiClientProvider).dio;
+                        final resp = await dio.get<List<dynamic>>(
+                          '/products/',
+                          queryParameters: {'q': q, 'limit': 20},
+                        );
+                        final list = resp.data!
+                            .map((e) => Product.fromJson(e as Map<String, dynamic>))
+                            .toList();
+                        if (ctx.mounted) {
+                          setD(() {
+                            results = list;
+                            searching = false;
+                          });
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          setD(() {
+                            error = friendlyError(e, s);
+                            searching = false;
+                          });
+                        }
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+                if (searching) const LinearProgressIndicator(),
+                if (error != null)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(error!, style: const TextStyle(color: Colors.red)),
+                  ),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: results.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (c, i) {
+                      final p = results[i];
+                      return ListTile(
+                        dense: true,
+                        title: Text(p.name),
+                        subtitle: Text('${p.sku} · ${p.stockQuantity} in stock'),
+                        onTap: () => Navigator.of(ctx).pop(p.id),
+                      );
+                    },
+                  ),
+                ),
+                if (results.isEmpty && !searching && searchCtrl.text.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text('No matches'),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(s.of('cancel')),
+            ),
+            TextButton(
+              onPressed: () {
+                _productIdController.clear();
+                Navigator.of(ctx).pop(0); // 0 means clear filter
+              },
+              child: Text(s.of('clear')),
+            ),
+          ],
+        ),
+      ),
+    );
+    debounce?.cancel();
+    if (selected == null) return;
+    setState(() {
+      if (selected == 0) {
+        _productIdFilter = null;
+        _productIdController.clear();
+      } else {
+        _productIdFilter = selected;
+        _productIdController.text = '$selected';
+      }
+      _movementsLimit = 100;
+      _reload();
+    });
+  }
+
+  void _loadMoreMovements() {
+    setState(() {
+      _movementsLimit += 100;
+      _reload();
+    });
   }
 
   Future<void> _loadSuppliers() async {
@@ -284,37 +487,94 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   }
 
   Widget _typeFilterRow(AppStrings s) {
-    return SizedBox(
-      height: 44,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+    final hasFilters = _hasActiveMovementFilters;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _typeChip(s, null, s.of('all')),
-          _typeChip(s, 'sale', 'sale'),
-          _typeChip(s, 'refund', 'refund'),
-          _typeChip(s, 'manual_adjustment', 'manual'),
-          _typeChip(s, 'initial_stock', 'initial'),
-          _typeChip(s, 'purchase_receipt', 'receipt'),
-          _typeChip(s, 'ad_hoc_receipt', 'ad-hoc'),
-          _typeChip(s, 'reservation_release', 'release'),
-          _typeChip(s, 'order_cancel', 'cancel'),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _typeChip(s, null, s.of('all')),
+              _typeChip(s, 'sale', 'sale'),
+              _typeChip(s, 'refund', 'refund'),
+              _typeChip(s, 'manual_adjustment', 'manual'),
+              _typeChip(s, 'initial_stock', 'initial'),
+              _typeChip(s, 'purchase_receipt', 'receipt'),
+              _typeChip(s, 'ad_hoc_receipt', 'ad-hoc'),
+              _typeChip(s, 'reservation_release', 'release'),
+              _typeChip(s, 'order_cancel', 'cancel'),
+              if (hasFilters)
+                ActionChip(
+                  label: Text('${s.of('clear')} ✕'),
+                  onPressed: _clearMovementFilters,
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _productIdController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Product ID',
+                    hintText: 'ID',
+                    isDense: true,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search, size: 18),
+                      onPressed: _applyProductFilter,
+                    ),
+                  ),
+                  onSubmitted: (_) => _applyProductFilter(),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Search product',
+                icon: const Icon(Icons.manage_search, size: 18),
+                onPressed: _pickProduct,
+              ),
+              const SizedBox(width: 4),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.date_range, size: 16),
+                label: Text(
+                  _startDate == null
+                      ? 'Date range'
+                      : '${_startDate!.month}/${_startDate!.day} - ${_endDate!.month}/${_endDate!.day}',
+                ),
+                onPressed: _pickDateRange,
+              ),
+              if (_startDate != null)
+                IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: s.of('clear'),
+                  onPressed: () => setState(() {
+                    _startDate = null;
+                    _endDate = null;
+                    _movementsLimit = 100;
+                    _reload();
+                  }),
+                ),
+            ],
+          ),
         ],
       ),
     );
   }
 
   Widget _typeChip(AppStrings s, String? value, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: _typeFilter == value,
-        onSelected: (_) => setState(() {
-          _typeFilter = value;
-          _reload();
-        }),
-      ),
+    return ChoiceChip(
+      label: Text(label),
+      selected: _typeFilter == value,
+      onSelected: (_) => setState(() {
+        _typeFilter = value;
+        _movementsLimit = 100;
+        _reload();
+      }),
     );
   }
 
@@ -330,50 +590,78 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         }
         final movements = snapshot.data ?? [];
         if (movements.isEmpty) {
-          return Center(child: Text(s.of('noMovements')));
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(s.of('noMovements')),
+                if (_hasActiveMovementFilters)
+                  TextButton(
+                    onPressed: _clearMovementFilters,
+                    child: Text(s.of('clear')),
+                  ),
+              ],
+            ),
+          );
         }
+        final hasMore = movements.length >= _movementsLimit;
         return RefreshIndicator(
           onRefresh: () async => setState(_reload),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: movements.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
-            itemBuilder: (context, i) {
-              final m = movements[i];
-              final delta = m.quantityDelta;
-              final productLabel = m.productName != null
-                  ? '${m.productName} (${m.productSku ?? m.productId})'
-                  : s.of('productId', args: {'id': m.productId});
-              final meta = [
-                if (m.userEmail != null) m.userEmail!,
-                if (m.orderId != null) 'Order #${m.orderId}',
-                if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
-                if (m.refundId != null) 'Refund #${m.refundId}',
-              ].join(' · ');
-              return ListTile(
-                leading: Icon(
-                  delta >= 0
-                      ? Icons.add_box_outlined
-                      : Icons.remove_circle_outline,
-                  color: delta >= 0 ? Colors.green : Colors.red,
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: movements.length,
+                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  itemBuilder: (context, i) {
+                    final m = movements[i];
+                    final delta = m.quantityDelta;
+                    final productLabel = m.productName != null
+                        ? '${m.productName} (${m.productSku ?? m.productId})'
+                        : s.of('productId', args: {'id': m.productId});
+                    final meta = [
+                      if (m.userEmail != null) m.userEmail!,
+                      if (m.orderId != null) 'Order #${m.orderId}',
+                      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
+                      if (m.refundId != null) 'Refund #${m.refundId}',
+                    ].join(' · ');
+                    return ListTile(
+                      leading: Icon(
+                        delta >= 0
+                            ? Icons.add_box_outlined
+                            : Icons.remove_circle_outline,
+                        color: delta >= 0 ? Colors.green : Colors.red,
+                      ),
+                      title: Text('$productLabel · ${m.movementType}'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${formatDateTimeIso(m.createdAt)}'
+                            '${m.note != null ? ' — ${m.note}' : ''}',
+                          ),
+                          if (meta.isNotEmpty)
+                            Text(meta, style: Theme.of(context).textTheme.bodySmall),
+                        ],
+                      ),
+                      trailing: Text(
+                        '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
+                      ),
+                    );
+                  },
                 ),
-                title: Text('$productLabel · ${m.movementType}'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${formatDateTimeIso(m.createdAt)}'
-                      '${m.note != null ? ' — ${m.note}' : ''}',
-                    ),
-                    if (meta.isNotEmpty)
-                      Text(meta, style: Theme.of(context).textTheme.bodySmall),
-                  ],
+              ),
+              if (hasMore)
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.expand_more, size: 18),
+                    label: Text('Load more (${movements.length} shown)'),
+                    onPressed: _loadMoreMovements,
+                  ),
                 ),
-                trailing: Text(
-                  '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
-                ),
-              );
-            },
+            ],
           ),
         );
       },

@@ -3,6 +3,11 @@ from uuid import uuid4
 
 # pyrefly: ignore [missing-import]
 from sqladmin import Flash, action, expose
+from sqladmin.filters import (
+    AllUniqueStringValuesFilter,
+    ForeignKeyFilter,
+    OperationColumnFilter,
+)
 from starlette.exceptions import HTTPException
 
 # pyrefly: ignore [missing-import]
@@ -16,6 +21,7 @@ from app.core.audit import log_action
 from app.models.product import Category, Product
 from app.models.stock_movement import StockMovement
 from app.models.tenant import Tenant
+from app.models.user import User
 from app.services.images import (
     _MAX_IMAGE_BYTES,
     delete_media_file,
@@ -39,6 +45,16 @@ class CategoryAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Category
     column_searchable_list = [Category.name]
     column_default_sort = [(Category.updated_at, True)]
     form_overrides = {"color": ColorField}
+    column_labels = {
+        Category.name: "Category",
+        Category.description: "Description",
+        Category.color: "Color",
+    }
+    column_descriptions = {
+        Category.name: "Short category name, searchable",
+        Category.color: "Hex color for POS tiles — pick from palette or enter custom hex",
+        Category.description: "Optional description for back-office reference",
+    }
 
 
 class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
@@ -54,14 +70,10 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.id,
         Product.name,
         Product.sku,
-        Product.price,
-        Product.unit_cost,
-        Product.stock_quantity,
-        Product.min_stock,
-        Product.max_stock,
-        Product.reorder_point,
-        Product.lead_time_days,
         Product.category,
+        Product.price,
+        Product.stock_quantity,
+        Product.reorder_point,
         Product.image_url,
     ]
     column_searchable_list = [Product.name, Product.sku]
@@ -72,6 +84,43 @@ class ProductAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Product):
         Product.lead_time_days,
     ]
     column_default_sort = [(Product.updated_at, True)]
+    column_details_list = [
+        Product.id,
+        Product.name,
+        Product.sku,
+        Product.category,
+        Product.price,
+        Product.unit_cost,
+        Product.stock_quantity,
+        Product.min_stock,
+        Product.max_stock,
+        Product.reorder_point,
+        Product.lead_time_days,
+        Product.image_url,
+        Product.thumbnail_url,
+    ]
+    column_filters = [
+        ForeignKeyFilter(Product.category_id, Category.name, foreign_model=Category),
+        OperationColumnFilter(Product.stock_quantity, title="Stock"),
+    ]
+    column_labels = {
+        Product.name: "Product / SKU",
+        Product.category: "Category",
+        Product.sku: "SKU",
+        Product.price: "Price",
+        Product.stock_quantity: "Stock",
+    }
+    column_descriptions = {
+        Product.name: "Full product name, appears on POS tile",
+        Product.sku: "Unique per tenant — use Suggest SKU button",
+        Product.price: "Selling price (display currency)",
+        Product.category: "Optional category for filtering",
+    }
+    form_args = {
+        "name": {"render_kw": {"placeholder": "e.g. Cafe Latte"}},
+        "sku": {"render_kw": {"placeholder": "e.g. SKU-CAFE-LATTE"}},
+        "price": {"render_kw": {"placeholder": "12.50"}},
+    }
 
     # Stock is ledger-managed via the stock-adjustment action below; never
     # edit it directly through the create/edit forms. Photos go through the
@@ -488,6 +537,43 @@ class StockMovementAdmin(
     column_searchable_list = [StockMovement.movement_type, StockMovement.note]
     column_sortable_list = [StockMovement.created_at, StockMovement.id]
     column_default_sort = [(StockMovement.created_at, True)]
+    column_filters = [
+        AllUniqueStringValuesFilter(StockMovement.movement_type, title="Movement Type"),
+        # Huge product list: use ID input instead of dropdown (avoids loading 10k options)
+        OperationColumnFilter(StockMovement.product_id, title="Product ID"),
+        ForeignKeyFilter(StockMovement.user_id, User.email, foreign_model=User),
+        OperationColumnFilter(StockMovement.created_at, title="Created"),
+    ]
+    column_labels = {
+        StockMovement.movement_type: "Movement Type",
+        StockMovement.product: "Product",
+        StockMovement.user: "Actor",
+        StockMovement.quantity_before: "Before",
+        StockMovement.quantity_delta: "Delta",
+        StockMovement.quantity_after: "After",
+        StockMovement.order_id: "Order ID",
+        StockMovement.refund_id: "Refund ID",
+        StockMovement.created_at: "Created",
+    }
+    column_descriptions = {
+        StockMovement.movement_type: "Ledger type: sale, restock, manual_adjustment, refund",
+    }
+    column_details_list = [
+        StockMovement.id,
+        StockMovement.product,
+        StockMovement.user,
+        StockMovement.movement_type,
+        StockMovement.quantity_before,
+        StockMovement.quantity_delta,
+        StockMovement.quantity_after,
+        StockMovement.order,
+        StockMovement.order_item,
+        StockMovement.purchase_order,
+        StockMovement.purchase_order_item,
+        StockMovement.refund,
+        StockMovement.note,
+        StockMovement.created_at,
+    ]
     can_create = False
     can_edit = False
     can_delete = False

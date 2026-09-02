@@ -1,3 +1,11 @@
+# pyrefly: ignore [missing-import]
+from sqladmin.filters import (
+    AllUniqueStringValuesFilter,
+    BooleanFilter,
+    ForeignKeyFilter,
+)
+from starlette.requests import Request
+
 from app.admin.base import TenantScopedModelView
 from app.admin.formatting import LabeledRelationsMixin
 from app.models.purchase import (
@@ -27,6 +35,20 @@ class SupplierAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Supplier
     column_searchable_list = [Supplier.name, Supplier.contact_email, Supplier.phone]
     column_sortable_list = [Supplier.created_at, Supplier.id]
     column_default_sort = [(Supplier.created_at, True)]
+    column_filters = [BooleanFilter(Supplier.is_active, title="Active")]
+    column_labels = {
+        Supplier.name: "Supplier",
+        Supplier.is_active: "Active",
+        Supplier.contact_email: "Email",
+    }
+    column_descriptions = {
+        Supplier.name: "Supplier display name, searchable",
+        Supplier.is_active: "Inactive suppliers not offered in workflows",
+    }
+    form_args = {
+        "name": {"render_kw": {"placeholder": "e.g. Acme Supplies"}},
+        "contact_email": {"render_kw": {"placeholder": "contact@supplier.com"}},
+    }
 
 
 class PurchaseOrderAdmin(
@@ -50,6 +72,13 @@ class PurchaseOrderAdmin(
     column_searchable_list = [PurchaseOrder.status]
     column_sortable_list = [PurchaseOrder.created_at, PurchaseOrder.received_at]
     column_default_sort = [(PurchaseOrder.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(
+            PurchaseOrder.supplier_id, Supplier.name, foreign_model=Supplier
+        ),
+        AllUniqueStringValuesFilter(PurchaseOrder.status, title="Status"),
+    ]
+    column_labels = {PurchaseOrder.status: "Status", PurchaseOrder.supplier: "Supplier"}
     can_create = False
     can_edit = False
     can_delete = False
@@ -77,6 +106,9 @@ class PurchaseOrderItemAdmin(
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class PurchaseInvoiceAdmin(
@@ -107,6 +139,27 @@ class PurchaseInvoiceAdmin(
         PurchaseInvoice.variance_amount,
     ]
     column_default_sort = [(PurchaseInvoice.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(
+            PurchaseInvoice.supplier_id, Supplier.name, foreign_model=Supplier
+        ),
+        AllUniqueStringValuesFilter(PurchaseInvoice.status, title="Status"),
+        BooleanFilter(PurchaseInvoice.has_quantity_variance, title="Qty Variance"),
+        BooleanFilter(PurchaseInvoice.has_price_variance, title="Price Variance"),
+    ]
+    column_labels = {
+        PurchaseInvoice.invoice_number: "Invoice #",
+        PurchaseInvoice.status: "Status",
+        PurchaseInvoice.supplier: "Supplier",
+        PurchaseInvoice.has_quantity_variance: "Qty Variance",
+        PurchaseInvoice.has_price_variance: "Price Variance",
+        PurchaseInvoice.variance_amount: "Variance",
+        PurchaseInvoice.total_amount: "Total",
+    }
+    column_descriptions = {
+        PurchaseInvoice.has_quantity_variance: "Billed quantity differs from ordered",
+        PurchaseInvoice.has_price_variance: "Billed price differs from expected",
+    }
     can_create = False
     can_edit = False
     can_delete = False
@@ -143,6 +196,9 @@ class PurchaseInvoiceItemAdmin(
     can_edit = False
     can_delete = False
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class SupplierPaymentAdmin(
     LabeledRelationsMixin, TenantScopedModelView, model=SupplierPayment
@@ -175,6 +231,20 @@ class SupplierPaymentAdmin(
         SupplierPayment.status,
     ]
     column_default_sort = [(SupplierPayment.created_at, True)]
+    column_filters = [
+        ForeignKeyFilter(
+            SupplierPayment.supplier_id, Supplier.name, foreign_model=Supplier
+        ),
+        AllUniqueStringValuesFilter(SupplierPayment.status, title="Status"),
+        AllUniqueStringValuesFilter(
+            SupplierPayment.payment_method, title="Payment Method"
+        ),
+    ]
+    column_labels = {
+        SupplierPayment.status: "Status",
+        SupplierPayment.supplier: "Supplier",
+        SupplierPayment.payment_method: "Payment Method",
+    }
     can_create = False
     can_edit = False
     can_delete = False

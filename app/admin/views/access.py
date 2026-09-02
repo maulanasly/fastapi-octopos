@@ -1,5 +1,6 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView
+from sqladmin.filters import BooleanFilter
 
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
@@ -29,7 +30,12 @@ class UserAdmin(LabeledRelationsMixin, TenantScopedModelView, model=User):
     column_searchable_list = [User.email, User.full_name]
     can_delete = False
 
-    column_labels = {User.hashed_password: "Password"}
+    column_filters = [BooleanFilter(User.is_active, title="Active")]
+    column_labels = {
+        User.hashed_password: "Password",
+        User.is_active: "Active",
+        User.email: "Email",
+    }
     column_default_sort = [(User.id, True)]
     form_overrides = {User.hashed_password: AdminPasswordField}
 
@@ -80,6 +86,16 @@ class RoleAdmin(LabeledRelationsMixin, ModelView, model=Role):
     column_searchable_list = [Role.name, Role.description]
     column_sortable_list = [Role.id, Role.name]
     column_default_sort = [(Role.id, True)]
+    column_filters = [BooleanFilter(Role.is_system, title="System")]
+    column_labels = {
+        Role.name: "Role",
+        Role.description: "Description",
+        Role.is_system: "System Role",
+        Role.permissions: "Permissions",
+    }
+    column_descriptions = {
+        Role.is_system: "System roles cannot be edited or deleted",
+    }
 
     async def check_can_edit(self, request: Request, model: Role) -> bool:
         if getattr(model, "is_system", False):
@@ -108,6 +124,9 @@ class PermissionAdmin(LabeledRelationsMixin, ModelView, model=Permission):
     column_sortable_list = [Permission.id, Permission.code]
     column_default_sort = [(Permission.id, True)]
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
     name = "User Roles"
@@ -121,6 +140,9 @@ class UserRoleAdmin(LabeledRelationsMixin, ModelView, model=UserRole):
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission):
@@ -143,3 +165,6 @@ class RolePermissionAdmin(LabeledRelationsMixin, ModelView, model=RolePermission
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False

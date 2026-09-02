@@ -12,7 +12,7 @@ from app.admin.formatting import _make_relation_formatter
 from app.models.tenant import Tenant
 
 REPORTS_CACHE_SECONDS = 120
-_reports_cache: dict[tuple[str, str, str], tuple[float, dict]] = {}
+_reports_cache: dict[tuple[int, str, str, str], tuple[float, dict]] = {}
 
 # The admin panel is superuser-only (cross-tenant by design). The superuser
 # picks a working tenant via the Tenant switcher; rows the panel creates that

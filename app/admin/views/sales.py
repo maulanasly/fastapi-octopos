@@ -1,5 +1,13 @@
 # pyrefly: ignore [missing-import]
 from sqladmin import ModelView  # noqa: F401
+from sqladmin.filters import (
+    AllUniqueStringValuesFilter,
+    BooleanFilter,
+    OperationColumnFilter,
+)
+
+# pyrefly: ignore [missing-import]
+from starlette.requests import Request
 
 from app.admin.base import TenantScopedModelView
 from app.admin.formatting import LabeledRelationsMixin
@@ -13,8 +21,8 @@ from app.models.tax import OrderTaxLine, TaxRule
 class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promotion):
     name = "Promotions"
     icon = "fa-solid fa-tags"
-    category = "Marketing"
-    category_icon = "fa-solid fa-bullhorn"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         Promotion.id,
@@ -32,13 +40,22 @@ class PromotionAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Promoti
     column_searchable_list = [Promotion.code, Promotion.name, Promotion.description]
     column_sortable_list = [Promotion.id, Promotion.usage_count, Promotion.starts_at]
     column_default_sort = [(Promotion.created_at, True)]
+    column_filters = [
+        AllUniqueStringValuesFilter(Promotion.discount_type, title="Discount Type"),
+        BooleanFilter(Promotion.is_active, title="Active"),
+    ]
+    column_labels = {
+        Promotion.code: "Promo Code",
+        Promotion.name: "Promotion",
+        Promotion.is_active: "Active",
+    }
 
 
 class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
     name = "Tax Rules"
     icon = "fa-solid fa-percent"
-    category = "Marketing"
-    category_icon = "fa-solid fa-bullhorn"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         TaxRule.id,
@@ -56,13 +73,24 @@ class TaxRuleAdmin(LabeledRelationsMixin, TenantScopedModelView, model=TaxRule):
     column_searchable_list = [TaxRule.name, TaxRule.description]
     column_sortable_list = [TaxRule.id, TaxRule.rate, TaxRule.updated_at]
     column_default_sort = [(TaxRule.updated_at, True)]
+    column_filters = [
+        AllUniqueStringValuesFilter(TaxRule.tax_scope, title="Scope"),
+        AllUniqueStringValuesFilter(TaxRule.tax_mode, title="Mode"),
+        BooleanFilter(TaxRule.is_active, title="Active"),
+    ]
+    column_labels = {
+        TaxRule.name: "Tax Rule",
+        TaxRule.is_active: "Active",
+        TaxRule.tax_scope: "Scope",
+        TaxRule.tax_mode: "Mode",
+    }
 
 
 class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer):
     name = "Customers"
     icon = "fa-solid fa-user-group"
-    category = "Customers"
-    category_icon = "fa-solid fa-user-group"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         Customer.id,
@@ -76,6 +104,14 @@ class CustomerAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Customer
     column_searchable_list = [Customer.name, Customer.email, Customer.phone]
     column_sortable_list = [Customer.id, Customer.points_balance, Customer.created_at]
     column_default_sort = [(Customer.created_at, True)]
+    column_filters = [BooleanFilter(Customer.is_active, title="Active")]
+    column_labels = {
+        Customer.name: "Customer",
+        Customer.is_active: "Active",
+        Customer.email: "Email",
+        Customer.points_balance: "Points",
+    }
+    column_descriptions = {Customer.name: "Full name, searchable with email/phone"}
 
 
 class LoyaltyTransactionAdmin(
@@ -83,8 +119,8 @@ class LoyaltyTransactionAdmin(
 ):
     name = "Loyalty Transactions"
     icon = "fa-solid fa-star"
-    category = "Customers"
-    category_icon = "fa-solid fa-user-group"
+    category = "Sales"
+    category_icon = "fa-solid fa-cart-shopping"
 
     column_list = [
         LoyaltyTransaction.id,
@@ -105,9 +141,12 @@ class LoyaltyTransactionAdmin(
     can_edit = False
     can_delete = False
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
-    name = "Orders"
+    name = "Sales Orders"
     icon = "fa-solid fa-cart-shopping"
     category = "Sales"
     category_icon = "fa-solid fa-cart-shopping"
@@ -146,6 +185,26 @@ class OrderAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Order):
     column_sortable_list = [Order.created_at, Order.total_amount]
     column_searchable_list = [Order.id]
     column_default_sort = [(Order.created_at, True)]
+    column_filters = [
+        AllUniqueStringValuesFilter(Order.status, title="Status"),
+        # Huge customer list: ID input avoids loading 10k customers
+        OperationColumnFilter(Order.customer_id, title="Customer ID"),
+        OperationColumnFilter(Order.created_at, title="Created"),
+    ]
+    column_labels = {
+        Order.id: "Order #",
+        Order.status: "Status",
+        Order.customer: "Customer",
+        Order.user: "Cashier",
+        Order.grand_total_amount: "Total",
+        Order.paid_amount: "Paid",
+        Order.remaining_amount: "Due",
+        Order.created_at: "Created",
+    }
+    column_descriptions = {
+        Order.status: "Order lifecycle: pending → serving → completed/cancelled",
+        Order.grand_total_amount: "Total after discounts and taxes",
+    }
     can_create = False
     can_edit = False
     can_delete = False
@@ -169,6 +228,9 @@ class OrderItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=OrderIt
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False
 
 
 class OrderTaxLineAdmin(
@@ -198,9 +260,12 @@ class OrderTaxLineAdmin(
     can_edit = False
     can_delete = False
 
+    def is_visible(self, request: Request) -> bool:
+        return False
+
 
 class RefundAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund):
-    name = "Refunds"
+    name = "Sales Refunds"
     icon = "fa-solid fa-rotate-left"
     category = "Sales"
     category_icon = "fa-solid fa-cart-shopping"
@@ -239,3 +304,6 @@ class RefundItemAdmin(LabeledRelationsMixin, TenantScopedModelView, model=Refund
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False

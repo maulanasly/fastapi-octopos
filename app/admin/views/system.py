@@ -1,5 +1,7 @@
 from typing import Any
 
+from sqladmin.filters import BooleanFilter
+
 # pyrefly: ignore [missing-import]
 from starlette.requests import Request
 from wtforms import SelectField
@@ -44,6 +46,21 @@ class LocalizationSettingAdmin(
         LocalizationSetting.updated_at,
     ]
     column_default_sort = [(LocalizationSetting.updated_at, True)]
+    column_labels = {
+        LocalizationSetting.tenant: "Tenant",
+        LocalizationSetting.language: "Language",
+        LocalizationSetting.timezone: "Timezone",
+        LocalizationSetting.currency: "Currency",
+        LocalizationSetting.date_format: "Date Format",
+        LocalizationSetting.number_format: "Number Format",
+        LocalizationSetting.country_code: "Country",
+        LocalizationSetting.updated_at: "Updated",
+    }
+    column_descriptions = {
+        LocalizationSetting.language: "UI language for the selected tenant",
+        LocalizationSetting.timezone: "IANA timezone for receipts and reports",
+        LocalizationSetting.currency: "Display currency (amounts stored as cents)",
+    }
     can_delete = False
 
     form_columns = [
@@ -128,8 +145,8 @@ class PurchasingSettingAdmin(
 ):
     name = "Purchasing Automation"
     icon = "fa-solid fa-robot"
-    category = "System"
-    category_icon = "fa-solid fa-gear"
+    category = "Purchasing"
+    category_icon = "fa-solid fa-truck"
 
     exclude_tenant_from_form = False
 
@@ -140,6 +157,17 @@ class PurchasingSettingAdmin(
         PurchasingSetting.auto_po_lookback_days,
         PurchasingSetting.auto_po_min_stock_trigger,
     ]
+    column_labels = {
+        PurchasingSetting.tenant: "Tenant",
+        PurchasingSetting.auto_po_enabled: "Auto PO",
+        PurchasingSetting.auto_po_lookback_days: "Lookback (days)",
+        PurchasingSetting.auto_po_min_stock_trigger: "Min Stock Trigger",
+    }
+    column_descriptions = {
+        PurchasingSetting.auto_po_enabled: "When enabled, auto_generate_purchase_orders creates drafts nightly",
+        PurchasingSetting.auto_po_lookback_days: "Sales velocity window for reorder suggestions",
+    }
+    column_filters = [BooleanFilter(PurchasingSetting.auto_po_enabled, title="Auto PO")]
     form_columns = [
         "tenant",
         "auto_po_enabled",
@@ -206,3 +234,6 @@ class SyncEventLogAdmin(
     can_create = False
     can_edit = False
     can_delete = False
+
+    def is_visible(self, request: Request) -> bool:
+        return False

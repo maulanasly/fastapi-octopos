@@ -207,18 +207,25 @@ class ReportsAdmin(BaseView):
             localization = get_localization_setting(db, _selected_tenant_id(request))
             period = request.query_params.get("period", "30d")
 
+            tenant_id = _selected_tenant_id(request)
             shift_reports = (
                 db.query(ShiftReconciliation)
                 .options(
                     joinedload(ShiftReconciliation.drawer_session),
                     joinedload(ShiftReconciliation.closed_by_user),
                 )
+                .filter(ShiftReconciliation.tenant_id == tenant_id)
                 .order_by(ShiftReconciliation.id.desc())
                 .limit(10)
                 .all()
             )
 
-            cache_key = (period, localization.currency, localization.number_format)
+            cache_key = (
+                tenant_id,
+                period,
+                localization.currency,
+                localization.number_format,
+            )
             cached = _reports_cache.get(cache_key)
             now = datetime.now(UTC).timestamp()
             if cached and now - cached[0] < REPORTS_CACHE_SECONDS:
