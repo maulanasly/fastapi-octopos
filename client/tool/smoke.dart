@@ -60,11 +60,23 @@ Future<void> main() async {
   check('permissions include orders:manage',
       permissions.contains('orders:manage'));
 
-  // 4. Catalog (POS grid)
-  final productList = await dio.get<List<dynamic>>('/products/');
-  final product = Product.fromJson(productList.data!
-      .cast<Map<String, dynamic>>()
-      .firstWhere((p) => p['sku'] == 'SMK-SEED'));
+  // 4. Catalog (POS grid) — ensure a product exists for this tenant
+  var productList = await dio.get<List<dynamic>>('/products/');
+  Map<String, dynamic>? seedJson;
+  try {
+    seedJson = productList.data!.cast<Map<String, dynamic>>().firstWhere((p) => p['sku'] == 'SMK-SEED');
+  } catch (_) {
+    seedJson = null;
+  }
+  if (seedJson == null) {
+    // Create one for this fresh tenant (multi-tenant register creates isolated tenant)
+    final catResp = await dio.post<Map<String, dynamic>>('/products/categories', data: {'name': 'SmokeCat', 'description': 'smoke'});
+    final catId = catResp.data!['id'];
+    final created = await dio.post<Map<String, dynamic>>('/products/', data: {'name': 'Smoke Seed', 'sku': 'SMK-SEED', 'price': 4.5, 'stock_quantity': 20, 'category_id': catId});
+    seedJson = created.data!;
+    productList = await dio.get<List<dynamic>>('/products/');
+  }
+  final product = Product.fromJson(seedJson);
   check('seeded product read + parsed', product.priceCents == 450);
 
   // 5. Drawer open (required before orders)
