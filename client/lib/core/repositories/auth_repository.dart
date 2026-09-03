@@ -18,4 +18,14 @@ class AuthRepository {
     final resp = await api.dio.get<Map<String, dynamic>>('/auth/me');
     return UserProfile.fromJson(resp.data!);
   }
+
+  /// Public check whether initial setup is needed (no users yet).
+  Future<bool> needsSetup() async {
+    try {
+      final resp = await api.dio.get<Map<String, dynamic>>('/auth/setup-required');
+      return resp.data?['needsSetup'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
 }

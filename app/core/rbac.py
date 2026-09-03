@@ -52,6 +52,7 @@ DEFAULT_ROLE_DEFINITIONS: dict[str, dict] = {
             "taxes:read",
             "taxes:manage",
             "settings:manage",
+            "users:manage",
             "orders:release_reservations",
             "orders:track",
         ],

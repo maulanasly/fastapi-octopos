@@ -40,6 +40,7 @@ const kRouteAccess = <RouteAccess>[
   RouteAccess('/admin', superuserOnly: true),
   RouteAccess('/refunds', anyOf: {'refunds:create'}),
   RouteAccess('/reconcile'),
+  RouteAccess('/help'),
 ];
 
 RouteAccess? _accessFor(String path) {

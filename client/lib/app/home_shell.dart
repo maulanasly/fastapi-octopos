@@ -92,6 +92,15 @@ class HomeShell extends ConsumerWidget {
         ),
     ];
 
+    // Role-based ordering: cashiers use Customers frequently (every sale),
+    // while Inventory is daily. Keep main bar optimal per role.
+    destinations.sort((a, b) {
+      final pa = _priorityFor(a.path, auth);
+      final pb = _priorityFor(b.path, auth);
+      if (pa != pb) return pa.compareTo(pb);
+      return 0;
+    });
+
     final currentPath = GoRouterState.of(context).uri.path;
     final selected = destinations.indexWhere((d) => d.path == currentPath);
     final narrow = MediaQuery.sizeOf(context).width < 840;
@@ -127,6 +136,12 @@ class HomeShell extends ConsumerWidget {
             onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
           ),
           const _RegionMenu(),
+          if (!narrow)
+            IconButton(
+              tooltip: s.of('help'),
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => context.push('/help'),
+            ),
           IconButton(
             tooltip: s.of('signOut'),
             icon: const Icon(Icons.logout),
@@ -224,19 +239,31 @@ class HomeShell extends ConsumerWidget {
       builder: (sheetContext) => SafeArea(
         child: ListView.separated(
           shrinkWrap: true,
-          itemCount: rest.length,
+          itemCount: rest.length + 1,
           separatorBuilder: (_, _) => const Divider(height: 1),
           itemBuilder: (context, i) {
-            final d = rest[i];
-            return ListTile(
-              leading: Icon(d.icon),
-              title: Text(s.of(_stringKeyForPath(d.path))),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.go(d.path);
-              },
-            );
+            if (i < rest.length) {
+              final d = rest[i];
+              return ListTile(
+                leading: Icon(d.icon),
+                title: Text(s.of(_stringKeyForPath(d.path))),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  context.go(d.path);
+                },
+              );
+            } else {
+              return ListTile(
+                leading: const Icon(Icons.help_outline),
+                title: Text(s.of('help')),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  context.push('/help');
+                },
+              );
+            }
           },
         ),
       ),
@@ -278,8 +305,43 @@ String _stringKeyForPath(String path) {
       return 'admin';
     case '/staff':
       return 'staff';
+    case '/help':
+      return 'help';
     default:
       return 'pos';
+  }
+}
+
+int _priorityFor(String path, AuthState auth) {
+  // Cashier: POS, Serving, Orders, Customers, Inventory
+  // Manager: POS, Serving, Orders, Purchasing, Products, Inventory, Customers, Promotions, Taxes, Settings, Reports, Staff
+  // Admin/superuser: keep original declaration order (return 0 to preserve)
+  if (auth.isSuperuser) return 0;
+  final isManager = auth.has('purchasing:manage') || auth.has('products:manage');
+  if (!isManager) {
+    // Cashier ordering
+    const order = ['/pos', '/serving', '/orders', '/customers', '/inventory'];
+    final idx = order.indexOf(path);
+    return idx == -1 ? 99 : idx;
+  } else {
+    const order = [
+      '/pos',
+      '/serving',
+      '/orders',
+      '/purchasing',
+      '/products',
+      '/inventory',
+      '/customers',
+      '/promotions',
+      '/taxes',
+      '/settings',
+      '/reports',
+      '/staff',
+      '/tracking',
+      '/admin',
+    ];
+    final idx = order.indexOf(path);
+    return idx == -1 ? 99 : idx;
   }
 }
 

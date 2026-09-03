@@ -22,6 +22,7 @@ import '../features/taxes/taxes_screen.dart';
 import '../features/tracking/tracking_screen.dart';
 import '../features/tracking/trip_map_screen.dart';
 import '../features/drawer/reconcile_screen.dart';
+import '../features/help/help_screen.dart';
 import '../features/pos/pos_screen.dart';
 import '../features/promotions/promotions_screen.dart';
 import '../features/refunds/refund_screen.dart';
@@ -161,6 +162,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/reports',
             builder: (context, state) => const ReportsScreen(),
+          ),
+          GoRoute(
+            path: '/help',
+            builder: (context, state) => const HelpScreen(),
           ),
         ],
       ),
