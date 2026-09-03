@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
 import '../../core/errors.dart';
 import '../../core/strings.dart';
@@ -21,8 +22,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _password = TextEditingController();
   final _fullName = TextEditingController();
   bool _registerMode = false;
+  bool _allowRegister = false;
   bool _submitting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      try {
+        final needsSetup = await ref.read(authRepositoryProvider).needsSetup();
+        if (mounted) setState(() => _allowRegister = needsSetup);
+      } catch (_) {}
+    });
+  }
 
   @override
   void dispose() {
@@ -34,6 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_registerMode && !_allowRegister) return;
     setState(() {
       _submitting = true;
       _error = null;
@@ -180,19 +194,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 : s.of('signIn'),
                           ),
                   ),
-                  TextButton(
-                    onPressed: _submitting
-                        ? null
-                        : () => setState(() {
-                            _registerMode = !_registerMode;
-                            _error = null;
-                          }),
-                    child: Text(
-                      _registerMode
-                          ? 'Already have an account? Sign in'
-                          : 'New cashier? Register',
+                  if (_allowRegister)
+                    TextButton(
+                      onPressed: _submitting
+                          ? null
+                          : () => setState(() {
+                              _registerMode = !_registerMode;
+                              _error = null;
+                            }),
+                      child: Text(
+                        _registerMode
+                            ? s.of('alreadyHaveAccount')
+                            : s.of('newCashierRegister'),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        children: [
+                          Text(
+                            s.of('askManagerToCreateAccount'),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            s.of('contactAdmin'),
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

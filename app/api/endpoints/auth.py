@@ -106,6 +106,13 @@ def register(request: Request, user_in: UserCreate, db: Session = Depends(get_db
     return user
 
 
+@router.get("/setup-required")
+def setup_required(db: Session = Depends(get_db)):
+    """Public check whether initial admin setup is needed (no users yet)."""
+    needs = db.query(User).count() == 0
+    return {"needsSetup": needs}
+
+
 @router.get("/me", response_model=UserSchema)
 def get_me(current_user: User = Depends(get_current_active_user)):
     """Profile of the authenticated user (full name etc.)."""
