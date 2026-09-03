@@ -1,0 +1,78 @@
+/* OctoPOS Admin — de-bootstrap Tabler */
+:root {
+  --tblr-primary: #0F766E;
+  --tblr-primary-rgb: 15,118,110;
+  --tblr-secondary: #0284C7;
+  --tblr-border-radius: 1rem;
+  --tblr-border-radius-lg: 1.25rem;
+  --tblr-font-sans-serif: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --tblr-body-bg: #F8FAF9;
+  --tblr-card-cap-bg: #FFFFFF;
+}
+
+.navbar.navbar-vertical {
+  background: linear-gradient(180deg, #042F2E 0%, #0F766E 100%) !important;
+  border-right: 1px solid rgba(255,255,255,0.08);
+}
+.navbar-brand {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 1.1rem;
+}
+.card {
+  border: none !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 4px 24px rgba(2, 132, 199, 0.06), 0 1px 3px rgba(0,0,0,0.05) !important;
+  overflow: hidden;
+}
+.card.card-sm {
+  border-radius: 1rem !important;
+}
+.card-body {
+  padding: 1.25rem !important;
+}
+.btn {
+  border-radius: 0.75rem !important;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #0F766E, #0D9488) !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(15,118,110,0.2);
+}
+.table thead th {
+  background: #F8FAF9 !important;
+  font-size: 0.7rem !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  color: #4B5552 !important;
+  border-bottom: 1px solid #DDE3E1 !important;
+}
+.page-header .page-title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #1A2321;
+}
+.badge {
+  border-radius: 999px !important;
+  font-weight: 600;
+  padding: 0.35em 0.65em;
+}
+.avatar {
+  border-radius: 12px !important;
+}
+.progress {
+  border-radius: 999px !important;
+  height: 6px;
+  background: #EFF1F0;
+}
+.alert {
+  border-radius: 1rem !important;
+  border: none !important;
+}
+.navbar .btn-outline-light {
+  border-radius: 999px !important;
+  border-color: rgba(255,255,255,0.3) !important;
+}

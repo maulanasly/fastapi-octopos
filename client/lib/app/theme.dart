@@ -55,6 +55,18 @@ abstract final class AppColors {
   static const Color onSurfaceDark = Color(0xFFE3E7E5);
   static const Color outlineLight = Color(0xFFB3B9B7);
   static const Color outlineDark = Color(0xFF4A5451);
+
+  // Brand accents
+  static const LinearGradient brandGradientLight = LinearGradient(
+    colors: [Color(0xFF0F766E), Color(0xFF0D9488)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  static const LinearGradient brandGradientDark = LinearGradient(
+    colors: [Color(0xFF115E59), Color(0xFF0F766E)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 }
 
 /// Centralized theme config. Light is the default mode.
