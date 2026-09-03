@@ -76,7 +76,14 @@ class OutboxEvents extends Table {
 
 @DriftDatabase(tables: [DriftProducts, DriftCategories, SyncMeta, OutboxOrders, OutboxPayments, OutboxEvents])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'octopos'));
+  AppDatabase()
+      : super(driftDatabase(
+          name: 'octopos',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ));
 
   // For tests: in-memory
   AppDatabase.forTesting(super.e);
