@@ -53,7 +53,7 @@ services:
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_JSON: "true"
       MEDIA_DIR: "/data/media"
-      RATE_LIMIT_STORAGE_URI: "${RATE_LIMIT_STORAGE_URI:-}"
+      RATE_LIMIT_STORAGE_URI: "${RATE_LIMIT_STORAGE_URI:-redis://redis:6379}"
     volumes:
       - media:/data/media
     healthcheck:
@@ -64,9 +64,9 @@ services:
       retries: 3
 
 volumes:
-  # Adopt the pre-existing postgres volume so the migrated SQLite data and
-  # any prior state remain visible; the orphaned containers that owned it
-  # were removed so compose manages this stack.
+  # Pinned for backward compat — existing prod data lives in
+  # fastapi-octopos-multi-tenant_octopos_pgdata. New clones can override
+  # via COMPOSE_PROJECT_NAME or `external: true`.
   octopos_pgdata:
     name: fastapi-octopos-multi-tenant_octopos_pgdata
   media:

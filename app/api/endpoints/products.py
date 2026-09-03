@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from sqlalchemy import func, or_, text
@@ -53,7 +54,7 @@ def get_categories(
     tenant_id: int | None = Query(None, description="Tenant filter (superuser only)"),
     current_user: User = Depends(get_current_active_user),
 ):
-    query = db.query(Category)
+    query = db.query(Category).filter(Category.deleted_at.is_(None))
     if current_user.is_superuser:
         if tenant_id is not None:
             query = query.filter(Category.tenant_id == tenant_id)
@@ -126,6 +127,7 @@ def delete_category(
     # Count products in the same tenant as the category (or all if superuser unscoped)
     count_q = db.query(func.count(Product.id)).filter(
         Product.category_id == category_id,
+        Product.deleted_at.is_(None),
     )
     if not current_user.is_superuser:
         count_q = count_q.filter(Product.tenant_id == current_user.tenant_id)
@@ -142,7 +144,9 @@ def delete_category(
             ),
         )
 
-    db.delete(category)
+    category.deleted_at = datetime.now(UTC)
+    category.updated_at = datetime.now(UTC)
+    db.add(category)
     db.commit()
     return {"ok": True}
 
@@ -187,6 +191,7 @@ def search_products(
                     """
                 SELECT * FROM products
                 WHERE embedding IS NOT NULL
+                  AND deleted_at IS NULL
                 ORDER BY embedding <=> :query
                 LIMIT :limit
                 """
@@ -207,6 +212,7 @@ def search_products(
                 SELECT * FROM products
                 WHERE tenant_id = :tenant_id
                   AND embedding IS NOT NULL
+                  AND deleted_at IS NULL
                 ORDER BY embedding <=> :query
                 LIMIT :limit
                 """
@@ -246,11 +252,13 @@ def get_products(
     current_user: User = Depends(get_current_active_user),
 ):
     if current_user.is_superuser:
-        query = db.query(Product)
+        query = db.query(Product).filter(Product.deleted_at.is_(None))
         if tenant_id is not None:
             query = query.filter(Product.tenant_id == tenant_id)
     else:
-        query = db.query(Product).filter(Product.tenant_id == current_user.tenant_id)
+        query = db.query(Product).filter(
+            Product.tenant_id == current_user.tenant_id, Product.deleted_at.is_(None)
+        )
     if q:
         like = f"%{q.strip()}%"
         query = query.filter(
@@ -564,7 +572,9 @@ def delete_product(
         )
 
     old_image_url, old_thumbnail_url = product.image_url, product.thumbnail_url
-    db.delete(product)
+    product.deleted_at = datetime.now(UTC)
+    product.updated_at = datetime.now(UTC)
+    db.add(product)
     db.commit()
     delete_media_file(old_image_url)
     delete_media_file(old_thumbnail_url)

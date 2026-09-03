@@ -37,6 +37,7 @@ class Category(Base):
         onupdate=_utcnow,
         nullable=False,
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     tenant = relationship("Tenant")
     products = relationship("Product", back_populates="category")
@@ -71,6 +72,7 @@ class Product(Base):
         onupdate=_utcnow,
         nullable=False,
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     tenant = relationship("Tenant")
     category = relationship("Category", back_populates="products")

@@ -111,6 +111,33 @@ class CatalogController extends Notifier<CatalogState> {
         await db.writeWatermark(delta.serverTime);
         await store.writeWatermark(delta.serverTime);
         final merged = await _mergeWithDb(delta);
+        // If sync succeeded but still empty, verify via direct product endpoint
+        // to catch stale watermark or tenant-isolation surprises and ensure the
+        // product page (which watches this controller) sees data even if sync
+        // delta was incorrectly empty.
+        if (merged.products.isEmpty && merged.categories.isEmpty) {
+          try {
+            final repo = ref.read(catalogRepositoryProvider);
+            final categories = await repo.categories();
+            final products = await repo.products();
+            if (products.isNotEmpty || categories.isNotEmpty) {
+              final now = DateTime.now().toIso8601String();
+              if (products.isNotEmpty) await db.upsertProducts(products, now);
+              if (categories.isNotEmpty) await db.upsertCategories(categories, now);
+              final verified = await _mergeWithDb(
+                CatalogDelta(serverTime: now, products: products, categories: categories),
+              );
+              state = CatalogState(
+                categories: verified.categories,
+                products: verified.products,
+                loading: false,
+              );
+              return;
+            }
+          } catch (_) {
+            // fall through to merged empty state
+          }
+        }
         state = CatalogState(
           categories: merged.categories,
           products: merged.products,

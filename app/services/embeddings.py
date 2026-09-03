@@ -24,7 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 def _tokenize(text: str) -> list[str]:
-    return [t for t in text.lower().split() if t.isalnum()]
+    import re
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFKC", text.lower())
+    # \w matches unicode word characters (keeps café, CJK); split on non-word
+    return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
 
 def _embed_hash(text: str, dim: int) -> list[float]:

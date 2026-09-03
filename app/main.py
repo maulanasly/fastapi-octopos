@@ -151,7 +151,7 @@ app.add_middleware(
     allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_origin_regex=settings.BACKEND_CORS_ORIGIN_REGEX or None,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 app.add_middleware(RequestIDMiddleware)
@@ -188,6 +188,16 @@ async def sqlalchemy_error_handler(request: Request, exc: SQLAlchemyError):
 
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Expose /metrics for Prometheus (optional, no hard dep)
+try:  # pragma: no cover - missing in CI without extra
+    from prometheus_fastapi_instrumentator import Instrumentator  # type: ignore
+
+    Instrumentator().instrument(app).expose(
+        app, endpoint="/metrics", include_in_schema=False
+    )
+except Exception:
+    pass
 
 # Serve uploaded product images (public read for POS terminals).
 _MEDIA_PATH = Path(settings.MEDIA_DIR).resolve()

@@ -15,3 +15,5 @@ class CatalogDelta(BaseModel):
     products: list[ProductSchema] = []
     promotions: list[PromotionSchema] = []
     tax_rules: list[TaxRuleSchema] = []
+    deleted_category_ids: list[int] = []
+    deleted_product_ids: list[int] = []

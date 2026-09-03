@@ -63,15 +63,33 @@ class OutboxPayments extends Table {
   TextColumn get lastError => text().nullable()();
 }
 
-@DriftDatabase(tables: [DriftProducts, DriftCategories, SyncMeta, OutboxOrders, OutboxPayments])
+class OutboxEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get eventType => text()();
+  TextColumn get clientEventId => text().customConstraint('UNIQUE NOT NULL')();
+  TextColumn get payloadJson => text()();
+  TextColumn get idempotencyKey => text()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get createdAt => text()();
+  TextColumn get lastError => text().nullable()();
+}
+
+@DriftDatabase(tables: [DriftProducts, DriftCategories, SyncMeta, OutboxOrders, OutboxPayments, OutboxEvents])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'octopos'));
+  AppDatabase()
+      : super(driftDatabase(
+          name: 'octopos',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ));
 
   // For tests: in-memory
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -82,6 +100,9 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(outboxOrders, outboxOrders.paymentAmountCents);
         await m.addColumn(outboxOrders, outboxOrders.splitJson);
         await m.addColumn(outboxOrders, outboxOrders.payIdempotencyKey);
+      }
+      if (from < 3) {
+        await m.createTable(outboxEvents);
       }
     },
   );
@@ -219,5 +240,32 @@ class AppDatabase extends _$AppDatabase {
   Future<void> clearAllOutbox() async {
     await delete(outboxOrders).go();
     await delete(outboxPayments).go();
+    await delete(outboxEvents).go();
+  }
+
+  // ---- OutboxEvents (generic for refunds, stock adjust, etc) ----
+
+  Future<int> enqueueEvent({
+    required String eventType,
+    required String clientEventId,
+    required String payloadJson,
+    required String idempotencyKey,
+  }) {
+    return into(outboxEvents).insert(
+      OutboxEventsCompanion.insert(
+        eventType: eventType,
+        clientEventId: clientEventId,
+        payloadJson: payloadJson,
+        idempotencyKey: idempotencyKey,
+        createdAt: DateTime.now().toIso8601String(),
+      ),
+    );
+  }
+
+  Future<List<OutboxEvent>> pendingEvents() =>
+      (select(outboxEvents)..where((t) => t.status.equals('pending'))).get();
+
+  Future<void> deleteEvent(int id) async {
+    await (delete(outboxEvents)..where((t) => t.id.equals(id))).go();
   }
 }

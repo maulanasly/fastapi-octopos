@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -49,8 +50,21 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 
     final products = _filtered(catalog.products);
 
-    return Column(
-      children: [
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.f2): () {
+          if (!ref.read(drawerControllerProvider).loading &&
+              ref.read(drawerControllerProvider).session != null &&
+              !ref.read(cartControllerProvider).isEmpty) {
+            _checkout(context);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.f3): () => _pickCustomer(context),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Column(
+          children: [
         if (!isOnline)
           MaterialBanner(
             content: Text(s.of('offlineBanner')),
@@ -141,6 +155,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         ),
       ],
+        ),
+      ),
     );
   }
 
