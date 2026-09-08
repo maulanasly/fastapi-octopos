@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
@@ -13,7 +14,6 @@ import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/octo_table.dart';
 import '../../core/strings.dart';
-import '../pos/receipt_screen.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -71,9 +71,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   void _reprint(Order order) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => ReceiptScreen(orderId: order.id)));
+    // Canonical receipt route (top-level, deep-linkable); back returns
+    // to this order list.
+    context.push('/receipt/${order.id}');
   }
 
   @override

@@ -35,8 +35,11 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(
     dio: dio,
     store: store,
+    // Mid-session 401 with a dead refresh token means the session is
+    // over: sign out loudly (sessionExpired banner) instead of dumping
+    // the user on /login with no explanation.
     onSessionExpired: () {
-      ref.invalidate(authControllerProvider);
+      ref.read(authControllerProvider.notifier).forceSignOut();
     },
   );
 });

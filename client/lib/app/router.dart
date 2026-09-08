@@ -24,10 +24,13 @@ import '../features/tracking/trip_map_screen.dart';
 import '../features/drawer/reconcile_screen.dart';
 import '../features/help/help_screen.dart';
 import '../features/pos/pos_screen.dart';
+import '../features/pos/receipt_screen.dart';
 import '../features/promotions/promotions_screen.dart';
 import '../features/refunds/refund_screen.dart';
 import '../features/reports/reports_screen.dart';
 import 'home_shell.dart';
+import 'nav_notice.dart';
+import 'not_found_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -56,7 +59,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/pos',
     refreshListenable: _AuthListenable(ref),
     navigatorKey: rootNavigatorKey,
-    errorBuilder: (context, state) => const PosScreen(),
+    errorBuilder: (context, state) =>
+        NotFoundScreen(path: state.uri.path.isEmpty ? null : state.uri.path),
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
       final signedIn = auth.status == AuthStatus.signedIn;
@@ -64,8 +68,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!signedIn && !onLogin) return '/login';
       if (signedIn && onLogin) return '/pos';
       // Permission gate for deep links; falls back to POS when the
-      // signed-in user lacks the route's required permission.
-      if (!routePermitted(auth, state.uri.path)) return '/pos';
+      // signed-in user lacks the route's required permission. The
+      // fallback reason is stashed for HomeShell to announce once —
+      // redirect itself has no Scaffold context for a SnackBar.
+      if (signedIn && !routePermitted(auth, state.uri.path)) {
+        ref.read(navNoticeProvider.notifier).show('forbidden');
+        return '/pos';
+      }
       return null;
     },
     routes: [
@@ -80,6 +89,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/reconcile',
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const ReconcileScreen(),
+      ),
+      // Receipt is receipt-of-record for a settled order: top-level so
+      // both POS checkout and orders reprint share one canonical,
+      // deep-linkable route. Open to all signed-in roles because the
+      // cashier POS flow itself ends here.
+      GoRoute(
+        path: '/receipt/:orderId',
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final orderId = int.tryParse(
+            state.pathParameters['orderId'] ?? '',
+          );
+          if (orderId == null) {
+            return NotFoundScreen(path: state.uri.path);
+          }
+          return ReceiptScreen(orderId: orderId);
+        },
       ),
       ShellRoute(
         navigatorKey: shellNavigatorKey,

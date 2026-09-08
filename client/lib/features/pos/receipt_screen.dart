@@ -4,6 +4,7 @@ library;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
@@ -33,10 +34,22 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     _future = ref.read(orderRepositoryProvider).receipt(widget.orderId);
   }
 
+  /// Closes the receipt. Pushed flows pop back to their opener;
+  /// a cold-started deep link has nothing to pop, so it lands on POS
+  /// (open to every signed-in role) instead of stranding the user.
+  void _close(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/pos');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(onPressed: () => _close(context)),
         title: Text(
           ref.read(stringsProvider).of('orderId', args: {'id': widget.orderId}),
         ),
@@ -144,7 +157,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                       FilledButton.icon(
                         icon: const Icon(Icons.check),
                         label: Text(s.of('done')),
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => _close(context),
                       ),
                     ],
                   ),

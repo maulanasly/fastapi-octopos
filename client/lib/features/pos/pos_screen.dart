@@ -24,7 +24,6 @@ import 'product_tile.dart';
 import 'cart_controller.dart';
 import 'catalog_controller.dart';
 import 'checkout_sheet.dart';
-import 'receipt_screen.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -482,9 +481,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (result != null) {
       ref.read(cartControllerProvider.notifier).clear();
       if (!context.mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ReceiptScreen(orderId: result.id)),
-      );
+      // Canonical receipt route (top-level, deep-linkable); back returns
+      // to POS with the cleared cart.
+      await context.push('/receipt/${result.id}');
     }
   }
 }

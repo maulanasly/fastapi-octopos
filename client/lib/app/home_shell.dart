@@ -15,6 +15,7 @@ import '../core/layout.dart';
 import '../core/localization_controller.dart';
 import '../core/route_access.dart';
 import '../core/strings.dart';
+import 'nav_notice.dart';
 import 'theme_controller.dart';
 
 class HomeShell extends ConsumerWidget {
@@ -105,8 +106,21 @@ class HomeShell extends ConsumerWidget {
     });
 
     final currentPath = GoRouterState.of(context).uri.path;
-    final selected = destinations.indexWhere((d) => d.path == currentPath);
+    final selected = _selectedIndex(destinations, currentPath);
     final narrow = MediaQuery.sizeOf(context).width < 840;
+
+    // One-shot redirect feedback (e.g. permission-denied fallback):
+    // announce once, then clear so it never repeats or stacks.
+    final notice = ref.watch(navNoticeProvider);
+    if (notice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(s.of(notice))));
+        ref.read(navNoticeProvider.notifier).clear();
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -150,7 +164,9 @@ class HomeShell extends ConsumerWidget {
             IconButton(
               tooltip: s.of('help'),
               icon: const Icon(AppIcons.help),
-              onPressed: () => context.push('/help'),
+              // Leaf screen: go (replace) so repeated taps don't
+              // stack duplicate Help pages.
+              onPressed: () => context.go('/help'),
             ),
           IconButton(
             tooltip: s.of('signOut'),
@@ -193,7 +209,7 @@ class HomeShell extends ConsumerWidget {
         ],
       ),
       bottomNavigationBar: narrow
-          ? _bottomNav(context, s, destinations, selected)
+          ? _bottomNav(context, s, destinations, selected, currentPath)
           : null,
     );
   }
@@ -206,9 +222,13 @@ class HomeShell extends ConsumerWidget {
     AppStrings s,
     List<_Dest> destinations,
     int selected,
+    String currentPath,
   ) {
     const maxVisible = 4;
-    final current = selected < 0 ? 0 : selected;
+    // Unlisted paths (e.g. /help, only reachable via the More sheet)
+    // highlight More rather than the first destination.
+    final onHelp = currentPath == '/help';
+    final current = selected < 0 ? (onHelp ? maxVisible : 0) : selected;
     if (destinations.length <= maxVisible + 1) {
       return NavigationBar(
         selectedIndex: current,
@@ -219,12 +239,14 @@ class HomeShell extends ConsumerWidget {
       );
     }
     return NavigationBar(
-      selectedIndex: current < maxVisible ? current : maxVisible,
+      selectedIndex: current < maxVisible && !onHelp ? current : maxVisible,
       onDestinationSelected: (i) {
         if (i < maxVisible) {
           context.go(destinations[i].path);
         } else {
-          unawaited(_showMoreSheet(context, s, destinations, maxVisible));
+          unawaited(
+            _showMoreSheet(context, s, destinations, maxVisible, currentPath),
+          );
         }
       },
       destinations: [
@@ -242,10 +264,12 @@ class HomeShell extends ConsumerWidget {
     AppStrings s,
     List<_Dest> destinations,
     int skip,
+    String currentPath,
   ) {
     final rest = destinations.skip(skip).toList(growable: false);
     return showModalBottomSheet<void>(
       context: context,
+      showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: ListView.separated(
           shrinkWrap: true,
@@ -254,10 +278,15 @@ class HomeShell extends ConsumerWidget {
           itemBuilder: (context, i) {
             if (i < rest.length) {
               final d = rest[i];
+              final isCurrent =
+                  currentPath == d.path ||
+                  currentPath.startsWith('${d.path}/');
               return ListTile(
                 leading: Icon(d.icon),
                 title: Text(s.of(_stringKeyForPath(d.path))),
                 trailing: const Icon(AppIcons.chevronRight),
+                selected: isCurrent,
+                selectedColor: Theme.of(context).colorScheme.primary,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   context.go(d.path);
@@ -268,9 +297,11 @@ class HomeShell extends ConsumerWidget {
                 leading: const Icon(AppIcons.help),
                 title: Text(s.of('help')),
                 trailing: const Icon(AppIcons.chevronRight),
+                selected: currentPath == '/help',
+                selectedColor: Theme.of(context).colorScheme.primary,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
-                  context.push('/help');
+                  context.go('/help');
                 },
               );
             }
@@ -287,6 +318,27 @@ class _Dest {
   final IconData icon;
   final String label;
   final String path;
+}
+
+/// Index of the destination matching [path], or -1.
+///
+/// Exact match wins; otherwise the longest parent prefix wins so
+/// sub-routes highlight their section (e.g. `/tracking/123` →
+/// Tracking). Unlisted shell paths (e.g. `/help`) stay -1 and let the
+/// caller decide the fallback.
+int _selectedIndex(List<_Dest> destinations, String path) {
+  final exact = destinations.indexWhere((d) => d.path == path);
+  if (exact >= 0) return exact;
+  var best = -1;
+  var bestLen = -1;
+  for (var j = 0; j < destinations.length; j++) {
+    final p = destinations[j].path;
+    if (path.startsWith('$p/') && p.length > bestLen) {
+      best = j;
+      bestLen = p.length;
+    }
+  }
+  return best;
 }
 
 String _stringKeyForPath(String path) {
