@@ -176,6 +176,112 @@ void main() {
       expect(popped, isNotNull, reason: 'split checkout must pop the order');
       expect(popped!.id, 100);
     });
+
+    Future<void> openSheet(WidgetTester tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          localizationControllerProvider.overrideWith(
+            _FixedLanguageLocalization.new,
+          ),
+          orderRepositoryProvider.overrideWithValue(_FakeOrders()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final cart = container.read(cartControllerProvider.notifier);
+      cart.addProduct(
+        const Product(
+          id: 1,
+          name: 'Latte',
+          sku: 'LATTE-1',
+          price: 4.50,
+          stockQuantity: 10,
+          minStock: 0,
+          reorderPoint: 0,
+          leadTimeDays: 0,
+        ),
+      );
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Center(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await showModalBottomSheet<Order>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (_) => const CheckoutSheet(),
+                      );
+                    },
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('dirty sheet asks before discarding', (tester) async {
+      await openSheet(tester);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Promotion code'),
+        'PROMO',
+      );
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      // Sheet dismissed after explicit confirm.
+      expect(find.text('Promotion code'), findsNothing);
+    });
+
+    testWidgets('keep editing retains a dirty sheet', (tester) async {
+      await openSheet(tester);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Promotion code'),
+        'PROMO',
+      );
+      await tester.pump();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+
+      // Sheet still open with the typed promo intact.
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(
+        tester.widget<TextField>(find.widgetWithText(TextField, 'Promotion code'))
+            .controller!
+            .text,
+        'PROMO',
+      );
+    });
+
+    testWidgets('clean sheet dismisses without a confirm', (tester) async {
+      await openSheet(tester);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.text('Promotion code'), findsNothing);
+    });
   });
 }
 

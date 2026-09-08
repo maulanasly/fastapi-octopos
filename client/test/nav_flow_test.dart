@@ -39,7 +39,7 @@ class _CashierAuth extends AuthController {
     userId: 2,
     email: 'cashier@octopos.test',
     fullName: 'Cashier',
-    permissions: {'orders:manage'},
+    permissions: {'orders:manage', 'orders:track'},
   );
 }
 
@@ -102,6 +102,15 @@ void main() {
     final container = await _pumpApp(tester);
 
     container.read(routerProvider).go('/receipt/abc');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Page not found'), findsWidgets);
+  });
+
+  testWidgets('invalid tracking ID shows the 404 screen', (tester) async {
+    final container = await _pumpApp(tester);
+
+    container.read(routerProvider).go('/tracking/abc');
     await tester.pumpAndSettle();
 
     expect(find.text('Page not found'), findsWidgets);

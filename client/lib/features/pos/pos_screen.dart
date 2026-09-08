@@ -19,6 +19,7 @@ import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/sync/connectivity_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../drawer/drawer_controller.dart';
 import 'product_tile.dart';
 import 'cart_controller.dart';
@@ -83,14 +84,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             message: s.of('pendingSync', args: {'count': pendingCount}),
             actions: [
               TextButton(
-                onPressed: () async {
-                  final db = ref.read(appDatabaseProvider);
-                  // ignore: unused
-                  db;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(s.of('queuedOrders'))),
-                  );
-                },
+                onPressed: () => _retrySync(context),
                 child: Text(s.of('retry')),
               ),
             ],
@@ -467,6 +461,34 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     );
     if (opened == true) {
       ref.read(cartControllerProvider.notifier).clear();
+    }
+  }
+
+  /// Manual retry for the pending-sync banner: pushes the outbox,
+  /// pulls the catalog, then reports what actually happened instead of
+  /// just toasting "queued orders".
+  Future<void> _retrySync(BuildContext context) async {
+    final s = ref.read(stringsProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final synced = await ref.read(syncServiceProvider).syncOutbox();
+      await ref.read(syncServiceProvider).syncCatalog();
+      await ref.read(catalogControllerProvider.notifier).refresh();
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            synced > 0
+                ? s.of('syncedOrders', args: {'count': synced})
+                : s.of('queuedOrders'),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(s.of('syncFailed'))),
+      );
     }
   }
 

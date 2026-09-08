@@ -18,3 +18,25 @@ class NavNotice extends Notifier<String?> {
 final navNoticeProvider = NotifierProvider<NavNotice, String?>(
   NavNotice.new,
 );
+
+/// Deep link (or pre-login location) to land on after sign-in.
+///
+/// Stashed by the router guard while signed out; consumed once on the
+/// login→signed-in transition. The permission gate still applies, so a
+/// stale privileged bookmark degrades to POS with a notice.
+class PendingRedirect extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void save(String path) => state = path;
+
+  String? consume() {
+    final pending = state;
+    state = null;
+    return pending;
+  }
+}
+
+final pendingRedirectProvider = NotifierProvider<PendingRedirect, String?>(
+  PendingRedirect.new,
+);
