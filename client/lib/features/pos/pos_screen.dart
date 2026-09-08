@@ -12,6 +12,7 @@ import '../../core/auth_controller.dart';
 import '../../core/colors.dart';
 import '../../core/db/app_database.dart';
 import '../../core/db/database_provider.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
@@ -62,7 +63,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         const SingleActivator(LogicalKeyboardKey.f3): () => _pickCustomer(context),
       },
       child: Focus(
-        autofocus: true,
+        autofocus: false,
         child: Column(
           children: [
         if (!isOnline)
@@ -99,9 +100,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         if (drawer.session == null && !drawer.loading)
           MaterialBanner(
-            content: const Text(
-              'No open drawer. Open one before taking orders.',
-            ),
+            content: Text(s.of('noOpenDrawer')),
             leading: const Icon(Icons.info_outline),
             actions: [
               TextButton(
@@ -133,7 +132,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
               const Spacer(),
               IconButton(
-                tooltip: 'Refresh catalog',
+                tooltip: s.of('refreshCatalog'),
                 icon: const Icon(Icons.refresh),
                 onPressed: () =>
                     ref.read(catalogControllerProvider.notifier).refresh(),
@@ -142,16 +141,39 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         ),
         Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 3,
-                child: _catalogPane(context, catalog, products),
-              ),
-              VerticalDivider(width: 1),
-              Expanded(flex: 2, child: _cartPane(context, cart)),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < AppBreakpoints.medium;
+              if (isNarrow) {
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 420,
+                        child: _catalogPane(context, catalog, products),
+                      ),
+                      const Divider(height: 1, thickness: 1),
+                      SizedBox(
+                        height: 320,
+                        child: _cartPane(context, cart),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _catalogPane(context, catalog, products),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(flex: 2, child: _cartPane(context, cart)),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -188,14 +210,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           child: TextField(
-            autofocus: true,
+            autofocus: false,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: s.of('searchProducts'),
               prefixIcon: const Icon(Icons.search),
-              border: const OutlineInputBorder(),
+              // Use theme's InputDecorationTheme (14r, filled) — no explicit border needed
               isDense: true,
             ),
             onChanged: (v) => setState(() => _search = v),
@@ -293,7 +315,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
               Text(
@@ -323,24 +345,33 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ),
         Expanded(
           child: cart.isEmpty
-              ? Center(child: Text(s.of('cartEmpty')))
+              ? EmptyStateView(
+                  message: s.of('cartEmpty'),
+                  icon: Icons.shopping_cart_outlined,
+                )
               : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                   itemCount: cart.lines.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
                   itemBuilder: (context, i) {
                     final line = cart.lines.values.elementAt(i);
                     return ListTile(
                       dense: true,
-                      title: Text(line.product.name),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      title: Text(line.product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(
                         '${formatCents(line.product.priceCents)} × ${line.quantity}',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove_circle_outline),
+                            tooltip: s.of('decreaseQuantity'),
+                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
                                 .setQuantity(
@@ -348,9 +379,18 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                   line.quantity - 1,
                                 ),
                           ),
-                          Text('${line.quantity}'),
+                          SizedBox(
+                            width: 20,
+                            child: Text('${line.quantity}',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.labelMedium),
+                          ),
                           IconButton(
-                            icon: const Icon(Icons.add_circle_outline),
+                            tooltip: s.of('increaseQuantity'),
+                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
                                 .setQuantity(
@@ -358,9 +398,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                   line.quantity + 1,
                                 ),
                           ),
-                          Text(formatCents(line.lineTotalCents)),
+                          const SizedBox(width: 4),
+                          SizedBox(
+                            width: 72,
+                            child: Text(
+                              formatCents(line.lineTotalCents),
+                              textAlign: TextAlign.right,
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           IconButton(
-                            icon: const Icon(Icons.close),
+                            tooltip: s.of('removeItem'),
+                            icon: const Icon(Icons.close, size: 18),
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
                                 .removeLine(line.product.id),
@@ -372,7 +428,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 ),
         ),
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
               // Flexible: long totals must shrink, not push the checkout
@@ -385,7 +441,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
               FilledButton(
                 onPressed: canCheckout ? null : () => _checkout(context),
                 child: Text(s.of('checkout')),
@@ -421,6 +477,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final result = await showModalBottomSheet<Order>(
       context: context,
       isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
       builder: (_) => const CheckoutSheet(),
     );
     if (result != null) {

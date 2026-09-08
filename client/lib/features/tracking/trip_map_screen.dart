@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/models.dart';
 import '../../core/strings.dart';
+
 import 'tracking_controller.dart';
 
 class TripMapScreen extends ConsumerStatefulWidget {
@@ -74,7 +75,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         height: 40,
                         child: Icon(
                           Icons.location_on,
-                          color: Colors.red,
+                          color: Theme.of(context).colorScheme.error,
                           size: 40,
                         ),
                       ),
@@ -173,7 +174,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
               i <= current ? Icons.check_circle : Icons.radio_button_unchecked,
               color: i <= current
                   ? Theme.of(context).colorScheme.primary
-                  : Colors.grey,
+                  : Theme.of(context).colorScheme.outline,
             ),
             const SizedBox(width: 4),
             Expanded(

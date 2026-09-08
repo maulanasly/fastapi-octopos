@@ -469,7 +469,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                   decoration: BoxDecoration(
                     color: colorFromHex(hex),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black12),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.15)),
                   ),
                   child: category.color == hex
                       ? const Icon(Icons.check, size: 18)
@@ -527,7 +527,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                         border: Border.all(
                           color: _color == hex
                               ? Theme.of(context).colorScheme.primary
-                              : Colors.black12,
+                              : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.15),
                           width: _color == hex ? 2 : 1,
                         ),
                       ),
@@ -560,7 +560,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                         decoration: BoxDecoration(
                           color: colorFromHex(category.color),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black12),
+                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.15)),
                         ),
                       ),
                       title: Text(category.name),

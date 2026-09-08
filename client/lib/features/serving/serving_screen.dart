@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/theme.dart';
 import '../../core/errors.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
@@ -166,17 +167,21 @@ class _StatusChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
+    final scheme = Theme.of(context).colorScheme;
     final (labelKey, color) = switch (status) {
-      'queued' => ('statusQueued', Colors.orange),
-      'preparing' => ('statusPreparing', Colors.blue),
-      'ready' => ('statusReady', Colors.green),
-      'served' => ('statusServed', Colors.grey),
-      _ => (null, Colors.grey),
+      'queued' => ('statusQueued', AppColors.warning),
+      'preparing' => ('statusPreparing', AppColors.secondaryLight),
+      'ready' => ('statusReady', AppColors.success),
+      'served' => ('statusServed', scheme.outline),
+      _ => (null, scheme.outline),
     };
+    // For served/grey, ensure text is onSurfaceVariant for contrast in dark mode.
+    final isServedGrey = status == 'served' || labelKey == null;
+    final textColor = isServedGrey ? scheme.onSurfaceVariant : color;
     return Chip(
       label: Text(labelKey == null ? status : s.of(labelKey)),
       labelStyle: TextStyle(
-        color: color,
+        color: textColor,
         fontSize: 12,
         fontWeight: FontWeight.w600,
       ),

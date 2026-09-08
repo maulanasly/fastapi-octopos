@@ -1507,36 +1507,56 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           : null,
       body: Column(
         children: [
-          SegmentedButton<int>(
-            segments: [
-              ButtonSegment(
-                value: 0,
-                label: Text(s.of('suppliers')),
-                icon: const Icon(Icons.factory_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 1,
-                label: Text(s.of('purchaseOrders')),
-                icon: const Icon(Icons.shopping_cart_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 2,
-                label: Text(s.of('purchaseInvoices')),
-                icon: const Icon(Icons.receipt_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 3,
-                label: Text(s.of('supplierPayments')),
-                icon: const Icon(Icons.payments_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 4,
-                label: Text(s.of('ledger')),
-                icon: const Icon(Icons.menu_book_outlined, size: 16),
-              ),
-            ],
-            selected: {_tab},
-            onSelectionChanged: (v) => setState(() => _tab = v.first),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 4,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // On narrow screens (<600) 5 segments overflow; make them scrollable.
+                // On 800 (tests) and wider, keep constrained fit so all taps are hit-testable.
+                final useScroll = constraints.maxWidth < 700;
+                final button = SegmentedButton<int>(
+                  segments: [
+                    ButtonSegment(
+                      value: 0,
+                      label: Text(s.of('suppliers')),
+                      icon: const Icon(Icons.factory_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 1,
+                      label: Text(s.of('purchaseOrders')),
+                      icon: const Icon(Icons.shopping_cart_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 2,
+                      label: Text(s.of('purchaseInvoices')),
+                      icon: const Icon(Icons.receipt_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 3,
+                      label: Text(s.of('supplierPayments')),
+                      icon: const Icon(Icons.payments_outlined, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 4,
+                      label: Text(s.of('ledger')),
+                      icon: const Icon(Icons.menu_book_outlined, size: 16),
+                    ),
+                  ],
+                  selected: {_tab},
+                  onSelectionChanged: (v) => setState(() => _tab = v.first),
+                );
+                if (useScroll) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: button,
+                  );
+                }
+                return Center(child: button);
+              },
+            ),
           ),
           Expanded(
             child: switch (_tab) {

@@ -8,6 +8,7 @@ import '../../core/api_repositories.dart';
 import '../../core/errors.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../app/theme.dart';
 import '../../core/strings.dart';
 import '../pos/catalog_controller.dart';
 
@@ -329,7 +330,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (p.isActive)
-                        const Icon(Icons.check_circle, color: Colors.green)
+                        Icon(Icons.check_circle, color: AppColors.success)
                       else
                         const Icon(Icons.pause_circle_outline),
                       IconButton(
