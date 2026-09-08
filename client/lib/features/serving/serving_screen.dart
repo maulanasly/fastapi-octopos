@@ -86,7 +86,7 @@ class _ServingCard extends ConsumerWidget {
               s.of('itemsCount', args: {'count': order.items.length}),
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               formatCents((order.totalAmount * 100).round()),
               style: Theme.of(context).textTheme.titleSmall,

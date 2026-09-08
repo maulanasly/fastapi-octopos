@@ -84,7 +84,7 @@ class _HelpStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),

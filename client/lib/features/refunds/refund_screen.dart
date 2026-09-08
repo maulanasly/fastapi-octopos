@@ -89,7 +89,9 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
       appBar: AppBar(title: Text(s.of('refunds'))),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
+          constraints: BoxConstraints(
+            maxWidth: dialogWidthXLarge(context),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(

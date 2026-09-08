@@ -15,6 +15,7 @@ import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/models.dart';
+import '../../core/octo_table.dart';
 import '../../core/pagination.dart';
 import '../../core/skeletons.dart';
 import '../../core/strings.dart';
@@ -632,92 +633,61 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           onRefresh: () async => setState(_reload),
           child: Column(
             children: [
-              // Branded table header for wide screens — de-bootstrap ListView
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 600) return const SizedBox.shrink();
-                  final scheme = Theme.of(context).colorScheme;
-                  final headerStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.06 * 11,
-                      );
-                  return Column(
-                    children: [
-                      Container(
-                        color: scheme.surfaceContainerHigh,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-                        child: Row(
-                          children: [
-                            const SizedBox(width: 40),
-                            Expanded(flex: 2, child: Text('PRODUCT', style: headerStyle)),
-                            Expanded(child: Text('TYPE', style: headerStyle)),
-                            SizedBox(width: 80, child: Text('QTY', style: headerStyle, textAlign: TextAlign.right)),
-                            Expanded(child: Text('DATE', style: headerStyle, textAlign: TextAlign.right)),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, thickness: 1),
-                    ],
-                  );
-                },
-              ),
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  itemCount: movements.length,
-                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
-                  itemBuilder: (context, i) {
-                    final m = movements[i];
-                    final delta = m.quantityDelta;
-                    final productLabel = m.productName != null
-                        ? '${m.productName} (${m.productSku ?? m.productId})'
-                        : s.of('productId', args: {'id': m.productId});
-                    final meta = [
-                      if (m.userEmail != null) m.userEmail!,
-                      if (m.orderId != null) 'Order #${m.orderId}',
-                      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
-                      if (m.refundId != null) 'Refund #${m.refundId}',
-                    ].join(' · ');
-                    final scheme = Theme.of(context).colorScheme;
-                    return ListTile(
-                      leading: Semantics(
-                        label: delta >= 0 ? s.of('increaseQuantity') : s.of('decreaseQuantity'),
-                        child: Icon(
-                          delta >= 0
-                              ? Icons.add_box_outlined
-                              : Icons.remove_circle_outline,
-                          color: delta >= 0 ? scheme.primary : scheme.error,
-                          semanticLabel: delta >= 0 ? 'increase' : 'decrease',
+                child: OctoResponsiveTable(
+                  columns: [
+                    const OctoTableColumn('Product', flex: 2),
+                    const OctoTableColumn('Type'),
+                    const OctoTableColumn('Qty', numeric: true),
+                    OctoTableColumn(s.of('date')),
+                  ],
+                  rows: [
+                    for (final m in movements)
+                      [
+                        Text(
+                          m.productName != null
+                              ? '${m.productName} (${m.productSku ?? m.productId})'
+                              : s.of('productId', args: {'id': m.productId}),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                      ),
-                      title: Text('$productLabel · ${m.movementType}',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${formatDateTimeIso(m.createdAt)}'
-                            '${m.note != null ? ' — ${m.note}' : ''}',
-                            style: Theme.of(context).textTheme.bodySmall,
+                        Chip(
+                          label: Text(m.movementType),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: m.quantityDelta >= 0
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.6)
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .errorContainer
+                                  .withValues(alpha: 0.6),
+                          side: BorderSide.none,
+                        ),
+                        Text(
+                          '${m.quantityBefore} → ${m.quantityAfter} '
+                          '(${m.quantityDelta >= 0 ? '+' : ''}${m.quantityDelta})',
+                          style: TextStyle(
+                            color: m.quantityDelta >= 0
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
                           ),
-                          if (meta.isNotEmpty)
-                            Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                )),
-                        ],
-                      ),
-                      trailing: Text(
-                        '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: delta >= 0
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.error,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    );
-                  },
+                        ),
+                        Text(
+                          formatDateTimeIso(m.createdAt),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                  ],
+                  cardBuilder: (context, i) =>
+                      _movementTile(context, s, movements[i]),
                 ),
               ),
               if (hasMore)
@@ -733,6 +703,60 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           ),
         );
       },
+    );
+  }
+
+Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
+    final delta = m.quantityDelta;
+    final productLabel = m.productName != null
+        ? '${m.productName} (${m.productSku ?? m.productId})'
+        : s.of('productId', args: {'id': m.productId});
+    final meta = [
+      if (m.userEmail != null) m.userEmail!,
+      if (m.orderId != null) 'Order #${m.orderId}',
+      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
+      if (m.refundId != null) 'Refund #${m.refundId}',
+    ].join(' · ');
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Semantics(
+          label: delta >= 0 ? s.of('increaseQuantity') : s.of('decreaseQuantity'),
+          child: Icon(
+            delta >= 0
+                ? Icons.add_box_outlined
+                : Icons.remove_circle_outline,
+            color: delta >= 0 ? scheme.primary : scheme.error,
+            semanticLabel: delta >= 0 ? 'increase' : 'decrease',
+          ),
+        ),
+        title: Text('$productLabel · ${m.movementType}',
+            style: Theme.of(context).textTheme.titleSmall),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${formatDateTimeIso(m.createdAt)}'
+              '${m.note != null ? ' — ${m.note}' : ''}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (meta.isNotEmpty)
+              Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )),
+          ],
+        ),
+        trailing: Text(
+          '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: delta >= 0
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
     );
   }
 

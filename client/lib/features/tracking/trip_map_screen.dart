@@ -178,7 +178,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.outline,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
                 steps[i].$2,
@@ -187,7 +187,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 ),
               ),
             ),
-            if (i < steps.length - 1) const SizedBox(width: 4),
+            if (i < steps.length - 1) const SizedBox(width: AppSpacing.xs),
           ],
         ],
       ),
@@ -217,6 +217,6 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
   void _fit(LatLng a, LatLng b) {
     final bounds = LatLngBounds.fromPoints([a, b]);
-    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(AppSpacing.xxxl)));
   }
 }

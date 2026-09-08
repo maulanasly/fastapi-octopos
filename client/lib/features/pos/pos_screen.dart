@@ -355,7 +355,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                     final line = cart.lines.values.elementAt(i);
                     return ListTile(
                       dense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
                       title: Text(line.product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                       subtitle: Text(
                         '${formatCents(line.product.priceCents)} × ${line.quantity}',
@@ -368,7 +368,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             tooltip: s.of('decreaseQuantity'),
                             icon: const Icon(AppIcons.removeCircle, size: 20),
                             visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(AppSpacing.xs),
                             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
@@ -387,7 +387,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             tooltip: s.of('increaseQuantity'),
                             icon: const Icon(AppIcons.addCircle, size: 20),
                             visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(AppSpacing.xs),
                             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)
@@ -396,7 +396,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                                   line.quantity + 1,
                                 ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.xs),
                           SizedBox(
                             width: 72,
                             child: Text(
@@ -413,7 +413,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                             tooltip: s.of('removeItem'),
                             icon: const Icon(Icons.close, size: 18),
                             visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(AppSpacing.xs),
                             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             onPressed: () => ref
                                 .read(cartControllerProvider.notifier)

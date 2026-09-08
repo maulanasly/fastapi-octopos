@@ -75,7 +75,9 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
       appBar: AppBar(title: Text(s.of('endShift'))),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: BoxConstraints(
+            maxWidth: dialogWidthLarge(context),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
@@ -146,7 +148,9 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
       appBar: AppBar(title: Text(s.of('shiftReconciled'))),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: BoxConstraints(
+            maxWidth: dialogWidthLarge(context),
+          ),
           child: Card(
             margin: const EdgeInsets.all(AppSpacing.lg),
             child: Padding(

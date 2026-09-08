@@ -9,6 +9,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../core/layout.dart';
+
 bool get _isTest {
   try {
     return WidgetsBinding.instance.runtimeType.toString().contains('Test');
@@ -402,7 +404,7 @@ abstract final class AppTheme {
             fontSize: 14, fontWeight: FontWeight.w600, color: scheme.onSurface),
         subtitleTextStyle: _inter(
             fontSize: 12, fontWeight: FontWeight.w400, color: scheme.onSurfaceVariant),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       checkboxTheme: CheckboxThemeData(

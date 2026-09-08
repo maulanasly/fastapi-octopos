@@ -109,16 +109,19 @@ void main() {
 
     expect(find.text('Order #1'), findsOneWidget);
     expect(find.text('Order #2'), findsOneWidget);
+    // Status pills render once per order in the OctoTable (wide) or
+    // ListTile cards (narrow). Scope to Chip (not the ChoiceChip
+    // filters, which share the same labels).
     expect(
       find.descendant(
-        of: find.byType(ListTile),
+        of: find.byType(Chip),
         matching: find.text('Completed'),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
-        of: find.byType(ListTile),
+        of: find.byType(Chip),
         matching: find.text('Pending'),
       ),
       findsOneWidget,

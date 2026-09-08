@@ -289,7 +289,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   )
                 else
                   Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.xs),
                     child: Row(
                       children: [
                         Expanded(

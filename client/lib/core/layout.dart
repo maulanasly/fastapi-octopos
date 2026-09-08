@@ -34,6 +34,7 @@ abstract final class AppBreakpoints {
   static const double dialogMax = 420;
   static const double dialogMedium = 560;
   static const double dialogSmall = 360;
+  static const double dialogXLarge = 640;
 
   static bool isCompact(BuildContext context) =>
       MediaQuery.sizeOf(context).width < medium;
@@ -69,4 +70,10 @@ double dialogWidthSmall(BuildContext context) {
 
 double dialogWidthLarge(BuildContext context) {
   return (MediaQuery.sizeOf(context).width - 32).clamp(0.0, AppBreakpoints.dialogMedium);
+}
+
+/// Extra-large dialog/page cap (e.g. two-pane refund flow) — clamps
+/// phones, keeps the 640 desktop width.
+double dialogWidthXLarge(BuildContext context) {
+  return (MediaQuery.sizeOf(context).width - 32).clamp(0.0, AppBreakpoints.dialogXLarge);
 }

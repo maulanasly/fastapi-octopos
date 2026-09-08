@@ -36,14 +36,14 @@ class OctoTable extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header
           Container(
             color: scheme.surfaceContainerHigh,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
             child: Row(
               children: [
                 for (final col in columns)
@@ -67,7 +67,7 @@ class OctoTable extends StatelessWidget {
               onTap: onRowTap == null ? null : () => onRowTap!(i),
               child: Container(
                 color: isOdd ? scheme.surfaceContainerLow : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
                 child: Row(
                   children: [
                     for (var c = 0; c < cells.length; c++)

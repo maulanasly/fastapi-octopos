@@ -84,7 +84,7 @@ class ProductTile extends ConsumerWidget {
                             context,
                           ).textTheme.titleSmall?.copyWith(color: nameColor),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.xs),
                         Text(
                           formatCents(product.priceCents),
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
