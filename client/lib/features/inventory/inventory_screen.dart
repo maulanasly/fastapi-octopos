@@ -8,11 +8,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
+import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
+import '../../core/octo_table.dart';
 import '../../core/pagination.dart';
+import '../../core/skeletons.dart';
 import '../../core/strings.dart';
 import '../pos/catalog_controller.dart';
 
@@ -127,15 +132,15 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         builder: (ctx, setD) => AlertDialog(
           title: Text(s.of('selectProduct')),
           content: SizedBox(
-            width: 400,
+            width: dialogWidth(ctx),
             height: 360,
             child: Column(
               children: [
                 TextField(
                   controller: searchCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Search product (name/SKU)',
-                    prefixIcon: const Icon(Icons.search, size: 18),
+                    labelText: s.of('searchProducts'),
+                    prefixIcon: const Icon(AppIcons.search, size: 18),
                     isDense: true,
                   ),
                   onChanged: (v) {
@@ -181,12 +186,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     });
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 if (searching) const LinearProgressIndicator(),
                 if (error != null)
                   Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Text(error!, style: const TextStyle(color: Colors.red)),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: Text(error!,
+                        style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
                   ),
                 Expanded(
                   child: ListView.separated(
@@ -204,9 +210,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   ),
                 ),
                 if (results.isEmpty && !searching && searchCtrl.text.isNotEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Text('No matches'),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    child: Text(s.of('noSearchResults', args: {'q': searchCtrl.text.trim()})),
                   ),
               ],
             ),
@@ -489,13 +495,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
   Widget _typeFilterRow(AppStrings s) {
     final hasFilters = _hasActiveMovementFilters;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Wrap(
-            spacing: 6,
-            runSpacing: 6,
+            spacing: AppSpacing.xs,
+            runSpacing: AppSpacing.xs,
             children: [
               _typeChip(s, null, s.of('all')),
               _typeChip(s, 'sale', 'sale'),
@@ -513,53 +519,65 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              SizedBox(
-                width: 90,
-                child: TextField(
-                  controller: _productIdController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Product ID',
-                    hintText: 'ID',
-                    isDense: true,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search, size: 18),
-                      onPressed: _applyProductFilter,
+          const SizedBox(height: AppSpacing.sm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 360;
+              return Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: narrow ? constraints.maxWidth - 48 : 120,
+                    child: TextField(
+                      controller: _productIdController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: s.of('productId', args: {'id': ''}).replaceAll(' #', '').trim().isEmpty
+                            ? 'Product ID'
+                            : s.of('productId', args: {'id': ''}).replaceAll(' #', ''),
+                        hintText: 'ID',
+                        isDense: true,
+                        suffixIcon: IconButton(
+                          icon: const Icon(AppIcons.search, size: 18),
+                          onPressed: _applyProductFilter,
+                          tooltip: s.of('searchProducts'),
+                        ),
+                      ),
+                      onSubmitted: (_) => _applyProductFilter(),
                     ),
                   ),
-                  onSubmitted: (_) => _applyProductFilter(),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Search product',
-                icon: const Icon(Icons.manage_search, size: 18),
-                onPressed: _pickProduct,
-              ),
-              const SizedBox(width: 4),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.date_range, size: 16),
-                label: Text(
-                  _startDate == null
-                      ? 'Date range'
-                      : '${_startDate!.month}/${_startDate!.day} - ${_endDate!.month}/${_endDate!.day}',
-                ),
-                onPressed: _pickDateRange,
-              ),
-              if (_startDate != null)
-                IconButton(
-                  icon: const Icon(Icons.clear, size: 18),
-                  tooltip: s.of('clear'),
-                  onPressed: () => setState(() {
-                    _startDate = null;
-                    _endDate = null;
-                    _movementsLimit = 100;
-                    _reload();
-                  }),
-                ),
-            ],
+                  IconButton(
+                    tooltip: s.of('selectProduct'),
+                    icon: const Icon(Icons.manage_search, size: 18),
+                    onPressed: _pickProduct,
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.date_range, size: 16),
+                    label: Text(
+                      _startDate == null
+                          ? s.of('dateRange', args: {}) != 'dateRange'
+                              ? s.of('dateRange')
+                              : 'Date range'
+                          : '${_startDate!.month}/${_startDate!.day} - ${_endDate!.month}/${_endDate!.day}',
+                    ),
+                    onPressed: _pickDateRange,
+                  ),
+                  if (_startDate != null)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      tooltip: s.of('clear'),
+                      onPressed: () => setState(() {
+                        _startDate = null;
+                        _endDate = null;
+                        _movementsLimit = 100;
+                        _reload();
+                      }),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -583,10 +601,13 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       future: _movements,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const OrderRowSkeleton();
         }
         if (snapshot.hasError) {
-          return Center(child: Text(friendlyError(snapshot.error!, s)));
+          return ErrorStateView(
+            message: friendlyError(snapshot.error!, s),
+            onRetry: () => setState(_reload),
+          );
         }
         final movements = snapshot.data ?? [];
         if (movements.isEmpty) {
@@ -594,7 +615,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(s.of('noMovements')),
+                BrandedEmptyState(
+                  message: s.of('noMovements'),
+                  illustration: 'assets/illustrations/no-movements.svg',
+                ),
                 if (_hasActiveMovementFilters)
                   TextButton(
                     onPressed: _clearMovementFilters,
@@ -610,54 +634,68 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           child: Column(
             children: [
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: movements.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
-                  itemBuilder: (context, i) {
-                    final m = movements[i];
-                    final delta = m.quantityDelta;
-                    final productLabel = m.productName != null
-                        ? '${m.productName} (${m.productSku ?? m.productId})'
-                        : s.of('productId', args: {'id': m.productId});
-                    final meta = [
-                      if (m.userEmail != null) m.userEmail!,
-                      if (m.orderId != null) 'Order #${m.orderId}',
-                      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
-                      if (m.refundId != null) 'Refund #${m.refundId}',
-                    ].join(' · ');
-                    return ListTile(
-                      leading: Icon(
-                        delta >= 0
-                            ? Icons.add_box_outlined
-                            : Icons.remove_circle_outline,
-                        color: delta >= 0 ? Colors.green : Colors.red,
-                      ),
-                      title: Text('$productLabel · ${m.movementType}'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${formatDateTimeIso(m.createdAt)}'
-                            '${m.note != null ? ' — ${m.note}' : ''}',
+                child: OctoResponsiveTable(
+                  columns: [
+                    const OctoTableColumn('Product', flex: 2),
+                    const OctoTableColumn('Type'),
+                    const OctoTableColumn('Qty', numeric: true),
+                    OctoTableColumn(s.of('date')),
+                  ],
+                  rows: [
+                    for (final m in movements)
+                      [
+                        Text(
+                          m.productName != null
+                              ? '${m.productName} (${m.productSku ?? m.productId})'
+                              : s.of('productId', args: {'id': m.productId}),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Chip(
+                          label: Text(m.movementType),
+                          visualDensity: VisualDensity.compact,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: m.quantityDelta >= 0
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withValues(alpha: 0.6)
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .errorContainer
+                                  .withValues(alpha: 0.6),
+                          side: BorderSide.none,
+                        ),
+                        Text(
+                          '${m.quantityBefore} → ${m.quantityAfter} '
+                          '(${m.quantityDelta >= 0 ? '+' : ''}${m.quantityDelta})',
+                          style: TextStyle(
+                            color: m.quantityDelta >= 0
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
                           ),
-                          if (meta.isNotEmpty)
-                            Text(meta, style: Theme.of(context).textTheme.bodySmall),
-                        ],
-                      ),
-                      trailing: Text(
-                        '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
-                      ),
-                    );
-                  },
+                        ),
+                        Text(
+                          formatDateTimeIso(m.createdAt),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                  ],
+                  cardBuilder: (context, i) =>
+                      _movementTile(context, s, movements[i]),
                 ),
               ),
               if (hasMore)
                 Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(AppSpacing.sm),
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.expand_more, size: 18),
-                    label: Text('Load more (${movements.length} shown)'),
+                    label: Text(s.of('loadMore', args: {'count': movements.length})),
                     onPressed: _loadMoreMovements,
                   ),
                 ),
@@ -665,6 +703,60 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           ),
         );
       },
+    );
+  }
+
+Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
+    final delta = m.quantityDelta;
+    final productLabel = m.productName != null
+        ? '${m.productName} (${m.productSku ?? m.productId})'
+        : s.of('productId', args: {'id': m.productId});
+    final meta = [
+      if (m.userEmail != null) m.userEmail!,
+      if (m.orderId != null) 'Order #${m.orderId}',
+      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
+      if (m.refundId != null) 'Refund #${m.refundId}',
+    ].join(' · ');
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Semantics(
+          label: delta >= 0 ? s.of('increaseQuantity') : s.of('decreaseQuantity'),
+          child: Icon(
+            delta >= 0
+                ? Icons.add_box_outlined
+                : Icons.remove_circle_outline,
+            color: delta >= 0 ? scheme.primary : scheme.error,
+            semanticLabel: delta >= 0 ? 'increase' : 'decrease',
+          ),
+        ),
+        title: Text('$productLabel · ${m.movementType}',
+            style: Theme.of(context).textTheme.titleSmall),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${formatDateTimeIso(m.createdAt)}'
+              '${m.note != null ? ' — ${m.note}' : ''}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (meta.isNotEmpty)
+              Text(meta, style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )),
+          ],
+        ),
+        trailing: Text(
+          '${m.quantityBefore} → ${m.quantityAfter} (${delta >= 0 ? '+' : ''}$delta)',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: delta >= 0
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ),
     );
   }
 
@@ -695,24 +787,36 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               future: _suggestions,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const OrderRowSkeleton();
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text(friendlyError(snapshot.error!, s)));
+                  return ErrorStateView(
+                    message: friendlyError(snapshot.error!, s),
+                    onRetry: () => setState(_reload),
+                  );
                 }
                 final suggestions = snapshot.data ?? [];
                 _syncRows(suggestions);
                 if (suggestions.isEmpty) {
-                  return ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [Center(child: Text(s.of('noSuggestions')))],
+                  return LayoutBuilder(
+                    builder: (context, constraints) => ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(height: constraints.maxHeight * 0.15),
+                        BrandedEmptyState(
+                          message: s.of('noSuggestions'),
+                          illustration: 'assets/illustrations/no-products.svg',
+                          title: s.of('healthyStock'),
+                        ),
+                      ],
+                    ),
                   );
                 }
                 return ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   itemCount: suggestions.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
                   itemBuilder: (context, i) =>
                       _suggestionRow(context, s, suggestions[i], canAdjust),
                 );
@@ -722,7 +826,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         ),
         if (canGenerate)
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: FilledButton.icon(
               onPressed: _generating ? null : _generate,
               icon: _generating
@@ -749,7 +853,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -775,69 +879,128 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 if (canAdjust)
                   IconButton(
                     tooltip: s.of('adjustStock'),
-                    icon: const Icon(Icons.add_circle_outline),
+                    icon: const Icon(AppIcons.addCircle),
                     onPressed: () => _adjust(item),
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: row.qty,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: s.of('adjustDelta'),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: row.cost,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: s.of('unitCost'),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<int?>(
-                    initialValue: row.supplierId,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: s.of('supplier'),
-                      isDense: true,
-                    ),
-                    items: [
-                      ..._suppliers.map(
-                        (supplier) => DropdownMenuItem<int?>(
-                          value: supplier.id,
-                          child: Text(
-                            supplier.name,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+            const SizedBox(height: AppSpacing.sm),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 420;
+                if (isNarrow) {
+                  return Column(
+                    children: [
+                      TextField(
+                        controller: row.qty,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: s.of('adjustDelta'),
+                          isDense: true,
                         ),
                       ),
-                      if (row.supplierId != null &&
-                          !_suppliers.any((x) => x.id == row.supplierId))
-                        DropdownMenuItem<int?>(
-                          value: row.supplierId,
-                          child: Text(
-                            '#${row.supplierId}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        controller: row.cost,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: s.of('unitCost'),
+                          isDense: true,
                         ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      DropdownButtonFormField<int?>(
+                        initialValue: row.supplierId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: s.of('supplier'),
+                          isDense: true,
+                        ),
+                        items: [
+                          ..._suppliers.map(
+                            (supplier) => DropdownMenuItem<int?>(
+                              value: supplier.id,
+                              child: Text(
+                                supplier.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          if (row.supplierId != null &&
+                              !_suppliers.any((x) => x.id == row.supplierId))
+                            DropdownMenuItem<int?>(
+                              value: row.supplierId,
+                              child: Text(
+                                '#${row.supplierId}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (v) => setState(() => row.supplierId = v),
+                      ),
                     ],
-                    onChanged: (v) => row.supplierId = v,
-                  ),
-                ),
-              ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: row.qty,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: s.of('adjustDelta'),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: TextField(
+                        controller: row.cost,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: s.of('unitCost'),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: DropdownButtonFormField<int?>(
+                        initialValue: row.supplierId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: s.of('supplier'),
+                          isDense: true,
+                        ),
+                        items: [
+                          ..._suppliers.map(
+                            (supplier) => DropdownMenuItem<int?>(
+                              value: supplier.id,
+                              child: Text(
+                                supplier.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          if (row.supplierId != null &&
+                              !_suppliers.any((x) => x.id == row.supplierId))
+                            DropdownMenuItem<int?>(
+                              value: row.supplierId,
+                              child: Text(
+                                '#${row.supplierId}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                        ],
+                        onChanged: (v) => setState(() => row.supplierId = v),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -899,7 +1062,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ),
             ),
             if (res.skipped.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 s.of('skippedProducts'),
                 style: const TextStyle(fontWeight: FontWeight.bold),

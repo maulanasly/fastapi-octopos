@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
@@ -68,7 +69,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     labelText: s.of('autoPoLookbackDays'),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: trigger,
                   keyboardType: TextInputType.number,
@@ -258,7 +259,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           title: Text(s.of('newPurchaseOrder')),
           content: SizedBox(
             width: dialogWidth(context),
-            height: 480,
+            height: (MediaQuery.of(ctx).size.height * 0.6).clamp(0.0, 480.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -312,7 +313,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             SizedBox(
                               width: 100,
                               child: TextField(
@@ -509,7 +510,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (order.reviewNote != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -606,7 +607,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ? s.of('confirmRejectOrder')
                   : s.of('confirmSubmitOrder'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: note,
               decoration: InputDecoration(
@@ -816,7 +817,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           title: Text(s.of('createInvoice')),
           content: SizedBox(
             width: dialogWidth(context),
-            height: 460,
+            height: (MediaQuery.of(ctx).size.height * 0.6).clamp(0.0, 460.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -831,7 +832,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
                     Expanded(
@@ -882,7 +883,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             SizedBox(
                               width: 100,
                               child: TextField(
@@ -978,7 +979,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (invoice.hasQuantityVariance || invoice.hasPriceVariance)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -1021,7 +1022,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (invoice.reviewNote != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -1087,7 +1088,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ? s.of('confirmReject')
                   : '${invoice.invoiceNumber} — ${s.of('submitForReview')}',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: note,
               decoration: InputDecoration(
@@ -1337,7 +1338,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (payment.reviewNote != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -1410,7 +1411,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ? s.of('confirmRejectPayment')
                   : s.of('confirmSubmitPayment'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: note,
               decoration: InputDecoration(
@@ -1488,55 +1489,75 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
               onPressed: () => _editSupplier(),
-              child: const Icon(Icons.add),
+              child: const Icon(AppIcons.add),
             )
           : _tab == 1
           ? (canManage
               ? FloatingActionButton(
                   onPressed: _createOrder,
-                  child: const Icon(Icons.add),
+                  child: const Icon(AppIcons.add),
                 )
               : null)
           : _tab == 3
           ? (canManage
               ? FloatingActionButton(
                   onPressed: _createPayment,
-                  child: const Icon(Icons.add),
+                  child: const Icon(AppIcons.add),
                 )
               : null)
           : null,
       body: Column(
         children: [
-          SegmentedButton<int>(
-            segments: [
-              ButtonSegment(
-                value: 0,
-                label: Text(s.of('suppliers')),
-                icon: const Icon(Icons.factory_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 1,
-                label: Text(s.of('purchaseOrders')),
-                icon: const Icon(Icons.shopping_cart_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 2,
-                label: Text(s.of('purchaseInvoices')),
-                icon: const Icon(Icons.receipt_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 3,
-                label: Text(s.of('supplierPayments')),
-                icon: const Icon(Icons.payments_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: 4,
-                label: Text(s.of('ledger')),
-                icon: const Icon(Icons.menu_book_outlined, size: 16),
-              ),
-            ],
-            selected: {_tab},
-            onSelectionChanged: (v) => setState(() => _tab = v.first),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 4,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // On narrow screens (<600) 5 segments overflow; make them scrollable.
+                // On 800 (tests) and wider, keep constrained fit so all taps are hit-testable.
+                final useScroll = constraints.maxWidth < 700;
+                final button = SegmentedButton<int>(
+                  segments: [
+                    ButtonSegment(
+                      value: 0,
+                      label: Text(s.of('suppliers')),
+                      icon: const Icon(AppIcons.factory, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 1,
+                      label: Text(s.of('purchaseOrders')),
+                      icon: const Icon(AppIcons.shoppingCart, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 2,
+                      label: Text(s.of('purchaseInvoices')),
+                      icon: const Icon(AppIcons.invoice, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 3,
+                      label: Text(s.of('supplierPayments')),
+                      icon: const Icon(AppIcons.payments, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 4,
+                      label: Text(s.of('ledger')),
+                      icon: const Icon(AppIcons.ledger, size: 16),
+                    ),
+                  ],
+                  selected: {_tab},
+                  onSelectionChanged: (v) => setState(() => _tab = v.first),
+                );
+                if (useScroll) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: button,
+                  );
+                }
+                return Center(child: button);
+              },
+            ),
           ),
           Expanded(
             child: switch (_tab) {
@@ -1555,23 +1576,23 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   Widget _ledgerView(BuildContext context, AppStrings s) {
     final st = ref.watch(purchasingControllerProvider);
     if (st.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (st.error != null) {
-      return Center(child: Text(st.error!));
+      return ErrorStateView(message: st.error!, onRetry: _reload);
     }
     final suppliers = st.suppliers;
     if (suppliers.isEmpty) {
-      return Center(child: Text(s.of('noSuppliers')));
+      return EmptyStateView(message: s.of('noSuppliers'));
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: suppliers.length,
-      separatorBuilder: (_, _) => const Divider(height: 8),
+      separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
       itemBuilder: (context, i) {
         final supplier = suppliers[i];
         return ListTile(
-          leading: const Icon(Icons.menu_book_outlined),
+          leading: const Icon(AppIcons.ledger),
           title: Text(supplier.name),
           subtitle: Text(supplier.contactEmail ?? supplier.phone ?? '—'),
           trailing: const Icon(Icons.chevron_right),
@@ -1658,9 +1679,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
 
   IconData _ledgerIcon(String kind) {
     return switch (kind) {
-      'purchase_order' => Icons.shopping_cart_outlined,
-      'invoice' => Icons.receipt_outlined,
-      _ => Icons.payments_outlined,
+      'purchase_order' => AppIcons.shoppingCart,
+      'invoice' => AppIcons.invoice,
+      _ => AppIcons.payments,
     };
   }
 
@@ -1679,23 +1700,23 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   Widget _suppliersView(BuildContext context, AppStrings s) {
     final st = ref.watch(purchasingControllerProvider);
     if (st.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (st.error != null) {
-      return Center(child: Text(st.error!));
+      return ErrorStateView(message: st.error!, onRetry: _reload);
     }
     final suppliers = st.suppliers;
     if (suppliers.isEmpty) {
-      return Center(child: Text(s.of('noSuppliers')));
+      return EmptyStateView(message: s.of('noSuppliers'));
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: suppliers.length,
-      separatorBuilder: (_, _) => const Divider(height: 8),
+      separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
       itemBuilder: (context, i) {
         final supplier = suppliers[i];
         return ListTile(
-          leading: const Icon(Icons.factory_outlined),
+          leading: const Icon(AppIcons.factory),
           title: Text(
             '${supplier.name}${supplier.isActive ? '' : ' (${s.of('staffInactive')})'}',
           ),
@@ -1707,7 +1728,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           ),
           trailing: IconButton(
             tooltip: s.of('editSupplier', args: {'name': supplier.name}),
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(AppIcons.edit),
             onPressed: () => _editSupplier(supplier: supplier),
           ),
           onTap: () => _editSupplier(supplier: supplier),
@@ -1725,11 +1746,11 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         children: [
           for (final status in statuses)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
               child: ChoiceChip(
                 label: Text(status),
                 selected: current == status,
@@ -1812,9 +1833,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       onRefresh: () => _controller.reload(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: itemCount,
-        separatorBuilder: (_, _) => const Divider(height: 8),
+        separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
         itemBuilder: itemBuilder,
       ),
     );

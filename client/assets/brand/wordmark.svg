@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40"><text x="0" y="30" font-family="sans-serif" font-size="28" font-weight="800" fill="#0F766E">OctoPOS</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 60" width="300" height="60">
+  <!-- OctoPOS wordmark — geometric, Plus Jakarta 800 -0.02 tracking -->
+  <text x="0" y="44" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="42" font-weight="800" letter-spacing="-0.84" fill="#0F766E">Octo<tspan fill="#1A2321">POS</tspan></text>
+  <!-- underline accent -->
+  <rect x="0" y="50" width="300" height="3" rx="1.5" fill="#5EEAD4" opacity="0.0"/>
+</svg>

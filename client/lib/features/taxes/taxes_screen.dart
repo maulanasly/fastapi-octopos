@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
+import '../../core/async_views.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/models.dart';
@@ -187,31 +189,34 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
       appBar: AppBar(title: Text(s.of('taxRules'))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<TaxRule>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!, s)));
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: _reload,
+            );
           }
           final rules = snapshot.data ?? [];
           if (rules.isEmpty) {
-            return Center(child: Text(s.of('noTaxRules')));
+            return EmptyStateView(message: s.of('noTaxRules'));
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: rules.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
+            separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final rule = rules[i];
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  leading: const Icon(Icons.percent),
+                  leading: const Icon(AppIcons.promotions),
                   title: Text(
                     '${rule.name} · ${rule.rate}%${rule.isActive ? '' : ' (${s.of('staffInactive')})'}',
                   ),
@@ -224,7 +229,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
                     children: [
                       IconButton(
                         tooltip: s.of('editTaxRule'),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () => _edit(rule: rule),
                       ),
                       if (rule.isActive)

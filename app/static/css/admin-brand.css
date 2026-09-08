@@ -1,14 +1,37 @@
-/* OctoPOS Admin — de-bootstrap Tabler */
+/* OctoPOS Admin — de-bootstrap Tabler (Market Teal) */
 :root {
   --tblr-primary: #0F766E;
   --tblr-primary-rgb: 15,118,110;
   --tblr-secondary: #0284C7;
+  --tblr-secondary-rgb: 2,132,199;
+  --tblr-success: #16A34A;
+  --tblr-success-rgb: 22,163,74;
+  --tblr-warning: #F59E0B;
+  --tblr-warning-rgb: 245,158,11;
+  --tblr-danger: #DC2626;
+  --tblr-danger-rgb: 220,38,38;
+  --tblr-tertiary: #B45309;
+  --tblr-tertiary-rgb: 180,83,9;
   --tblr-border-radius: 1rem;
   --tblr-border-radius-lg: 1.25rem;
   --tblr-font-sans-serif: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --tblr-body-bg: #F8FAF9;
   --tblr-card-cap-bg: #FFFFFF;
 }
+
+/* Light tints — map Tabler bg-*-lt utilities to Market Teal tints */
+.bg-blue-lt { background: rgba(15,118,110,0.08) !important; color: #0F766E !important; }
+.bg-cyan-lt, .bg-sky-lt { background: rgba(2,132,199,0.08) !important; color: #0284C7 !important; }
+.bg-green-lt { background: rgba(22,163,74,0.08) !important; color: #16A34A !important; }
+.bg-red-lt { background: rgba(220,38,38,0.08) !important; color: #DC2626 !important; }
+.bg-yellow-lt, .bg-orange-lt { background: rgba(245,158,11,0.10) !important; color: #B45309 !important; }
+.bg-secondary-lt { background: #EFF1F0 !important; color: #4B5552 !important; }
+
+/* KPI avatar tint overrides (reports/dashboard) */
+.avatar.bg-blue-lt { background: rgba(15,118,110,0.10) !important; }
+.avatar.bg-red-lt { background: rgba(220,38,38,0.08) !important; }
+.avatar.bg-green-lt { background: rgba(22,163,74,0.10) !important; }
+.avatar.bg-cyan-lt { background: rgba(2,132,199,0.10) !important; }
 
 .navbar.navbar-vertical {
   background: linear-gradient(180deg, #042F2E 0%, #0F766E 100%) !important;
@@ -51,9 +74,14 @@
   border-bottom: 1px solid #DDE3E1 !important;
 }
 .page-header .page-title {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif !important;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #1A2321;
+}
+h1, h2, h3, .h1, .h2, .h3 {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 .badge {
   border-radius: 999px !important;
@@ -76,3 +104,9 @@
   border-radius: 999px !important;
   border-color: rgba(255,255,255,0.3) !important;
 }
+
+/* Override hard-coded Tabler inline border-left tints in reports/dashboard */
+.card[style*="206bc4"] { border-left-color: #0F766E !important; }
+.card[style*="d63939"] { border-left-color: #DC2626 !important; }
+.card[style*="2fb344"] { border-left-color: #16A34A !important; }
+.card[style*="4299e1"] { border-left-color: #0284C7 !important; }

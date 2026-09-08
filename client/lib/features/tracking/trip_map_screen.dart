@@ -8,8 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/layout.dart';
+import '../../core/app_icons.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
+
 import 'tracking_controller.dart';
 
 class TripMapScreen extends ConsumerStatefulWidget {
@@ -73,8 +76,8 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         width: 40,
                         height: 40,
                         child: Icon(
-                          Icons.location_on,
-                          color: Colors.red,
+                          AppIcons.location,
+                          color: Theme.of(context).colorScheme.error,
                           size: 40,
                         ),
                       ),
@@ -88,7 +91,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         width: 40,
                         height: 40,
                         child: Icon(
-                          Icons.local_shipping,
+                          AppIcons.localShipping,
                           color: Theme.of(context).colorScheme.primary,
                           size: 40,
                         ),
@@ -100,7 +103,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
           ),
           _statusStepper(s, live),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Row(
               children: [
                 Expanded(
@@ -112,11 +115,11 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.my_location),
+                        : const Icon(AppIcons.myLocation),
                     label: Text(s.of('useMyLocation')),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.md),
                 if (live.trackingStatus == 'assigned')
                   Expanded(
                     child: FilledButton.icon(
@@ -125,7 +128,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         live.orderId,
                         'en_route',
                       ),
-                      icon: const Icon(Icons.directions_car),
+                      icon: const Icon(AppIcons.directionsCar),
                       label: Text(s.of('startTrip')),
                     ),
                   )
@@ -137,7 +140,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         live.orderId,
                         'on_site',
                       ),
-                      icon: const Icon(Icons.location_on),
+                      icon: const Icon(AppIcons.location),
                       label: Text(s.of('arrivedOnSite')),
                     ),
                   )
@@ -165,17 +168,17 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     ];
     final current = steps.indexWhere((e) => e.$1 == trip.trackingStatus);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
       child: Row(
         children: [
           for (var i = 0; i < steps.length; i++) ...[
             Icon(
-              i <= current ? Icons.check_circle : Icons.radio_button_unchecked,
+              i <= current ? AppIcons.checkCircle : Icons.radio_button_unchecked,
               color: i <= current
                   ? Theme.of(context).colorScheme.primary
-                  : Colors.grey,
+                  : Theme.of(context).colorScheme.outline,
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: Text(
                 steps[i].$2,
@@ -184,7 +187,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 ),
               ),
             ),
-            if (i < steps.length - 1) const SizedBox(width: 4),
+            if (i < steps.length - 1) const SizedBox(width: AppSpacing.xs),
           ],
         ],
       ),
@@ -214,6 +217,6 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
 
   void _fit(LatLng a, LatLng b) {
     final bounds = LatLngBounds.fromPoints([a, b]);
-    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(48)));
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(AppSpacing.xxxl)));
   }
 }

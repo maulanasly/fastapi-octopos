@@ -5,9 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
+import '../../core/async_views.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../app/theme.dart';
 import '../../core/strings.dart';
 import '../pos/catalog_controller.dart';
 
@@ -290,25 +294,28 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<Promotion>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!, s)));
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: _reload,
+            );
           }
           final promotions = snapshot.data ?? [];
           if (promotions.isEmpty) {
-            return Center(child: Text(s.of('noPromotions')));
+            return EmptyStateView(message: s.of('noPromotions'));
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: promotions.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
+            separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final p = promotions[i];
               final usage = p.usageLimit == null
@@ -329,12 +336,12 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (p.isActive)
-                        const Icon(Icons.check_circle, color: Colors.green)
+                        Icon(AppIcons.checkCircle, color: AppColors.success)
                       else
-                        const Icon(Icons.pause_circle_outline),
+                        const Icon(AppIcons.paused),
                       IconButton(
                         tooltip: s.of('editPromotion'),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () => _edit(promotion: p),
                       ),
                       if (p.isActive)

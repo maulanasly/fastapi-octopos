@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/errors.dart';
@@ -62,12 +63,12 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
             child: TextField(
               controller: _query,
               decoration: InputDecoration(
                 hintText: s.of('searchProducts'),
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(AppIcons.search),
                 border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: _query.text.isEmpty
@@ -126,7 +127,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         );
       }
       return ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: _results!.length,
         separatorBuilder: (_, _) => const Divider(height: 8),
         itemBuilder: (context, i) {
@@ -139,10 +140,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
     if (_searchError != null) {
-      return Center(child: Text(_searchError!));
+      return ErrorStateView(
+        message: _searchError!,
+        onRetry: () => setState(() => _searchError = null),
+      );
     }
     if (catalog.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (catalog.error != null) {
       return ErrorStateView(
@@ -151,30 +155,17 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
     if (catalog.products.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.inbox_outlined, size: 40, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              const SizedBox(height: 12),
-              Text(s.of('noProducts'), textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.refresh, size: 18),
-                label: Text(s.of('retry')),
-                onPressed: () => ref.read(catalogControllerProvider.notifier).refresh(),
-              ),
-              const SizedBox(height: 8),
-              Text('No products in this store yet — create one with + or seed via Dashboard → Seed demo catalog.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ),
+      return BrandedEmptyState(
+        message: s.of('noProducts'),
+        illustration: 'assets/illustrations/no-products.svg',
+        title: s.of('noProducts'),
+        subtitle: s.of('noProductsHint'),
+        action: () => ref.read(catalogControllerProvider.notifier).refresh(),
+        actionLabel: s.of('retry'),
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: catalog.products.length,
       separatorBuilder: (_, _) => const Divider(height: 8),
       itemBuilder: (context, i) {
@@ -231,11 +222,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               children: [
                 if (current != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: Column(
                       children: [
                         _ProductThumb(product: current!, size: 96),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.sm),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -298,7 +289,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   )
                 else
                   Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 4),
+                    padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.xs),
                     child: Row(
                       children: [
                         Expanded(
@@ -375,7 +366,7 @@ class _ProductThumb extends StatelessWidget {
     final url = product.thumbnailUrl ?? product.imageUrl;
     if (url != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         child: CachedNetworkImage(
           imageUrl: '${AppConfig.mediaBaseUrl}$url',
           width: size,
@@ -398,7 +389,7 @@ class _ProductThumb extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -469,7 +460,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                   decoration: BoxDecoration(
                     color: colorFromHex(hex),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black12),
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.15)),
                   ),
                   child: category.color == hex
                       ? const Icon(Icons.check, size: 18)
@@ -509,7 +500,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: 8,
               children: [
@@ -527,7 +518,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                         border: Border.all(
                           color: _color == hex
                               ? Theme.of(context).colorScheme.primary
-                              : Colors.black12,
+                              : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.15),
                           width: _color == hex ? 2 : 1,
                         ),
                       ),
@@ -538,7 +529,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(
@@ -560,7 +551,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                         decoration: BoxDecoration(
                           color: colorFromHex(category.color),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black12),
+                          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.15)),
                         ),
                       ),
                       title: Text(category.name),

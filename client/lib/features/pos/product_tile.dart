@@ -7,8 +7,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/colors.dart';
 import '../../core/config.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
@@ -31,66 +33,104 @@ class ProductTile extends ConsumerWidget {
         ? textColorOn(barColor)
         : Theme.of(context).colorScheme.onSurface;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      color: outOfStock
-          ? Theme.of(context).colorScheme.surfaceContainerHighest
-          : null,
-      child: InkWell(
-        onTap: outOfStock ? null : onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              height: 4,
-              color:
-                  categoryColor ??
-                  (outOfStock
-                      ? Theme.of(context).colorScheme.surfaceContainerHighest
-                      : Theme.of(context).colorScheme.outlineVariant),
-            ),
-            // Flexible image: fills whatever remains above the fixed bar,
-            // so the tile never overflows no matter the label length.
-            // Thumbnail is preferred for grid payloads; falls back to the
-            // full image, then to a monogram, and is cached on device.
-            Expanded(
-              child: _ProductImage(product: product),
-            ),
-            // Fixed bottom label bar: product name always visible.
-            Container(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-              color: barColor,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final semanticsLabel = outOfStock
+        ? '${product.name}, ${s.of('outOfStock')}'
+        : '${product.name}, ${s.of('inStock', args: {'count': product.stockQuantity})}';
+    return Semantics(
+      label: semanticsLabel,
+      button: !outOfStock,
+      enabled: !outOfStock,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        color: outOfStock
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : null,
+        child: InkWell(
+          onTap: outOfStock ? null : onTap,
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleSmall?.copyWith(color: nameColor),
+                  Container(
+                    height: 4,
+                    color: categoryColor ??
+                        (outOfStock
+                            ? Theme.of(context).colorScheme.surfaceContainerHighest
+                            : Theme.of(context).colorScheme.outlineVariant),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    formatCents(product.priceCents),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
+                  // Flexible image: fills whatever remains above the fixed bar,
+                  // so the tile never overflows no matter the label length.
+                  // Thumbnail is preferred for grid payloads; falls back to the
+                  // full image, then to a monogram, and is cached on device.
+                  Expanded(
+                    child: Hero(
+                      tag: 'product-${product.id}',
+                      child: _ProductImage(product: product),
                     ),
                   ),
-                  Text(
-                    s.of('inStock', args: {'count': product.stockQuantity}),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: outOfStock
-                          ? Theme.of(context).colorScheme.error
-                          : Colors.grey,
+                  // Fixed bottom label bar: product name always visible.
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
+                    color: barColor,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleSmall?.copyWith(color: nameColor),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          formatCents(product.priceCents),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        Text(
+                          s.of('inStock', args: {'count': product.stockQuantity}),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: outOfStock
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              if (outOfStock)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      s.of('outOfStock'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                    ),
+                  ),
+                ),
+              if (outOfStock)
+                Positioned.fill(
+                  child: Container(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -133,7 +173,7 @@ class _ProductMonogram extends StatelessWidget {
       alignment: Alignment.center,
       child: showIcon
           ? Icon(
-              Icons.image_outlined,
+              AppIcons.image,
               size: 32,
               color: textColorOn(color).withValues(alpha: 0.6),
             )

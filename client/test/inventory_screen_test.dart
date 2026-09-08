@@ -168,9 +168,11 @@ void main() {
     addTearDown(container.dispose);
     await _pump(tester, container);
 
-    expect(find.text('Product #3 · sale'), findsOneWidget);
+    // Wide layout renders the OctoTable (product + type chip + qty);
+    // narrow renders ListTile cards with the same texts.
+    expect(find.text('Product #3'), findsOneWidget);
     expect(find.textContaining('10 → 8 (-2)'), findsOneWidget);
-    expect(find.text('Product #4 · manual_adjustment'), findsOneWidget);
+    expect(find.text('Product #4'), findsOneWidget);
     expect(find.textContaining('5 → 8 (+3)'), findsOneWidget);
   });
 
@@ -179,11 +181,13 @@ void main() {
     addTearDown(container.dispose);
     await _pump(tester, container);
 
-    await tester.tap(find.text('sale'));
+    // The type also renders as a row chip in the table, so tap the
+    // first match (the filter chip, laid out above the list).
+    await tester.tap(find.text('sale').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Product #3 · sale'), findsOneWidget);
-    expect(find.text('Product #4 · manual_adjustment'), findsNothing);
+    expect(find.text('Product #3'), findsOneWidget);
+    expect(find.text('Product #4'), findsNothing);
   });
 
   testWidgets('replenishment tab shows editable suggestion rows', (

@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/dates.dart';
+import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
@@ -43,21 +46,24 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
         builder: (context, snapshot) {
           final s = ref.watch(stringsProvider);
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Failed to load receipt:\n${snapshot.error}'),
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: () => setState(
+                () => _future = ref.read(orderRepositoryProvider).receipt(widget.orderId),
+              ),
             );
           }
           final receipt = snapshot.data!;
           return Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: AppBreakpoints.dialogMax),
               child: Card(
-                margin: const EdgeInsets.all(16),
+                margin: const EdgeInsets.all(AppSpacing.lg),
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(AppSpacing.xl),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -118,7 +124,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         receipt.grandTotalAmount,
                         bold: true,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       for (final payment in receipt.payments)
                         _line(
                           context,
@@ -127,14 +133,14 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         ),
                       if (receipt.changeAmount > 0)
                         _line(context, s.of('change'), -receipt.changeAmount),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.lg),
                       if (kIsWeb)
                         FilledButton.icon(
                           icon: const Icon(Icons.print),
                           label: Text(s.of('print')),
                           onPressed: printReceipt,
                         ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       FilledButton.icon(
                         icon: const Icon(Icons.check),
                         label: Text(s.of('done')),

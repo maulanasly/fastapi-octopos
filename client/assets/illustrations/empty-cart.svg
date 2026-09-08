@@ -1,1 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" rx="20" fill="#CCFBF1"/><circle cx="200" cy="120" r="60" fill="#0F766E" opacity="0.2"/><text x="200" y="130" text-anchor="middle" font-size="60">🛒</text><text x="200" y="200" text-anchor="middle" font-size="16" fill="#1A2321">Empty cart</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" rx="20" fill="#F8FAF9"/>
+  <!-- crate / market shelf -->
+  <rect x="82" y="138" width="236" height="92" rx="12" fill="#FFFFFF" stroke="#DDE3E1" stroke-width="1.2"/>
+  <rect x="96" y="152" width="208" height="6" rx="3" fill="#EFF1F0"/>
+  <rect x="96" y="168" width="208" height="6" rx="3" fill="#EFF1F0"/>
+  <rect x="96" y="184" width="140" height="6" rx="3" fill="#EFF1F0"/>
+  <!-- tentacle holding bag (teal) -->
+  <path d="M168 92 C142 92 128 106 128 126 C128 134 131 141 137 145 C134 149 132 155 135 162 C138 156 143 150 148 147 C149 148 151 148 152 147 C157 150 162 156 165 162 C168 155 166 149 163 145 C169 141 172 134 172 126 C172 106 158 92 168 92 Z" fill="#0F766E"/>
+  <circle cx="150" cy="118" r="2.8" fill="#042F2E"/>
+  <circle cx="166" cy="118" r="2.8" fill="#042F2E"/>
+  <!-- shopping bag -->
+  <rect x="186" y="162" width="64" height="54" rx="8" fill="#CCFBF1" stroke="#0F766E" stroke-width="1.4"/>
+  <path d="M202 162 V148 C202 140 210 136 218 136 C226 136 234 140 234 148 V162" fill="none" stroke="#0F766E" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- floor shadow -->
+  <ellipse cx="200" cy="252" rx="82" ry="12" fill="#0F766E" opacity="0.07"/>
+  <text x="200" y="278" text-anchor="middle" font-family="Inter, sans-serif" font-size="16" font-weight="600" fill="#1A2321">Empty cart</text>
+  <text x="200" y="292" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="500" fill="#4B5552">Add products to start a sale</text>
+</svg>

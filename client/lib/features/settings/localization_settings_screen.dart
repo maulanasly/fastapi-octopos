@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
@@ -84,16 +87,21 @@ class _LocalizationSettingsScreenState
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!, s)));
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: () => setState(
+                () => _future = ref.read(localizationRepositoryProvider).settings(),
+              ),
+            );
           }
           _setting ??= snapshot.data!;
           final setting = _setting!;
           return ref.watch(localizationOptionsProvider).when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text(friendlyError(e, s))),
+                loading: () => const LoadingStateView(),
+                error: (e, _) => ErrorStateView(message: friendlyError(e, s)),
                 data: (options) => _buildForm(setting, options, s),
               );
         },
@@ -108,11 +116,11 @@ class _LocalizationSettingsScreenState
   ) {
     final regions = ref.watch(regionListProvider).value ?? const [];
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         if (regions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
             child: DropdownButtonFormField<String>(
               initialValue: null,
               decoration: InputDecoration(
@@ -177,10 +185,10 @@ class _LocalizationSettingsScreenState
           (v) => setState(() => _dateFormat = v),
           itemBuilder: _dateFormatPreview,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         FilledButton.icon(
           onPressed: _save,
-          icon: const Icon(Icons.save_outlined),
+          icon: const Icon(AppIcons.save),
           label: Text(s.of('save')),
         ),
       ],
@@ -201,7 +209,7 @@ class _LocalizationSettingsScreenState
     String Function(String value)? itemBuilder,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: DropdownButtonFormField<String>(
         initialValue: value,
         decoration: InputDecoration(labelText: label, isDense: true),

@@ -3,6 +3,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_icons.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 
 class HelpScreen extends ConsumerWidget {
@@ -14,35 +16,35 @@ class HelpScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(s.of('help'))),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           Text(
             s.of('helpDescription'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           _HelpStep(
-            icon: Icons.lock_open,
+            icon: AppIcons.drawerOpen,
             title: s.of('helpStepDrawer'),
             subtitle: 'Open drawer → enter starting cash → Checkout unlocks',
           ),
           _HelpStep(
-            icon: Icons.point_of_sale,
+            icon: AppIcons.pos,
             title: s.of('helpStepCatalog'),
             subtitle: 'Scan barcode + Enter or tap a product tile',
           ),
           _HelpStep(
-            icon: Icons.shopping_cart,
+            icon: AppIcons.shoppingCart,
             title: s.of('helpStepCart'),
             subtitle: 'Cart survives refresh; use Guest or F3 for customers',
           ),
           _HelpStep(
-            icon: Icons.payments,
+            icon: AppIcons.payments,
             title: s.of('helpStepCheckout'),
             subtitle: 'F2 = Checkout, choose Cash / Card / Split, then Pay',
           ),
           _HelpStep(
-            icon: Icons.people,
+            icon: AppIcons.customers,
             title: s.of('helpStepCustomers'),
             subtitle: 'F3 = select customer, or create one in Customers tab',
           ),
@@ -51,7 +53,7 @@ class HelpScreen extends ConsumerWidget {
             'Tips',
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           const Text('• Offline: cached catalog still works, orders queue and sync when online.'),
           const Text('• Refunds: POS → Refunds (requires permission).'),
           const Text('• Reports/Settings: ask manager for access.'),
@@ -71,18 +73,18 @@ class _HelpStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
               ],
             ),

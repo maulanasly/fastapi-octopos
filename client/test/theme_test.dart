@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:octopos_client/app/theme.dart';
 import 'package:octopos_client/app/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // Prevent network fetch in tests — POS is offline-first and CI has no
+  // internet; GoogleFonts will fall back to family fallback without HTTP.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   group('AppTheme', () {
     test('light is the default theme mode', () {

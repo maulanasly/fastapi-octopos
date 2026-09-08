@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
+import '../../core/async_views.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
@@ -67,7 +69,7 @@ class _AuditTabState extends ConsumerState<_AuditTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(AppSpacing.sm),
           child: DropdownButtonFormField<String?>(
             initialValue: _action,
             decoration: InputDecoration(
@@ -95,21 +97,24 @@ class _AuditTabState extends ConsumerState<_AuditTab> {
         Expanded(
           child: FutureBuilder<List<AuditLogEntry>>(
             future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text(friendlyError(snapshot.error!, s)));
-              }
-              final entries = snapshot.data ?? [];
-              if (entries.isEmpty) {
-                return Center(child: Text(s.of('noAuditEntries')));
-              }
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const LoadingStateView();
+            }
+            if (snapshot.hasError) {
+              return ErrorStateView(
+                message: friendlyError(snapshot.error!, s),
+                onRetry: _reload,
+              );
+            }
+            final entries = snapshot.data ?? [];
+            if (entries.isEmpty) {
+              return EmptyStateView(message: s.of('noAuditEntries'));
+            }
               return ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 itemCount: entries.length,
-                separatorBuilder: (_, _) => const Divider(height: 8),
+                separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
                 itemBuilder: (context, i) {
                   final e = entries[i];
                   return ListTile(
@@ -297,7 +302,7 @@ class _RolesTabState extends ConsumerState<_RolesTab> {
       builder: (ctx) => AlertDialog(
         title: Text(s.of('assignRoles')),
         content: SizedBox(
-          width: 360,
+          width: dialogWidthSmall(ctx),
           child: ListView(
             shrinkWrap: true,
             children: [
@@ -351,22 +356,25 @@ class _RolesTabState extends ConsumerState<_RolesTab> {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<RoleInfo>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!, s)));
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: _reload,
+            );
           }
           final roles = snapshot.data ?? [];
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: roles.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
+            separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final role = roles[i];
               return Card(
@@ -389,7 +397,7 @@ class _RolesTabState extends ConsumerState<_RolesTab> {
                       ),
                       IconButton(
                         tooltip: s.of('editRole'),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () => _edit(role: role),
                       ),
                     ],

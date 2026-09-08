@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/app_icons.dart';
+import '../../core/async_views.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import 'tracking_controller.dart';
 
@@ -18,17 +21,21 @@ class TrackingScreen extends ConsumerWidget {
     final state = ref.watch(trackingControllerProvider);
 
     if (state.trips.isEmpty && state.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (state.trips.isEmpty) {
-      return Center(child: Text(s.of('trackingEmpty')));
+      return BrandedEmptyState(
+        message: s.of('trackingEmptyHint'),
+        illustration: 'assets/illustrations/no-orders.svg',
+        title: s.of('trackingEmpty'),
+      );
     }
     return RefreshIndicator(
       onRefresh: () => ref.read(trackingControllerProvider.notifier).refresh(),
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: state.trips.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
         itemBuilder: (context, index) {
           final trip = state.trips[index];
           return Card(
@@ -48,7 +55,7 @@ class TrackingScreen extends ConsumerWidget {
                             '${trip.destinationLng!.toStringAsFixed(5)}'
                         : s.of('destination')),
               ),
-              trailing: const Icon(Icons.map_outlined),
+              trailing: const Icon(AppIcons.map),
               onTap: () => context.push(
                 '/tracking/${trip.orderId}',
                 extra: trip,
@@ -68,9 +75,9 @@ class TrackingScreen extends ConsumerWidget {
   };
 
   static IconData _statusIcon(String status) => switch (status) {
-    'assigned' => Icons.local_shipping_outlined,
-    'en_route' => Icons.directions_car_outlined,
-    'on_site' => Icons.location_on_outlined,
+    'assigned' => AppIcons.localShipping,
+    'en_route' => AppIcons.directionsCar,
+    'on_site' => AppIcons.location,
     _ => Icons.radio_button_unchecked,
   };
 }

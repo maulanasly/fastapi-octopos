@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../core/octo_table.dart';
 import '../../core/strings.dart';
 import '../pos/receipt_screen.dart';
 
@@ -94,7 +97,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               children: [
                 _filterChip(s, null, s.of('all'), 'filter-all'),
                 _filterChip(
@@ -129,25 +132,85 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const LoadingStateView();
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text(friendlyError(snapshot.error!, s)));
+                  return ErrorStateView(
+                    message: friendlyError(snapshot.error!, s),
+                    onRetry: _reload,
+                  );
                 }
                 final all = snapshot.data ?? [];
                 final visible = _statusFilter == null
                     ? all
                     : all.where((o) => o.status == _statusFilter).toList();
                 if (visible.isEmpty) {
-                  return Center(child: Text(s.of('noOrders')));
+                  return BrandedEmptyState(
+                    message: s.of('noOrdersHint'),
+                    illustration: 'assets/illustrations/no-orders.svg',
+                    title: s.of('noOrders'),
+                  );
                 }
                 return RefreshIndicator(
                   onRefresh: () async => _reload(),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: visible.length,
-                    separatorBuilder: (_, _) => const Divider(height: 8),
-                    itemBuilder: (context, i) =>
+                  child: OctoResponsiveTable(
+                    columns: [
+                      const OctoTableColumn('Order', flex: 2),
+                      OctoTableColumn(s.of('date'), flex: 2),
+                      const OctoTableColumn('Items'),
+                      OctoTableColumn(s.of('total'), numeric: true),
+                      const OctoTableColumn('Status'),
+                      const OctoTableColumn(''),
+                    ],
+                    rows: [
+                      for (final order in visible)
+                        [
+                          Text(
+                            s.of('orderId', args: {'id': order.id}),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            formatDateTimeIso(order.createdAt),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text('${order.items.length}'),
+                          Text(
+                            formatCents(centsFromApi(order.grandTotalAmount)),
+                          ),
+                          Chip(
+                            label: Text(_statusLabel(s, order.status)),
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: s.of('reprint'),
+                                icon: const Icon(Icons.receipt_long, size: 18),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => _reprint(order),
+                              ),
+                              if (order.status == 'pending')
+                                IconButton(
+                                  tooltip: s.of('cancelOrder'),
+                                  icon: const Icon(
+                                    Icons.cancel_outlined,
+                                    size: 18,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => _cancel(order),
+                                ),
+                            ],
+                          ),
+                        ],
+                    ],
+                    onRowTap: (i) => _reprint(visible[i]),
+                    cardBuilder: (context, i) =>
                         _orderTile(context, visible[i]),
                   ),
                 );
@@ -166,7 +229,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String keyName,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: ChoiceChip(
         key: Key(keyName),
         label: Text(label),
@@ -176,14 +239,16 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     );
   }
 
+  String _statusLabel(AppStrings s, String status) => switch (status) {
+    'serving' => s.of('statusServing'),
+    'completed' => s.of('statusCompleted'),
+    'cancelled' => s.of('statusCancelled'),
+    _ => s.of('statusPending'),
+  };
+
   Widget _orderTile(BuildContext context, Order order) {
     final s = ref.read(stringsProvider);
-    final statusLabel = switch (order.status) {
-      'serving' => s.of('statusServing'),
-      'completed' => s.of('statusCompleted'),
-      'cancelled' => s.of('statusCancelled'),
-      _ => s.of('statusPending'),
-    };
+    final statusLabel = _statusLabel(s, order.status);
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(

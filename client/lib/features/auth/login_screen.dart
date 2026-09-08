@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/auth_controller.dart';
+import '../../core/brand.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../app/theme.dart';
 
@@ -89,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -101,9 +104,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                 ),
-                child: const Text('🐙', style: TextStyle(fontSize: 36)),
+                child: const AppLogo(size: 36),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               Text(
                 'OctoPOS',
                 style: Theme.of(context).textTheme.displayMedium?.copyWith(
@@ -112,7 +115,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       letterSpacing: -0.03 * 28,
                     ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 'Market teal. Soft ink. Real commerce.',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -120,7 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       fontWeight: FontWeight.w600,
                     ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 'POS, inventory & offline sync — built for the floor, not the template.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -128,14 +131,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       height: 1.5,
                     ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _HeroPill(icon: Icons.bolt, label: 'F2 Checkout'),
-                  _HeroPill(icon: Icons.people_alt_outlined, label: 'F3 Customer'),
-                  _HeroPill(icon: Icons.wifi_off, label: 'Offline ready'),
+                  _HeroPill(icon: AppIcons.bolt, label: 'F2 Checkout'),
+                  _HeroPill(icon: AppIcons.customers, label: 'F3 Customer'),
+                  _HeroPill(icon: AppIcons.wifiOff, label: 'Offline ready'),
                 ],
               ),
             ],
@@ -146,11 +149,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     Widget formCard = Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
+        constraints: const BoxConstraints(maxWidth: AppBreakpoints.dialogMax),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(24),
@@ -171,7 +174,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   if (sessionExpired)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: scheme.errorContainer,
@@ -180,7 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, size: 20, color: scheme.error),
+                          Icon(AppIcons.info, size: 20, color: scheme.error),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -208,7 +211,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: InputDecoration(labelText: s.of('fullName'), prefixIcon: const Icon(Icons.person_outline)),
                       validator: (v) => (v == null || v.trim().isEmpty) ? s.of('required') : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                   ],
                   TextFormField(
                     key: const Key('emailField'),
@@ -218,7 +221,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     autocorrect: false,
                     validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     key: const Key('passwordField'),
                     controller: _password,
@@ -227,9 +230,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     validator: (v) => (v == null || v.length < 8) ? s.of('minPassword') : null,
                   ),
                   if (_error != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
                         color: scheme.errorContainer.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),
@@ -245,7 +248,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : Text(_registerMode ? s.of('createAccount') : s.of('signIn')),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   if (_allowRegister)
                     TextButton(
                       onPressed: _submitting ? null : () => setState(() {_registerMode = !_registerMode; _error = null;}),
@@ -253,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     )
                   else
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -263,7 +266,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         child: Column(
                           children: [
                             Text(s.of('askManagerToCreateAccount'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSpacing.xs),
                             Text(s.of('contactAdmin'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
                           ],
                         ),
@@ -305,7 +308,7 @@ class _HeroPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
