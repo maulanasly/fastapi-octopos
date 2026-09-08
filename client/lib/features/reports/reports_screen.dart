@@ -302,15 +302,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Text(strings.of('noOrders'))
                       else
                         for (final item in items)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(item.productName),
-                            subtitle: Text(
-                              '${item.totalQuantitySold} × ${item.productSku}',
-                            ),
-                            trailing: Text(
-                              formatCents(centsFromApi(item.totalRevenue)),
+                          _ReportRow(
+                            title: item.productName,
+                            subtitle:
+                                '${item.totalQuantitySold} × ${item.productSku}',
+                            amount: formatCents(
+                              centsFromApi(item.totalRevenue),
                             ),
                           ),
                     ],
@@ -339,12 +336,10 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Text(strings.of('noOrders'))
                       else
                         for (final item in items)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(item.categoryName),
-                            trailing: Text(
-                              formatCents(centsFromApi(item.totalRevenue)),
+                          _ReportRow(
+                            title: item.categoryName,
+                            amount: formatCents(
+                              centsFromApi(item.totalRevenue),
                             ),
                           ),
                     ],
@@ -421,7 +416,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Low stock',
+                        strings.of('lowStock'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -429,15 +424,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Text(strings.of('healthyStock'))
                       else
                         for (final product in products)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(product.name),
-                            subtitle: Text(
-                              '${product.stockQuantity} in stock · '
-                              'reorder at ${product.reorderPoint}',
-                            ),
-                            trailing: Text(formatCents(product.priceCents)),
+                          _ReportRow(
+                            title: product.name,
+                            subtitle:
+                                '${product.stockQuantity} in stock · '
+                                'reorder at ${product.reorderPoint}',
+                            amount: formatCents(product.priceCents),
                           ),
                     ],
                   ),
@@ -465,17 +457,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Text(strings.of('noOrders'))
                       else
                         for (final shift in shifts)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              '${strings.of('shifts')} #'
-                              '${shift.reconciliationId} — '
-                              '${shift.operatorName ?? '-'}',
-                            ),
-                            subtitle: Text(formatDateTimeIso(shift.closedAt)),
-                            trailing: Text(
-                              formatCents(centsFromApi(shift.netSalesTotal)),
+                          _ReportRow(
+                            title:
+                                '${strings.of('shifts')} #'
+                                '${shift.reconciliationId} — '
+                                '${shift.operatorName ?? '-'}',
+                            subtitle: formatDateTimeIso(shift.closedAt),
+                            amount: formatCents(
+                              centsFromApi(shift.netSalesTotal),
                             ),
                             onTap: () => _showShiftReport(shift),
                           ),
@@ -523,17 +512,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Text(strings.of('noInvoices'))
                       else
                         for (final item in spend.items)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(item.supplierName),
-                            subtitle: Text(
-                              '${item.poCount} PO · ${item.invoiceCount} inv',
-                            ),
-                            trailing: Text(
-                              '${formatCents(centsFromApi(item.approvedTotal))}'
-                              '${item.varianceTotal != 0 ? ' (±${formatCents(centsFromApi(item.varianceTotal.abs()))})' : ''}',
-                            ),
+                          _ReportRow(
+                            title: item.supplierName,
+                            subtitle:
+                                '${item.poCount} PO · ${item.invoiceCount} inv',
+                            amount:
+                                '${formatCents(centsFromApi(item.approvedTotal))}'
+                                '${item.varianceTotal != 0 ? ' (±${formatCents(centsFromApi(item.varianceTotal.abs()))})' : ''}',
                           ),
                     ],
                   ),
@@ -573,17 +558,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         Text(strings.of('noInvoices'))
                       else
                         for (final month in trend.months)
-                          ListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(month.period),
-                            subtitle: Text(
-                              '${month.invoiceCount} inv · '
-                              'approved ${formatCents(centsFromApi(month.approvedTotal))}',
-                            ),
-                            trailing: Text(
-                              '±${formatCents(centsFromApi(month.varianceTotal.abs()))}',
-                            ),
+                          _ReportRow(
+                            title: month.period,
+                            subtitle:
+                                '${month.invoiceCount} inv · '
+                                'approved ${formatCents(centsFromApi(month.approvedTotal))}',
+                            amount:
+                                '±${formatCents(centsFromApi(month.varianceTotal.abs()))}',
                           ),
                     ],
                   ),
@@ -604,6 +585,66 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           Expanded(child: Text(label)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
+      ),
+    );
+  }
+}
+
+/// Branded ledger row — title + subtitle left, tabular amount right.
+/// Replaces stock `ListTile` so report sections read as ERP, not demo.
+class _ReportRow extends StatelessWidget {
+  const _ReportRow({
+    required this.title,
+    this.subtitle,
+    required this.amount,
+    this.onTap,
+  });
+
+  final String title;
+  final String? subtitle;
+  final String amount;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Text(
+              amount,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    color: scheme.onSurface,
+                  ),
+            ),
+          ],
+        ),
       ),
     );
   }
