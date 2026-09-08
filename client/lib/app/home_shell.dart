@@ -11,6 +11,7 @@ import '../core/api_repositories.dart';
 import '../core/auth_controller.dart';
 import '../core/app_icons.dart';
 import '../core/brand.dart';
+import '../core/layout.dart';
 import '../core/localization_controller.dart';
 import '../core/route_access.dart';
 import '../core/strings.dart';
@@ -119,7 +120,7 @@ class HomeShell extends ConsumerWidget {
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: Center(
               child: Tooltip(
                 message: auth.email ?? '',

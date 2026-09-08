@@ -175,7 +175,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     String keyName,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: ChoiceChip(
         key: Key(keyName),
         label: Text(label),

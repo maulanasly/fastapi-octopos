@@ -119,7 +119,7 @@ class _LocalizationSettingsScreenState
       children: [
         if (regions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
             child: DropdownButtonFormField<String>(
               initialValue: null,
               decoration: InputDecoration(
@@ -208,7 +208,7 @@ class _LocalizationSettingsScreenState
     String Function(String value)? itemBuilder,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: DropdownButtonFormField<String>(
         initialValue: value,
         decoration: InputDecoration(labelText: label, isDense: true),

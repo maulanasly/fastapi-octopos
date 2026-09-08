@@ -509,7 +509,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (order.reviewNote != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -978,7 +978,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (invoice.hasQuantityVariance || invoice.hasPriceVariance)
                 Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.only(top: AppSpacing.xs),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -1021,7 +1021,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (invoice.reviewNote != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -1337,7 +1337,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               ),
               if (payment.reviewNote != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -1749,7 +1749,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
         children: [
           for (final status in statuses)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
               child: ChoiceChip(
                 label: Text(status),
                 selected: current == status,

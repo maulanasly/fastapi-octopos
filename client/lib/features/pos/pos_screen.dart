@@ -74,7 +74,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             actions: [
               if (pendingCount > 0)
                 Padding(
-                  padding: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.only(right: AppSpacing.md),
                   child: Chip(label: Text(s.of('pendingSync', args: {'count': pendingCount}))),
                 ),
             ],
@@ -240,7 +240,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             children: [
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
                 child: ChoiceChip(
                   label: Text(s.of('all')),
                   selected: _selectedCategoryId == null,
@@ -249,7 +249,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ),
               for (final category in catalog.categories)
                 Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
                   child: _CategoryChip(
                     category: category,
                     selected: _selectedCategoryId == category.id,
@@ -698,7 +698,7 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
           ),
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
               child: Text(
                 _error!,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),

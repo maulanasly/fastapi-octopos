@@ -265,7 +265,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                       ),
                       if (s.cogsKnownRatio != null && s.cogsKnownRatio! < 1)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.only(top: AppSpacing.xs),
                           child: Text(
                             strings.of('partialCostData'),
                             style: Theme.of(context).textTheme.bodySmall

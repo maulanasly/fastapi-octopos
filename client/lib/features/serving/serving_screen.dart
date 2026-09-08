@@ -51,7 +51,7 @@ class _ServingCard extends ConsumerWidget {
     final controller = ref.read(servingControllerProvider.notifier);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(

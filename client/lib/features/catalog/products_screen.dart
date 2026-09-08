@@ -62,7 +62,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
             child: TextField(
               controller: _query,
               decoration: InputDecoration(
@@ -221,7 +221,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               children: [
                 if (current != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: Column(
                       children: [
                         _ProductThumb(product: current!, size: 96),

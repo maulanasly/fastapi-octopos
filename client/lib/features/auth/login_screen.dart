@@ -173,7 +173,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   if (sessionExpired)
                     Container(
-                      margin: const EdgeInsets.only(bottom: 16),
+                      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: scheme.errorContainer,
@@ -255,7 +255,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     )
                   else
                     Padding(
-                      padding: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.only(top: AppSpacing.md),
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(

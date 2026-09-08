@@ -116,7 +116,7 @@ class ProductGridSkeleton extends StatelessWidget {
               const _Strip(),
               Expanded(child: Container(color: Theme.of(context).colorScheme.surfaceContainerHigh)),
               Container(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,7 +196,7 @@ class KpiSkeleton extends StatelessWidget {
           children: List.generate(
             3,
             (_) => Card(
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: AppSpacing.md),
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
@@ -231,7 +231,7 @@ class CartLineSkeleton extends StatelessWidget {
         itemCount: 3,
         separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
         itemBuilder: (context, _) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
           child: Row(
             children: [
               const Expanded(

@@ -167,7 +167,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
     ];
     final current = steps.indexWhere((e) => e.$1 == trip.trackingStatus);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
       child: Row(
         children: [
           for (var i = 0; i < steps.length; i++) ...[

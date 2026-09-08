@@ -296,7 +296,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             ],
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
                 child: Text(
                   _error!,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),

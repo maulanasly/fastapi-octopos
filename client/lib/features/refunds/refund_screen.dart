@@ -240,7 +240,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
           child: Text(
             s.of('refundTotal', args: {'total': formatCents(total)}),
             style: Theme.of(context).textTheme.titleMedium,

@@ -26,7 +26,7 @@ class BrandedBanner extends StatelessWidget {
     final iconBg = (color ?? scheme.primary).withValues(alpha: 0.12);
     final iconColor = color ?? scheme.primary;
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: bg,

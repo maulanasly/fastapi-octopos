@@ -70,7 +70,7 @@ class ProductTile extends ConsumerWidget {
                   ),
                   // Fixed bottom label bar: product name always visible.
                   Container(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.sm, AppSpacing.sm, 10),
                     color: barColor,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
