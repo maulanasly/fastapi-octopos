@@ -41,6 +41,13 @@ abstract final class AppIcons {
   static const IconData peopleAlt = Icons.people_alt_outlined;
 
   // Commerce
+  static const IconData factory = Icons.factory_outlined;
+  static const IconData ledger = Icons.menu_book_outlined;
+  static const IconData invoice = Icons.receipt_outlined;
+  static const IconData map = Icons.map_outlined;
+  static const IconData localShipping = Icons.local_shipping_outlined;
+  static const IconData directionsCar = Icons.directions_car_outlined;
+  static const IconData personAdd = Icons.person_add_alt;
   static const IconData payments = Icons.payments_outlined;
   static const IconData creditCard = Icons.credit_card_outlined;
   static const IconData split = Icons.call_split_outlined;
@@ -48,7 +55,11 @@ abstract final class AppIcons {
   static const IconData myLocation = Icons.my_location_outlined;
 
   // System
+  static const IconData add = Icons.add;
   static const IconData edit = Icons.edit_outlined;
+  static const IconData save = Icons.save_outlined;
+  static const IconData image = Icons.image_outlined;
+  static const IconData paused = Icons.pause_circle_outline;
   static const IconData error = Icons.error_outline_outlined;
   static const IconData info = Icons.info_outline;
   static const IconData checkCircle = Icons.check_circle_outline;

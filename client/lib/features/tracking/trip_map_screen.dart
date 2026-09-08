@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/layout.dart';
+import '../../core/app_icons.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 
@@ -75,7 +76,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         width: 40,
                         height: 40,
                         child: Icon(
-                          Icons.location_on,
+                          AppIcons.location,
                           color: Theme.of(context).colorScheme.error,
                           size: 40,
                         ),
@@ -90,7 +91,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         width: 40,
                         height: 40,
                         child: Icon(
-                          Icons.local_shipping,
+                          AppIcons.localShipping,
                           color: Theme.of(context).colorScheme.primary,
                           size: 40,
                         ),
@@ -114,7 +115,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.my_location),
+                        : const Icon(AppIcons.myLocation),
                     label: Text(s.of('useMyLocation')),
                   ),
                 ),
@@ -127,7 +128,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         live.orderId,
                         'en_route',
                       ),
-                      icon: const Icon(Icons.directions_car),
+                      icon: const Icon(AppIcons.directionsCar),
                       label: Text(s.of('startTrip')),
                     ),
                   )
@@ -139,7 +140,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                         live.orderId,
                         'on_site',
                       ),
-                      icon: const Icon(Icons.location_on),
+                      icon: const Icon(AppIcons.location),
                       label: Text(s.of('arrivedOnSite')),
                     ),
                   )
@@ -172,7 +173,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         children: [
           for (var i = 0; i < steps.length; i++) ...[
             Icon(
-              i <= current ? Icons.check_circle : Icons.radio_button_unchecked,
+              i <= current ? AppIcons.checkCircle : Icons.radio_button_unchecked,
               color: i <= current
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.outline,

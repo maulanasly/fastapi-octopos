@@ -294,7 +294,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<Promotion>>(
         future: _future,
@@ -336,9 +336,9 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (p.isActive)
-                        Icon(Icons.check_circle, color: AppColors.success)
+                        Icon(AppIcons.checkCircle, color: AppColors.success)
                       else
-                        const Icon(Icons.pause_circle_outline),
+                        const Icon(AppIcons.paused),
                       IconButton(
                         tooltip: s.of('editPromotion'),
                         icon: const Icon(AppIcons.edit),

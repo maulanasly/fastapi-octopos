@@ -136,9 +136,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _HeroPill(icon: Icons.bolt, label: 'F2 Checkout'),
-                  _HeroPill(icon: Icons.people_alt_outlined, label: 'F3 Customer'),
-                  _HeroPill(icon: Icons.wifi_off, label: 'Offline ready'),
+                  _HeroPill(icon: AppIcons.bolt, label: 'F2 Checkout'),
+                  _HeroPill(icon: AppIcons.customers, label: 'F3 Customer'),
+                  _HeroPill(icon: AppIcons.wifiOff, label: 'Offline ready'),
                 ],
               ),
             ],

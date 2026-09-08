@@ -189,7 +189,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
       appBar: AppBar(title: Text(s.of('taxRules'))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<TaxRule>>(
         future: _future,
@@ -216,7 +216,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  leading: const Icon(Icons.percent),
+                  leading: const Icon(AppIcons.promotions),
                   title: Text(
                     '${rule.name} · ${rule.rate}%${rule.isActive ? '' : ' (${s.of('staffInactive')})'}',
                   ),

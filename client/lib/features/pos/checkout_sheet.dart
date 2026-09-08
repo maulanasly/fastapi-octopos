@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../app/theme.dart';
+import '../../core/app_icons.dart';
 import '../../core/api_repositories.dart';
 import '../../core/layout.dart';
 import '../../core/errors.dart';
@@ -153,7 +154,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
               decoration: InputDecoration(
                 labelText: s.of('serviceAddress'),
                 hintText: s.of('destination'),
-                prefixIcon: const Icon(Icons.location_on_outlined, size: 18),
+                prefixIcon: const Icon(AppIcons.location, size: 18),
                 isDense: true,
               ),
             ),
@@ -169,7 +170,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.my_location),
+                        : const Icon(AppIcons.myLocation),
                     label: Text(s.of('useMyLocation')),
                   ),
                 ),
@@ -191,17 +192,17 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                 ButtonSegment(
                   value: _PayMethod.cash,
                   label: Text(s.of('cash')),
-                  icon: const Icon(Icons.payments),
+                  icon: const Icon(AppIcons.payments),
                 ),
                 ButtonSegment(
                   value: _PayMethod.card,
                   label: Text(s.of('card')),
-                  icon: const Icon(Icons.credit_card),
+                  icon: const Icon(AppIcons.creditCard),
                 ),
                 ButtonSegment(
                   value: _PayMethod.split,
                   label: Text(s.of('split')),
-                  icon: const Icon(Icons.call_split),
+                  icon: const Icon(AppIcons.split),
                 ),
               ],
               selected: {_method},
@@ -214,7 +215,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
                   labelText: s.of('cashReceived'),
-                  prefixIcon: const Icon(Icons.payments_outlined, size: 18),
+                  prefixIcon: const Icon(AppIcons.payments, size: 18),
                   prefixText: '${_currencySymbol()} ',
                   isDense: true,
                   errorText: _cashError(total),
@@ -234,7 +235,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                         _cashReceived.text = centsToApi(amount);
                       }),
                       avatar: Icon(
-                        Icons.payments_outlined,
+                        AppIcons.payments,
                         size: 16,
                         color: _cashReceived.text.isNotEmpty && centsFromInput(_cashReceived.text) == amount
                             ? Theme.of(context).colorScheme.onPrimaryContainer

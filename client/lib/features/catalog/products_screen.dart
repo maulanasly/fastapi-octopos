@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/errors.dart';
@@ -67,7 +68,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
               controller: _query,
               decoration: InputDecoration(
                 hintText: s.of('searchProducts'),
-                prefixIcon: const Icon(Icons.search),
+                prefixIcon: const Icon(AppIcons.search),
                 border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: _query.text.isEmpty

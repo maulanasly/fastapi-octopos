@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/colors.dart';
 import '../../core/config.dart';
 import '../../core/layout.dart';
@@ -172,7 +173,7 @@ class _ProductMonogram extends StatelessWidget {
       alignment: Alignment.center,
       child: showIcon
           ? Icon(
-              Icons.image_outlined,
+              AppIcons.image,
               size: 32,
               color: textColorOn(color).withValues(alpha: 0.6),
             )

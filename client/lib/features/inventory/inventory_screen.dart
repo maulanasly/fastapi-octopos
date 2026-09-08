@@ -139,7 +139,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                   controller: searchCtrl,
                   decoration: InputDecoration(
                     labelText: s.of('searchProducts'),
-                    prefixIcon: const Icon(Icons.search, size: 18),
+                    prefixIcon: const Icon(AppIcons.search, size: 18),
                     isDense: true,
                   ),
                   onChanged: (v) {
@@ -539,7 +539,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                         hintText: 'ID',
                         isDense: true,
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.search, size: 18),
+                          icon: const Icon(AppIcons.search, size: 18),
                           onPressed: _applyProductFilter,
                           tooltip: s.of('searchProducts'),
                         ),

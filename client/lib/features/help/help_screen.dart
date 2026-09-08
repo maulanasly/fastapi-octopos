@@ -3,6 +3,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
 
@@ -23,27 +24,27 @@ class HelpScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           _HelpStep(
-            icon: Icons.lock_open,
+            icon: AppIcons.drawerOpen,
             title: s.of('helpStepDrawer'),
             subtitle: 'Open drawer → enter starting cash → Checkout unlocks',
           ),
           _HelpStep(
-            icon: Icons.point_of_sale,
+            icon: AppIcons.pos,
             title: s.of('helpStepCatalog'),
             subtitle: 'Scan barcode + Enter or tap a product tile',
           ),
           _HelpStep(
-            icon: Icons.shopping_cart,
+            icon: AppIcons.shoppingCart,
             title: s.of('helpStepCart'),
             subtitle: 'Cart survives refresh; use Guest or F3 for customers',
           ),
           _HelpStep(
-            icon: Icons.payments,
+            icon: AppIcons.payments,
             title: s.of('helpStepCheckout'),
             subtitle: 'F2 = Checkout, choose Cash / Card / Split, then Pay',
           ),
           _HelpStep(
-            icon: Icons.people,
+            icon: AppIcons.customers,
             title: s.of('helpStepCustomers'),
             subtitle: 'F3 = select customer, or create one in Customers tab',
           ),

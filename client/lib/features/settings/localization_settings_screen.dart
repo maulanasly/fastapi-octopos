@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/app_icons.dart';
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/dates.dart';
@@ -187,7 +188,7 @@ class _LocalizationSettingsScreenState
         const SizedBox(height: AppSpacing.lg),
         FilledButton.icon(
           onPressed: _save,
-          icon: const Icon(Icons.save_outlined),
+          icon: const Icon(AppIcons.save),
           label: Text(s.of('save')),
         ),
       ],

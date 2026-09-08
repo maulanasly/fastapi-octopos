@@ -1489,20 +1489,20 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
               onPressed: () => _editSupplier(),
-              child: const Icon(Icons.add),
+              child: const Icon(AppIcons.add),
             )
           : _tab == 1
           ? (canManage
               ? FloatingActionButton(
                   onPressed: _createOrder,
-                  child: const Icon(Icons.add),
+                  child: const Icon(AppIcons.add),
                 )
               : null)
           : _tab == 3
           ? (canManage
               ? FloatingActionButton(
                   onPressed: _createPayment,
-                  child: const Icon(Icons.add),
+                  child: const Icon(AppIcons.add),
                 )
               : null)
           : null,
@@ -1523,27 +1523,27 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     ButtonSegment(
                       value: 0,
                       label: Text(s.of('suppliers')),
-                      icon: const Icon(Icons.factory_outlined, size: 16),
+                      icon: const Icon(AppIcons.factory, size: 16),
                     ),
                     ButtonSegment(
                       value: 1,
                       label: Text(s.of('purchaseOrders')),
-                      icon: const Icon(Icons.shopping_cart_outlined, size: 16),
+                      icon: const Icon(AppIcons.shoppingCart, size: 16),
                     ),
                     ButtonSegment(
                       value: 2,
                       label: Text(s.of('purchaseInvoices')),
-                      icon: const Icon(Icons.receipt_outlined, size: 16),
+                      icon: const Icon(AppIcons.invoice, size: 16),
                     ),
                     ButtonSegment(
                       value: 3,
                       label: Text(s.of('supplierPayments')),
-                      icon: const Icon(Icons.payments_outlined, size: 16),
+                      icon: const Icon(AppIcons.payments, size: 16),
                     ),
                     ButtonSegment(
                       value: 4,
                       label: Text(s.of('ledger')),
-                      icon: const Icon(Icons.menu_book_outlined, size: 16),
+                      icon: const Icon(AppIcons.ledger, size: 16),
                     ),
                   ],
                   selected: {_tab},
@@ -1592,7 +1592,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       itemBuilder: (context, i) {
         final supplier = suppliers[i];
         return ListTile(
-          leading: const Icon(Icons.menu_book_outlined),
+          leading: const Icon(AppIcons.ledger),
           title: Text(supplier.name),
           subtitle: Text(supplier.contactEmail ?? supplier.phone ?? '—'),
           trailing: const Icon(Icons.chevron_right),
@@ -1679,9 +1679,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
 
   IconData _ledgerIcon(String kind) {
     return switch (kind) {
-      'purchase_order' => Icons.shopping_cart_outlined,
-      'invoice' => Icons.receipt_outlined,
-      _ => Icons.payments_outlined,
+      'purchase_order' => AppIcons.shoppingCart,
+      'invoice' => AppIcons.invoice,
+      _ => AppIcons.payments,
     };
   }
 
@@ -1716,7 +1716,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       itemBuilder: (context, i) {
         final supplier = suppliers[i];
         return ListTile(
-          leading: const Icon(Icons.factory_outlined),
+          leading: const Icon(AppIcons.factory),
           title: Text(
             '${supplier.name}${supplier.isActive ? '' : ' (${s.of('staffInactive')})'}',
           ),

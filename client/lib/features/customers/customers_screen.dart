@@ -196,7 +196,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       appBar: AppBar(title: Text(s.of('customers'))),
       floatingActionButton: FloatingActionButton(
         onPressed: _create,
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<Customer>>(
         future: _future,

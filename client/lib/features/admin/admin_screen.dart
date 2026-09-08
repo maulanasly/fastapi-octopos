@@ -356,7 +356,7 @@ class _RolesTabState extends ConsumerState<_RolesTab> {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => _edit(),
-        child: const Icon(Icons.add),
+        child: const Icon(AppIcons.add),
       ),
       body: FutureBuilder<List<RoleInfo>>(
         future: _future,

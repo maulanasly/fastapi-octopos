@@ -124,7 +124,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             children: [
               if (auth.has('refunds:create'))
                 TextButton.icon(
-                  icon: const Icon(Icons.assignment_return, size: 18),
+                  icon: const Icon(AppIcons.refunds, size: 18),
                   label: Text(s.of('refunds')),
                   onPressed: () => context.push('/refunds'),
                 ),
@@ -214,7 +214,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: s.of('searchProducts'),
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const Icon(AppIcons.search),
               // Use theme's InputDecorationTheme (14r, filled) — no explicit border needed
               isDense: true,
             ),
@@ -596,7 +596,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
               child: TextField(
                 decoration: InputDecoration(
                   hintText: s.of('searchProducts'),
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(AppIcons.search),
                   isDense: true,
                 ),
                 onChanged: (v) =>
@@ -648,7 +648,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
             Padding(
               padding: const EdgeInsets.all(AppSpacing.sm),
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.person_add_alt, size: 18),
+                icon: const Icon(AppIcons.personAdd, size: 18),
                 label: Text(s.of('registerCustomer')),
                 onPressed: _register,
               ),
