@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/async_views.dart';
 import '../../core/strings.dart';
 import 'tracking_controller.dart';
 
@@ -18,10 +19,14 @@ class TrackingScreen extends ConsumerWidget {
     final state = ref.watch(trackingControllerProvider);
 
     if (state.trips.isEmpty && state.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (state.trips.isEmpty) {
-      return Center(child: Text(s.of('trackingEmpty')));
+      return BrandedEmptyState(
+        message: s.of('trackingEmptyHint'),
+        illustration: 'assets/illustrations/no-orders.svg',
+        title: s.of('trackingEmpty'),
+      );
     }
     return RefreshIndicator(
       onRefresh: () => ref.read(trackingControllerProvider.notifier).refresh(),

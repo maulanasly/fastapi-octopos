@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/money.dart';
@@ -129,17 +130,24 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const LoadingStateView();
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text(friendlyError(snapshot.error!, s)));
+                  return ErrorStateView(
+                    message: friendlyError(snapshot.error!, s),
+                    onRetry: _reload,
+                  );
                 }
                 final all = snapshot.data ?? [];
                 final visible = _statusFilter == null
                     ? all
                     : all.where((o) => o.status == _statusFilter).toList();
                 if (visible.isEmpty) {
-                  return Center(child: Text(s.of('noOrders')));
+                  return BrandedEmptyState(
+                    message: s.of('noOrdersHint'),
+                    illustration: 'assets/illustrations/no-orders.svg',
+                    title: s.of('noOrders'),
+                  );
                 }
                 return RefreshIndicator(
                   onRefresh: () async => _reload(),

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
+import '../../core/brand.dart';
 import '../../core/errors.dart';
 import '../../core/strings.dart';
 import '../../app/theme.dart';
@@ -101,7 +102,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                 ),
-                child: const Text('🐙', style: TextStyle(fontSize: 36)),
+                child: const AppLogo(size: 36),
               ),
               const SizedBox(height: 24),
               Text(

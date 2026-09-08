@@ -612,9 +612,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                EmptyStateView(
+                BrandedEmptyState(
                   message: s.of('noMovements'),
-                  icon: Icons.swap_vert,
+                  illustration: 'assets/illustrations/no-movements.svg',
                 ),
                 if (_hasActiveMovementFilters)
                   TextButton(
@@ -747,9 +747,10 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: [
                         SizedBox(height: constraints.maxHeight * 0.15),
-                        EmptyStateView(
+                        BrandedEmptyState(
                           message: s.of('noSuggestions'),
-                          icon: Icons.inventory_2_outlined,
+                          illustration: 'assets/illustrations/no-products.svg',
+                          title: s.of('healthyStock'),
                         ),
                       ],
                     ),

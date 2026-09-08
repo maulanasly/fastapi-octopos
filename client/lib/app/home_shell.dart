@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/api_repositories.dart';
 import '../core/auth_controller.dart';
+import '../core/brand.dart';
 import '../core/localization_controller.dart';
 import '../core/route_access.dart';
 import '../core/strings.dart';
@@ -107,7 +108,14 @@ class HomeShell extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.of('appTitle')),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AppMark(size: 26),
+            const SizedBox(width: 8),
+            Text(s.of('appTitle')),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),

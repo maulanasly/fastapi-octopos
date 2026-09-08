@@ -151,26 +151,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
     if (catalog.products.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.inbox_outlined, size: 40, color: Theme.of(context).colorScheme.onSurfaceVariant),
-              const SizedBox(height: 12),
-              Text(s.of('noProducts'), textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.refresh, size: 18),
-                label: Text(s.of('retry')),
-                onPressed: () => ref.read(catalogControllerProvider.notifier).refresh(),
-              ),
-              const SizedBox(height: 8),
-              Text('No products in this store yet — create one with + or seed via Dashboard → Seed demo catalog.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
-        ),
+      return BrandedEmptyState(
+        message: s.of('noProducts'),
+        illustration: 'assets/illustrations/no-products.svg',
+        title: s.of('noProducts'),
+        subtitle: s.of('noProductsHint'),
+        action: () => ref.read(catalogControllerProvider.notifier).refresh(),
+        actionLabel: s.of('retry'),
       );
     }
     return ListView.separated(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../core/async_views.dart';
 import '../../core/errors.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
@@ -21,24 +22,11 @@ class ServingScreen extends ConsumerWidget {
     final orders = state.orders;
 
     if (orders.isEmpty) {
-      return Center(
-        child: state.loading
-            ? const CircularProgressIndicator()
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.room_service_outlined,
-                    size: 56,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    s.of('servingEmpty'),
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
-              ),
+      if (state.loading) return const LoadingStateView();
+      return BrandedEmptyState(
+        message: s.of('servingEmptyHint'),
+        illustration: 'assets/illustrations/empty-cart.svg',
+        title: s.of('servingEmpty'),
       );
     }
 

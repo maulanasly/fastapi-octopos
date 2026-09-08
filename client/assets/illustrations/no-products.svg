@@ -1,1 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" rx="20" fill="#F8FAF9"/><text x="200" y="150" text-anchor="middle" font-size="50">📦</text><text x="200" y="200" text-anchor="middle" font-size="16" fill="#1A2321">No products yet</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" rx="20" fill="#FFFFFF"/>
+  <!-- shelf -->
+  <rect x="70" y="120" width="260" height="96" rx="14" fill="#F8FAF9" stroke="#DDE3E1" stroke-width="1.2"/>
+  <rect x="86" y="136" width="228" height="56" rx="8" fill="#FFFFFF" stroke="#EFF1F0" stroke-width="1"/>
+  <!-- create stacked crates hint -->
+  <rect x="112" y="148" width="48" height="32" rx="4" fill="#CCFBF1" stroke="#0F766E" stroke-width="1"/>
+  <rect x="116" y="156" width="40" height="3" rx="1.5" fill="#0F766E" opacity="0.35"/>
+  <rect x="170" y="148" width="48" height="32" rx="4" fill="#E0F2FE" stroke="#0284C7" stroke-width="1"/>
+  <rect x="228" y="148" width="48" height="32" rx="4" fill="#FEF3C7" stroke="#B45309" stroke-width="1"/>
+  <!-- octopus peeking -->
+  <path d="M292 98 C278 98 268 108 268 120 C268 126 270 131 274 133 C272 136 271 140 273 145 C275 141 278 137 281 135 C282 135.5 283.5 135.5 284 135 C287 137 290 141 292 145 C294 140 293 136 291 133 C295 131 297 126 297 120 C297 108 287 98 292 98 Z" fill="#0F766E"/>
+  <circle cx="284" cy="116" r="1.8" fill="white"/>
+  <circle cx="292" cy="116" r="1.8" fill="white"/>
+  <circle cx="284" cy="117" r="0.7" fill="#042F2E"/>
+  <circle cx="292" cy="117" r="0.7" fill="#042F2E"/>
+  <!-- floor -->
+  <ellipse cx="200" cy="244" rx="90" ry="10" fill="#0F766E" opacity="0.06"/>
+  <text x="200" y="268" text-anchor="middle" font-family="Inter, sans-serif" font-size="15" font-weight="700" fill="#1A2321">No products yet</text>
+  <text x="200" y="284" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="500" fill="#4B5552">Create your first product with +</text>
+</svg>
