@@ -15,6 +15,7 @@ import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/pagination.dart';
+import '../../core/skeletons.dart';
 import '../../core/strings.dart';
 import '../pos/catalog_controller.dart';
 
@@ -598,7 +599,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       future: _movements,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
+          return const OrderRowSkeleton();
         }
         if (snapshot.hasError) {
           return ErrorStateView(
@@ -630,6 +631,36 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
           onRefresh: () async => setState(_reload),
           child: Column(
             children: [
+              // Branded table header for wide screens — de-bootstrap ListView
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 600) return const SizedBox.shrink();
+                  final scheme = Theme.of(context).colorScheme;
+                  final headerStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.06 * 11,
+                      );
+                  return Column(
+                    children: [
+                      Container(
+                        color: scheme.surfaceContainerHigh,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 40),
+                            Expanded(flex: 2, child: Text('PRODUCT', style: headerStyle)),
+                            Expanded(child: Text('TYPE', style: headerStyle)),
+                            SizedBox(width: 80, child: Text('QTY', style: headerStyle, textAlign: TextAlign.right)),
+                            Expanded(child: Text('DATE', style: headerStyle, textAlign: TextAlign.right)),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, thickness: 1),
+                    ],
+                  );
+                },
+              ),
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16),
@@ -731,7 +762,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               future: _suggestions,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const OrderRowSkeleton();
                 }
                 if (snapshot.hasError) {
                   return ErrorStateView(
