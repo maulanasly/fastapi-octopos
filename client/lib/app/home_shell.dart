@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/api_repositories.dart';
 import '../core/auth_controller.dart';
+import '../core/app_icons.dart';
 import '../core/brand.dart';
 import '../core/localization_controller.dart';
 import '../core/route_access.dart';
@@ -29,65 +30,65 @@ class HomeShell extends ConsumerWidget {
     bool can(String path) => routePermitted(auth, path);
 
     final destinations = <_Dest>[
-      const _Dest(icon: Icons.point_of_sale, label: 'POS', path: '/pos'),
+      const _Dest(icon: AppIcons.pos, label: 'POS', path: '/pos'),
       if (can('/serving'))
         const _Dest(
-          icon: Icons.room_service,
+          icon: AppIcons.serving,
           label: 'Serving',
           path: '/serving',
         ),
       if (can('/tracking'))
         const _Dest(
-          icon: Icons.route,
+          icon: AppIcons.tracking,
           label: 'Tracking',
           path: '/tracking',
         ),
       if (can('/orders'))
         const _Dest(
-          icon: Icons.receipt_long,
+          icon: AppIcons.orders,
           label: 'Orders',
           path: '/orders',
         ),
       if (can('/inventory'))
         const _Dest(
-          icon: Icons.inventory_2,
+          icon: AppIcons.inventory,
           label: 'Inventory',
           path: '/inventory',
         ),
       if (can('/purchasing'))
         const _Dest(
-          icon: Icons.shopping_cart_outlined,
+          icon: AppIcons.purchasing,
           label: 'Purchasing',
           path: '/purchasing',
         ),
       if (can('/products'))
-        const _Dest(icon: Icons.edit, label: 'Products', path: '/products'),
+        const _Dest(icon: AppIcons.products, label: 'Products', path: '/products'),
       if (can('/customers'))
-        const _Dest(icon: Icons.people, label: 'Customers', path: '/customers'),
+        const _Dest(icon: AppIcons.customers, label: 'Customers', path: '/customers'),
       if (can('/promotions'))
         const _Dest(
-          icon: Icons.percent,
+          icon: AppIcons.promotions,
           label: 'Promotions',
           path: '/promotions',
         ),
       if (can('/taxes'))
         const _Dest(
-          icon: Icons.receipt_long_outlined,
+          icon: AppIcons.taxes,
           label: 'Tax rules',
           path: '/taxes',
         ),
       if (can('/settings'))
         const _Dest(
-          icon: Icons.settings_outlined,
+          icon: AppIcons.settings,
           label: 'Settings',
           path: '/settings',
         ),
       if (can('/reports'))
-        const _Dest(icon: Icons.bar_chart, label: 'Reports', path: '/reports'),
-      if (can('/staff')) const _Dest(icon: Icons.badge, label: 'Staff', path: '/staff'),
+        const _Dest(icon: AppIcons.reports, label: 'Reports', path: '/reports'),
+      if (can('/staff')) const _Dest(icon: AppIcons.staff, label: 'Staff', path: '/staff'),
       if (can('/admin'))
         const _Dest(
-          icon: Icons.admin_panel_settings,
+          icon: AppIcons.admin,
           label: 'Admin',
           path: '/admin',
         ),
@@ -138,8 +139,8 @@ class HomeShell extends ConsumerWidget {
             tooltip: s.of('toggleTheme'),
             icon: Icon(
               ref.watch(themeModeProvider) == ThemeMode.dark
-                  ? Icons.light_mode
-                  : Icons.dark_mode,
+                  ? AppIcons.lightMode
+                  : AppIcons.darkMode,
             ),
             onPressed: () => ref.read(themeModeProvider.notifier).toggle(),
           ),
@@ -147,12 +148,12 @@ class HomeShell extends ConsumerWidget {
           if (!narrow)
             IconButton(
               tooltip: s.of('help'),
-              icon: const Icon(Icons.help_outline),
+              icon: const Icon(AppIcons.help),
               onPressed: () => context.push('/help'),
             ),
           IconButton(
             tooltip: s.of('signOut'),
-            icon: const Icon(Icons.logout),
+            icon: const Icon(AppIcons.logout),
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],
@@ -227,7 +228,7 @@ class HomeShell extends ConsumerWidget {
       },
       destinations: [
         for (final d in destinations.take(maxVisible)) _navDestination(d, s),
-        NavigationDestination(icon: const Icon(Icons.menu), label: s.of('more')),
+        NavigationDestination(icon: const Icon(AppIcons.menu), label: s.of('more')),
       ],
     );
   }
@@ -255,7 +256,7 @@ class HomeShell extends ConsumerWidget {
               return ListTile(
                 leading: Icon(d.icon),
                 title: Text(s.of(_stringKeyForPath(d.path))),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(AppIcons.chevronRight),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   context.go(d.path);
@@ -263,9 +264,9 @@ class HomeShell extends ConsumerWidget {
               );
             } else {
               return ListTile(
-                leading: const Icon(Icons.help_outline),
+                leading: const Icon(AppIcons.help),
                 title: Text(s.of('help')),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(AppIcons.chevronRight),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   context.push('/help');
@@ -366,7 +367,7 @@ class _RegionMenu extends ConsumerWidget {
 
     return PopupMenuButton<String?>(
       tooltip: strings.of('region'),
-      icon: const Icon(Icons.language),
+      icon: const Icon(AppIcons.language),
       onSelected: (code) {
         ref.read(localizationControllerProvider.notifier).setRegion(code);
       },

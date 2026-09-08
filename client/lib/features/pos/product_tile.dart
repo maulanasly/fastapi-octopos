@@ -62,7 +62,10 @@ class ProductTile extends ConsumerWidget {
                   // Thumbnail is preferred for grid payloads; falls back to the
                   // full image, then to a monogram, and is cached on device.
                   Expanded(
-                    child: _ProductImage(product: product),
+                    child: Hero(
+                      tag: 'product-${product.id}',
+                      child: _ProductImage(product: product),
+                    ),
                   ),
                   // Fixed bottom label bar: product name always visible.
                   Container(
