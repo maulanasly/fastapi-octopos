@@ -184,7 +184,7 @@ class _LocalizationSettingsScreenState
           (v) => setState(() => _dateFormat = v),
           itemBuilder: _dateFormatPreview,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         FilledButton.icon(
           onPressed: _save,
           icon: const Icon(Icons.save_outlined),

@@ -108,7 +108,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Expanded(
                   child: _selected == null
                       ? _orderList(context)

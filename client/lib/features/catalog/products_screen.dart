@@ -225,7 +225,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                     child: Column(
                       children: [
                         _ProductThumb(product: current!, size: 96),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.sm),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -499,7 +499,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: 8,
               children: [
@@ -528,7 +528,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton(

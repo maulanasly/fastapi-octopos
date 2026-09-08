@@ -121,7 +121,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ],
           ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           child: Row(
             children: [
               if (auth.has('refunds:create'))
@@ -237,7 +237,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           height: 40,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
             children: [
               Padding(
                 padding: const EdgeInsets.only(right: 8),

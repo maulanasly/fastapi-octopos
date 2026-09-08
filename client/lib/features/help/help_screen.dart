@@ -21,7 +21,7 @@ class HelpScreen extends ConsumerWidget {
             s.of('helpDescription'),
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           _HelpStep(
             icon: Icons.lock_open,
             title: s.of('helpStepDrawer'),
@@ -52,7 +52,7 @@ class HelpScreen extends ConsumerWidget {
             'Tips',
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           const Text('• Offline: cached catalog still works, orders queue and sync when online.'),
           const Text('• Refunds: POS → Refunds (requires permission).'),
           const Text('• Reports/Settings: ask manager for access.'),
@@ -77,7 +77,7 @@ class _HelpStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 28, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

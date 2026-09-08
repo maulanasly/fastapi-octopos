@@ -114,7 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       letterSpacing: -0.03 * 28,
                     ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 'Market teal. Soft ink. Real commerce.',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -122,7 +122,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       fontWeight: FontWeight.w600,
                     ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 'POS, inventory & offline sync — built for the floor, not the template.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -210,7 +210,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: InputDecoration(labelText: s.of('fullName'), prefixIcon: const Icon(Icons.person_outline)),
                       validator: (v) => (v == null || v.trim().isEmpty) ? s.of('required') : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                   ],
                   TextFormField(
                     key: const Key('emailField'),
@@ -220,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     autocorrect: false,
                     validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextFormField(
                     key: const Key('passwordField'),
                     controller: _password,
@@ -229,7 +229,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     validator: (v) => (v == null || v.length < 8) ? s.of('minPassword') : null,
                   ),
                   if (_error != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
@@ -247,7 +247,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : Text(_registerMode ? s.of('createAccount') : s.of('signIn')),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   if (_allowRegister)
                     TextButton(
                       onPressed: _submitting ? null : () => setState(() {_registerMode = !_registerMode; _error = null;}),
@@ -307,7 +307,7 @@ class _HeroPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),

@@ -119,7 +119,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
               ),
             ),
             if (customer != null && customer.pointsBalance > 0) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   Expanded(
@@ -147,7 +147,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   onChanged: (v) => setState(() => _redeemPoints = v.round()),
                 ),
             ],
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: _destination,
               decoration: InputDecoration(
@@ -157,7 +157,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Expanded(
@@ -174,7 +174,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   ),
                 ),
                 if (_pinLat != null && _pinLng != null) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Flexible(
                     child: Text(
                       '${_pinLat!.toStringAsFixed(5)}, '
@@ -185,7 +185,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                 ],
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             SegmentedButton<_PayMethod>(
               segments: [
                 ButtonSegment(
@@ -259,7 +259,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   child: Row(
                     children: [
                       const Icon(Icons.change_circle, size: 18, color: AppColors.success),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.sm),
                       Text(
                         '${s.of('change')}: ${formatCents(centsFromInput(_cashReceived.text) - total)}',
                         style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -273,7 +273,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
               ],
             ],
             if (_method == _PayMethod.split) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               TextField(
                 controller: _splitCash,
                 keyboardType: TextInputType.number,
@@ -302,7 +302,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             FilledButton(
               onPressed: _submitting ? null : () => _submit(context),
               child: _submitting

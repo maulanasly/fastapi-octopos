@@ -184,7 +184,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     });
                   },
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 if (searching) const LinearProgressIndicator(),
                 if (error != null)
                   Padding(
@@ -645,7 +645,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     children: [
                       Container(
                         color: scheme.surfaceContainerHigh,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
                         child: Row(
                           children: [
                             const SizedBox(width: 40),
@@ -828,7 +828,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1037,7 +1037,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ),
             ),
             if (res.skipped.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 s.of('skippedProducts'),
                 style: const TextStyle(fontWeight: FontWeight.bold),

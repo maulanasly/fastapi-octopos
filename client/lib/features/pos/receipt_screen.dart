@@ -124,7 +124,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         receipt.grandTotalAmount,
                         bold: true,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       for (final payment in receipt.payments)
                         _line(
                           context,
@@ -133,14 +133,14 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         ),
                       if (receipt.changeAmount > 0)
                         _line(context, s.of('change'), -receipt.changeAmount),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.lg),
                       if (kIsWeb)
                         FilledButton.icon(
                           icon: const Icon(Icons.print),
                           label: Text(s.of('print')),
                           onPressed: printReceipt,
                         ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       FilledButton.icon(
                         icon: const Icon(Icons.check),
                         label: Text(s.of('done')),

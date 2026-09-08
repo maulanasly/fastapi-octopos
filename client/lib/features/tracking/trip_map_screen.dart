@@ -118,7 +118,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                     label: Text(s.of('useMyLocation')),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.md),
                 if (live.trackingStatus == 'assigned')
                   Expanded(
                     child: FilledButton.icon(

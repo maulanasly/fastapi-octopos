@@ -86,11 +86,11 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                   'Drawer #${session.id}',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   'Opened with ${formatCents(centsFromApi(session.startingCash))}',
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 TextField(
                   controller: _countedCash,
                   keyboardType: TextInputType.number,
@@ -100,7 +100,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                     border: const OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: _countedNonCash,
                   keyboardType: TextInputType.number,
@@ -159,7 +159,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                     'Reconciliation #${rec.id}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   _row(
                     context,
                     'Cash sales',
@@ -203,7 +203,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                     highlight: variance != 0,
                   ),
                   _row(context, s.of('orders'), '${rec.completedOrderCount}'),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(s.of('done')),

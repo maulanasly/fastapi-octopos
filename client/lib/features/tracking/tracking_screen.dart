@@ -34,7 +34,7 @@ class TrackingScreen extends ConsumerWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: state.trips.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
         itemBuilder: (context, index) {
           final trip = state.trips[index];
           return Card(

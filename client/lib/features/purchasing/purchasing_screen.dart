@@ -68,7 +68,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     labelText: s.of('autoPoLookbackDays'),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: trigger,
                   keyboardType: TextInputType.number,
@@ -312,7 +312,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             SizedBox(
                               width: 100,
                               child: TextField(
@@ -606,7 +606,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ? s.of('confirmRejectOrder')
                   : s.of('confirmSubmitOrder'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: note,
               decoration: InputDecoration(
@@ -831,7 +831,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
                     Expanded(
@@ -882,7 +882,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             SizedBox(
                               width: 100,
                               child: TextField(
@@ -1087,7 +1087,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ? s.of('confirmReject')
                   : '${invoice.invoiceNumber} — ${s.of('submitForReview')}',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: note,
               decoration: InputDecoration(
@@ -1410,7 +1410,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                   ? s.of('confirmRejectPayment')
                   : s.of('confirmSubmitPayment'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             TextField(
               controller: note,
               decoration: InputDecoration(
@@ -1745,7 +1745,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       height: 44,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
         children: [
           for (final status in statuses)
             Padding(

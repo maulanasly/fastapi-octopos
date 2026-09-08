@@ -96,7 +96,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             height: 48,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               children: [
                 _filterChip(s, null, s.of('all'), 'filter-all'),
                 _filterChip(

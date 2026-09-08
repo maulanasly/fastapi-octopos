@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/colors.dart';
 import '../../core/config.dart';
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
@@ -108,7 +109,7 @@ class ProductTile extends ConsumerWidget {
                   top: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.errorContainer,
                       borderRadius: BorderRadius.circular(999),

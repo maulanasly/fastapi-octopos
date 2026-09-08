@@ -74,13 +74,13 @@ class _ServingCard extends ConsumerWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             for (final item in order.items)
               Text(
                 '${item.quantity}× ${item.product?.name ?? ''}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               s.of('itemsCount', args: {'count': order.items.length}),
               style: Theme.of(context).textTheme.bodySmall,
@@ -90,7 +90,7 @@ class _ServingCard extends ConsumerWidget {
               formatCents((order.totalAmount * 100).round()),
               style: Theme.of(context).textTheme.titleSmall,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 if (order.servingStatus == 'queued')
