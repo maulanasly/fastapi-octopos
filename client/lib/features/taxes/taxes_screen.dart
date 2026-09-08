@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
@@ -228,7 +229,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
                     children: [
                       IconButton(
                         tooltip: s.of('editTaxRule'),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () => _edit(rule: rule),
                       ),
                       if (rule.isActive)

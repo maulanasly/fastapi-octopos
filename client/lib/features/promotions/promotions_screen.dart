@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
@@ -340,7 +341,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                         const Icon(Icons.pause_circle_outline),
                       IconButton(
                         tooltip: s.of('editPromotion'),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () => _edit(promotion: p),
                       ),
                       if (p.isActive)

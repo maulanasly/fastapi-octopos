@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
@@ -854,7 +855,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 if (canAdjust)
                   IconButton(
                     tooltip: s.of('adjustStock'),
-                    icon: const Icon(Icons.add_circle_outline),
+                    icon: const Icon(AppIcons.addCircle),
                     onPressed: () => _adjust(item),
                   ),
               ],

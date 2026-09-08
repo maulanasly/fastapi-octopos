@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/errors.dart';
@@ -360,7 +361,7 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
                         ),
                       IconButton(
                         tooltip: s.of('editStaff', args: {'name': user.email}),
-                        icon: const Icon(Icons.edit_outlined),
+                        icon: const Icon(AppIcons.edit),
                         onPressed: () => _edit(user),
                       ),
                       if (user.isActive && user.id != currentUserId)

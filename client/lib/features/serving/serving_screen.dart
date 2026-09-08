@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
@@ -106,7 +107,7 @@ class _ServingCard extends ConsumerWidget {
                 if (order.servingStatus == 'preparing')
                   Expanded(
                     child: FilledButton.icon(
-                      icon: const Icon(Icons.check_circle_outline, size: 18),
+                      icon: const Icon(AppIcons.checkCircle, size: 18),
                       label: Text(s.of('markReady')),
                       onPressed: () {
                         _runTransition(context, ref, () => controller.ready(order.id));

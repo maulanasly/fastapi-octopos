@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/dates.dart';
@@ -1727,7 +1728,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           ),
           trailing: IconButton(
             tooltip: s.of('editSupplier', args: {'name': supplier.name}),
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(AppIcons.edit),
             onPressed: () => _editSupplier(supplier: supplier),
           ),
           onTap: () => _editSupplier(supplier: supplier),

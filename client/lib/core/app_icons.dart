@@ -48,6 +48,7 @@ abstract final class AppIcons {
   static const IconData myLocation = Icons.my_location_outlined;
 
   // System
+  static const IconData edit = Icons.edit_outlined;
   static const IconData error = Icons.error_outline_outlined;
   static const IconData info = Icons.info_outline;
   static const IconData checkCircle = Icons.check_circle_outline;

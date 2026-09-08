@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
@@ -222,7 +223,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                     ),
                     Text('${_quantities[item.id] ?? 0}'),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
+                      icon: const Icon(AppIcons.addCircle),
                       onPressed: () {
                         final qty = _quantities[item.id] ?? 0;
                         setState(

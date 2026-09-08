@@ -7,8 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
+import '../../core/branded_banner.dart';
 import '../../core/colors.dart';
 import '../../core/db/app_database.dart';
 import '../../core/db/database_provider.dart';
@@ -67,27 +69,23 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         child: Column(
           children: [
         if (!isOnline)
-          MaterialBanner(
-            content: Text(s.of('offlineBanner')),
-            leading: const Icon(Icons.wifi_off),
-            backgroundColor: Theme.of(context).colorScheme.errorContainer,
+          BrandedBanner(
+            icon: AppIcons.wifiOff,
+            message: s.of('offlineBanner'),
+            color: Theme.of(context).colorScheme.error,
             actions: [
               if (pendingCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.md),
-                  child: Chip(label: Text(s.of('pendingSync', args: {'count': pendingCount}))),
-                ),
+                Chip(label: Text(s.of('pendingSync', args: {'count': pendingCount}))),
             ],
           )
         else if (pendingCount > 0)
-          MaterialBanner(
-            content: Text(s.of('pendingSync', args: {'count': pendingCount})),
-            leading: const Icon(Icons.sync),
+          BrandedBanner(
+            icon: AppIcons.sync,
+            message: s.of('pendingSync', args: {'count': pendingCount}),
             actions: [
               TextButton(
                 onPressed: () async {
                   final db = ref.read(appDatabaseProvider);
-                  // Trigger manual sync via provider
                   // ignore: unused
                   db;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -99,9 +97,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ],
           ),
         if (drawer.session == null && !drawer.loading)
-          MaterialBanner(
-            content: Text(s.of('noOpenDrawer')),
-            leading: const Icon(Icons.info_outline),
+          BrandedBanner(
+            icon: AppIcons.info,
+            message: s.of('noOpenDrawer'),
             actions: [
               TextButton(
                 onPressed: () => _openDrawer(context),
@@ -110,9 +108,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             ],
           )
         else if (drawer.session != null)
-          MaterialBanner(
-            content: Text(s.of('drawerOpen', args: {'id': drawer.session!.id})),
-            leading: const Icon(Icons.lock_open),
+          BrandedBanner(
+            icon: AppIcons.drawerOpen,
+            message: s.of('drawerOpen', args: {'id': drawer.session!.id}),
             actions: [
               TextButton(
                 onPressed: () => context.push('/reconcile'),
@@ -336,7 +334,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 )
               else
                 ActionChip(
-                  avatar: const Icon(Icons.person_off_outlined, size: 16),
+                  avatar: const Icon(AppIcons.personOff, size: 16),
                   label: Text(s.of('guest')),
                   onPressed: () => _pickCustomer(context),
                 ),
@@ -347,7 +345,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           child: cart.isEmpty
               ? EmptyStateView(
                   message: s.of('cartEmpty'),
-                  icon: Icons.shopping_cart_outlined,
+                  icon: AppIcons.shoppingCart,
                 )
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -368,7 +366,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         children: [
                           IconButton(
                             tooltip: s.of('decreaseQuantity'),
-                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            icon: const Icon(AppIcons.removeCircle, size: 20),
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -387,7 +385,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           ),
                           IconButton(
                             tooltip: s.of('increaseQuantity'),
-                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                            icon: const Icon(AppIcons.addCircle, size: 20),
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -587,7 +585,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.person_off_outlined),
+              leading: const Icon(AppIcons.personOff),
               title: Text(s.of('walkInGuest')),
               onTap: () =>
                   Navigator.of(context).pop(const _CustomerPickResult(null)),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/app_icons.dart';
 import '../../core/auth_controller.dart';
 import '../../core/brand.dart';
 import '../../core/errors.dart';
@@ -182,7 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, size: 20, color: scheme.error),
+                          Icon(AppIcons.info, size: 20, color: scheme.error),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
