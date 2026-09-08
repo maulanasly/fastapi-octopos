@@ -149,7 +149,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     Widget formCard = Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
+        constraints: const BoxConstraints(maxWidth: AppBreakpoints.dialogMax),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           child: Container(

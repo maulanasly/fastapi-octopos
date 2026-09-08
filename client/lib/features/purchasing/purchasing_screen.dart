@@ -259,7 +259,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           title: Text(s.of('newPurchaseOrder')),
           content: SizedBox(
             width: dialogWidth(context),
-            height: 480,
+            height: (MediaQuery.of(ctx).size.height * 0.6).clamp(0.0, 480.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -817,7 +817,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
           title: Text(s.of('createInvoice')),
           content: SizedBox(
             width: dialogWidth(context),
-            height: 460,
+            height: (MediaQuery.of(ctx).size.height * 0.6).clamp(0.0, 460.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

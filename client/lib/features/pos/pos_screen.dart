@@ -570,7 +570,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
     return Dialog(
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 480,
+          maxWidth: dialogWidthLarge(context),
           maxHeight: MediaQuery.of(context).size.height * 0.6,
         ),
         child: Column(
