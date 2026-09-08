@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/dates.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
@@ -177,7 +178,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           SegmentedButton<String>(
             segments: [
@@ -195,14 +196,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               _load();
             }),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<SalesSummary>(
             future: _salesFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
                 return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
+                  padding: EdgeInsets.all(AppSpacing.xxl),
+                  child: LoadingStateView(),
                 );
               }
               if (snapshot.hasError) {
@@ -214,7 +215,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               final s = snapshot.data!;
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -222,7 +223,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('salesSummary'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _metric(
                         context,
                         strings.of('grossRevenue'),
@@ -281,14 +282,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<List<TopProductItem>>(
             future: _topProductsFuture,
             builder: (context, snapshot) {
               final items = snapshot.data ?? [];
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -296,7 +297,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('topProducts'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       if (items.isEmpty)
                         Text(strings.of('noOrders'))
                       else
@@ -318,14 +319,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<List<CategorySalesItem>>(
             future: _categorySalesFuture,
             builder: (context, snapshot) {
               final items = snapshot.data ?? [];
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -333,7 +334,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('salesByCategory'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       if (items.isEmpty)
                         Text(strings.of('noOrders'))
                       else
@@ -352,7 +353,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<DailyCloseTotals>(
             future: _dailyCloseFuture,
             builder: (context, snapshot) {
@@ -363,7 +364,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               if (t == null) return const SizedBox.shrink();
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -371,7 +372,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('todayClose'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _metric(
                         context,
                         strings.of('grossRevenue'),
@@ -408,14 +409,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<List<Product>>(
             future: _lowStockFuture,
             builder: (context, snapshot) {
               final products = snapshot.data ?? [];
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -423,7 +424,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         'Low stock',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       if (products.isEmpty)
                         Text(strings.of('healthyStock'))
                       else
@@ -444,14 +445,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<List<DailyShiftItem>>(
             future: _shiftsFuture,
             builder: (context, snapshot) {
               final shifts = snapshot.data ?? [];
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -459,7 +460,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('shifts'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       if (shifts.isEmpty)
                         Text(strings.of('noOrders'))
                       else
@@ -484,14 +485,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<SupplierSpendSummary>(
             future: _supplierSpendFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
                 return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
+                  padding: EdgeInsets.all(AppSpacing.xxl),
+                  child: LoadingStateView(),
                 );
               }
               if (snapshot.hasError) {
@@ -503,7 +504,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               final spend = snapshot.data!;
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -511,13 +512,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('supplierSpend'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _metric(
                         context,
                         strings.of('cogsEstimate'),
                         formatCents(centsFromApi(spend.cogsEstimate)),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       if (spend.items.isEmpty)
                         Text(strings.of('noInvoices'))
                       else
@@ -540,14 +541,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           FutureBuilder<VarianceTrendSummary>(
             future: _varianceTrendFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.done) {
                 return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
+                  padding: EdgeInsets.all(AppSpacing.xxl),
+                  child: LoadingStateView(),
                 );
               }
               if (snapshot.hasError) {
@@ -559,7 +560,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               final trend = snapshot.data!;
               return Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -567,7 +568,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         strings.of('purchaseVarianceTrend'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.sm),
                       if (trend.months.isEmpty)
                         Text(strings.of('noInvoices'))
                       else

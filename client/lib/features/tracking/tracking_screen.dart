@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/async_views.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import 'tracking_controller.dart';
 
@@ -31,7 +32,7 @@ class TrackingScreen extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () => ref.read(trackingControllerProvider.notifier).refresh(),
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: state.trips.length,
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (context, index) {

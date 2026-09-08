@@ -126,7 +126,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
         );
       }
       return ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: _results!.length,
         separatorBuilder: (_, _) => const Divider(height: 8),
         itemBuilder: (context, i) {
@@ -139,10 +139,13 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
     if (_searchError != null) {
-      return Center(child: Text(_searchError!));
+      return ErrorStateView(
+        message: _searchError!,
+        onRetry: () => setState(() => _searchError = null),
+      );
     }
     if (catalog.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (catalog.error != null) {
       return ErrorStateView(
@@ -161,7 +164,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: catalog.products.length,
       separatorBuilder: (_, _) => const Divider(height: 8),
       itemBuilder: (context, i) {
@@ -362,7 +365,7 @@ class _ProductThumb extends StatelessWidget {
     final url = product.thumbnailUrl ?? product.imageUrl;
     if (url != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         child: CachedNetworkImage(
           imageUrl: '${AppConfig.mediaBaseUrl}$url',
           width: size,
@@ -385,7 +388,7 @@ class _ProductThumb extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       alignment: Alignment.center,
       child: Text(

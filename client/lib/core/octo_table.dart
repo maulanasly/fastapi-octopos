@@ -119,7 +119,7 @@ class OctoResponsiveTable extends StatelessWidget {
         if (isNarrow && cardBuilder != null) {
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: rows.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, i) => cardBuilder!(context, i),
@@ -127,7 +127,7 @@ class OctoResponsiveTable extends StatelessWidget {
         }
         return SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.lg),
           child: OctoTable(columns: columns, rows: rows, onRowTap: onRowTap),
         );
       },

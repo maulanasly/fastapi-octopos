@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../app/theme.dart';
@@ -297,19 +299,22 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!, s)));
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: _reload,
+            );
           }
           final promotions = snapshot.data ?? [];
           if (promotions.isEmpty) {
-            return Center(child: Text(s.of('noPromotions')));
+            return EmptyStateView(message: s.of('noPromotions'));
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: promotions.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
+            separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final p = promotions[i];
               final usage = p.usageLimit == null

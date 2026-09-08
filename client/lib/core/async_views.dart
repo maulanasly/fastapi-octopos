@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'layout.dart';
 import 'strings.dart';
 
 /// Centered, localized error state with an optional retry action.
@@ -23,7 +24,7 @@ class ErrorStateView extends ConsumerWidget {
     final s = ref.watch(stringsProvider);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -63,7 +64,7 @@ class LoadingStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -104,7 +105,7 @@ class EmptyStateView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -162,7 +163,7 @@ class BrandedEmptyState extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

@@ -8,6 +8,7 @@ import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
@@ -152,9 +153,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                 return RefreshIndicator(
                   onRefresh: () async => _reload(),
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
                     itemCount: visible.length,
-                    separatorBuilder: (_, _) => const Divider(height: 8),
+                    separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
                     itemBuilder: (context, i) =>
                         _orderTile(context, visible[i]),
                   ),

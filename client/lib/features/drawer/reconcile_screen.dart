@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
 import '../../core/models.dart';
@@ -76,7 +77,7 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -147,9 +148,9 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Card(
-            margin: const EdgeInsets.all(16),
+            margin: const EdgeInsets.all(AppSpacing.lg),
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.xl),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

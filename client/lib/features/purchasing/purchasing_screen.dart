@@ -1575,19 +1575,19 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   Widget _ledgerView(BuildContext context, AppStrings s) {
     final st = ref.watch(purchasingControllerProvider);
     if (st.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (st.error != null) {
-      return Center(child: Text(st.error!));
+      return ErrorStateView(message: st.error!, onRetry: _reload);
     }
     final suppliers = st.suppliers;
     if (suppliers.isEmpty) {
-      return Center(child: Text(s.of('noSuppliers')));
+      return EmptyStateView(message: s.of('noSuppliers'));
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: suppliers.length,
-      separatorBuilder: (_, _) => const Divider(height: 8),
+      separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
       itemBuilder: (context, i) {
         final supplier = suppliers[i];
         return ListTile(
@@ -1699,19 +1699,19 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
   Widget _suppliersView(BuildContext context, AppStrings s) {
     final st = ref.watch(purchasingControllerProvider);
     if (st.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingStateView();
     }
     if (st.error != null) {
-      return Center(child: Text(st.error!));
+      return ErrorStateView(message: st.error!, onRetry: _reload);
     }
     final suppliers = st.suppliers;
     if (suppliers.isEmpty) {
-      return Center(child: Text(s.of('noSuppliers')));
+      return EmptyStateView(message: s.of('noSuppliers'));
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       itemCount: suppliers.length,
-      separatorBuilder: (_, _) => const Divider(height: 8),
+      separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
       itemBuilder: (context, i) {
         final supplier = suppliers[i];
         return ListTile(
@@ -1832,9 +1832,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
       onRefresh: () => _controller.reload(),
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: itemCount,
-        separatorBuilder: (_, _) => const Divider(height: 8),
+        separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
         itemBuilder: itemBuilder,
       ),
     );

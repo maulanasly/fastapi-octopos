@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme.dart';
 import '../../core/async_views.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
 import 'serving_controller.dart';
@@ -31,7 +32,7 @@ class ServingScreen extends ConsumerWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.md),
       itemCount: orders.length,
       itemBuilder: (context, index) =>
           _ServingCard(order: orders[index]),
@@ -52,7 +53,7 @@ class _ServingCard extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

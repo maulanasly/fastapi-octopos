@@ -8,6 +8,7 @@ import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
 import '../../core/brand.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../app/theme.dart';
 
@@ -90,7 +91,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,9 +150,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(24),
@@ -230,7 +231,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
                         color: scheme.errorContainer.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),

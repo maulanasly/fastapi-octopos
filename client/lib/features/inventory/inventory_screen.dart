@@ -663,9 +663,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               ),
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   itemCount: movements.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
                   itemBuilder: (context, i) {
                     final m = movements[i];
                     final delta = m.quantityDelta;
@@ -789,9 +789,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                 }
                 return ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   itemCount: suggestions.length,
-                  separatorBuilder: (_, _) => const Divider(height: 8),
+                  separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
                   itemBuilder: (context, i) =>
                       _suggestionRow(context, s, suggestions[i], canAdjust),
                 );
@@ -801,7 +801,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         ),
         if (canGenerate)
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: FilledButton.icon(
               onPressed: _generating ? null : _generate,
               icon: _generating

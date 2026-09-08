@@ -286,7 +286,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       ref.read(catalogControllerProvider.notifier).refresh(),
                   child: GridView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
                     gridDelegate:
                         const SliverGridDelegateWithMaxCrossAxisExtent(
                           maxCrossAxisExtent: 200,
@@ -594,7 +594,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
             ),
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: TextField(
                 decoration: InputDecoration(
                   hintText: s.of('searchProducts'),
@@ -610,7 +610,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
                 future: _future,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const LoadingStateView();
                   }
                   final all = snapshot.data ?? [];
                   final customers = _query.isEmpty
@@ -648,7 +648,7 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.person_add_alt, size: 18),
                 label: Text(s.of('registerCustomer')),

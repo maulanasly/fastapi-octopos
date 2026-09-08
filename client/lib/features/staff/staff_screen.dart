@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
+import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
@@ -315,19 +316,22 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return Center(child: Text(friendlyError(snapshot.error!, s)));
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: _reload,
+            );
           }
           final users = snapshot.data ?? [];
           if (users.isEmpty) {
-            return Center(child: Text(s.of('noStaff')));
+            return EmptyStateView(message: s.of('noStaff'));
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: users.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
+            separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final user = users[i];
               return Card(

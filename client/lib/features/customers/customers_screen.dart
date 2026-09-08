@@ -8,6 +8,7 @@ import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/errors.dart';
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/models.dart';
 
@@ -200,7 +201,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingStateView();
           }
           if (snapshot.hasError) {
             return ErrorStateView(
@@ -212,9 +213,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
           }
           final customers = snapshot.data ?? [];
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             itemCount: customers.length,
-            separatorBuilder: (_, _) => const Divider(height: 8),
+            separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
             itemBuilder: (context, i) {
               final customer = customers[i];
               return ListTile(

@@ -3,6 +3,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/layout.dart';
 import '../../core/strings.dart';
 
 class HelpScreen extends ConsumerWidget {
@@ -14,7 +15,7 @@ class HelpScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(s.of('help'))),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           Text(
             s.of('helpDescription'),

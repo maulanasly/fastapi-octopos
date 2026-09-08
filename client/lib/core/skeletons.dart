@@ -3,6 +3,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'layout.dart';
+
 /// Shimmer base — animated gradient between surfaceContainerHigh and
 /// surfaceContainerHighest, no extra dep (pure LinearGradient + Animation).
 class _Shimmer extends StatefulWidget {
@@ -98,7 +100,7 @@ class ProductGridSkeleton extends StatelessWidget {
     return _Shimmer(
       child: GridView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(AppSpacing.sm),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 200,
           childAspectRatio: 0.9,
@@ -145,9 +147,9 @@ class OrderRowSkeleton extends StatelessWidget {
     return _Shimmer(
       child: ListView.separated(
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         itemCount: count,
-        separatorBuilder: (_, _) => const Divider(height: 8),
+        separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
         itemBuilder: (context, i) => Card(
           margin: EdgeInsets.zero,
           child: Padding(
@@ -189,14 +191,14 @@ class KpiSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return _Shimmer(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           children: List.generate(
             3,
             (_) => Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.lg),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -227,7 +229,7 @@ class CartLineSkeleton extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: 3,
-        separatorBuilder: (_, _) => const Divider(height: 8),
+        separatorBuilder: (_, _) => const Divider(height: AppSpacing.sm),
         itemBuilder: (context, _) => Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(

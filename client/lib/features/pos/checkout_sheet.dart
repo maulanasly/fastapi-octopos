@@ -253,7 +253,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.success.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                     border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
                   ),
                   child: Row(

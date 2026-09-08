@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/layout.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 
@@ -101,7 +102,7 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
           ),
           _statusStepper(s, live),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Row(
               children: [
                 Expanded(

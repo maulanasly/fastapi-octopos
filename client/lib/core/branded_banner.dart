@@ -30,7 +30,7 @@ class BrandedBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Row(
@@ -40,7 +40,7 @@ class BrandedBanner extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               color: iconBg,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Icon(icon, size: 18, color: iconColor),
           ),
