@@ -100,7 +100,13 @@ class _ServingCard extends ConsumerWidget {
                       icon: const Icon(Icons.play_arrow, size: 18),
                       label: Text(s.of('startPreparing')),
                       onPressed: () {
-                        _runTransition(context, ref, () => controller.start(order.id));
+                        _runTransition(
+                          context,
+                          ref,
+                          () => controller.start(order.id),
+                          orderId: order.id,
+                          statusKey: 'statusPreparing',
+                        );
                       },
                     ),
                   ),
@@ -110,7 +116,13 @@ class _ServingCard extends ConsumerWidget {
                       icon: const Icon(AppIcons.checkCircle, size: 18),
                       label: Text(s.of('markReady')),
                       onPressed: () {
-                        _runTransition(context, ref, () => controller.ready(order.id));
+                        _runTransition(
+                          context,
+                          ref,
+                          () => controller.ready(order.id),
+                          orderId: order.id,
+                          statusKey: 'statusReady',
+                        );
                       },
                     ),
                   ),
@@ -120,7 +132,13 @@ class _ServingCard extends ConsumerWidget {
                       icon: const Icon(Icons.room_service, size: 18),
                       label: Text(s.of('markServed')),
                       onPressed: () {
-                        _runTransition(context, ref, () => controller.serve(order.id));
+                        _runTransition(
+                          context,
+                          ref,
+                          () => controller.serve(order.id),
+                          orderId: order.id,
+                          statusKey: 'statusServed',
+                        );
                       },
                     ),
                   ),
@@ -135,10 +153,28 @@ class _ServingCard extends ConsumerWidget {
   void _runTransition(
     BuildContext context,
     WidgetRef ref,
-    Future<void> Function() action,
-  ) async {
+    Future<void> Function() action, {
+    required int orderId,
+    required String statusKey,
+  }) async {
+    final s = ref.read(stringsProvider);
     try {
       await action();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              s.of(
+                'statusChanged',
+                args: {
+                  'order': s.of('orderNumber', args: {'id': orderId}),
+                  'status': s.of(statusKey),
+                },
+              ),
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

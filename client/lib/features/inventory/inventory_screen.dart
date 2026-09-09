@@ -378,8 +378,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               controller: productId,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: s.of('productId', args: {'id': ''}).replaceAll(' #', ''),
-                hintText: 'Product ID',
+                labelText: s.of('productIdField'),
                 isDense: true,
               ),
             ),
@@ -429,7 +428,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(s.of('shiftReconciled'))));
+        ).showSnackBar(SnackBar(content: Text(s.of('stockReceived'))));
       }
     } catch (e) {
       if (mounted) {
@@ -535,10 +534,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       controller: _productIdController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: s.of('productId', args: {'id': ''}).replaceAll(' #', '').trim().isEmpty
-                            ? 'Product ID'
-                            : s.of('productId', args: {'id': ''}).replaceAll(' #', ''),
-                        hintText: 'ID',
+                        labelText: s.of('productIdField'),
                         isDense: true,
                         suffixIcon: IconButton(
                           icon: const Icon(AppIcons.search, size: 18),

@@ -117,7 +117,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Market teal. Soft ink. Real commerce.',
+                s.of('loginTagline'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.92),
                       fontWeight: FontWeight.w600,
@@ -125,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'POS, inventory & offline sync — built for the floor, not the template.',
+                s.of('loginSubhead'),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.78),
                       height: 1.5,
@@ -136,9 +136,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _HeroPill(icon: AppIcons.bolt, label: 'F2 Checkout'),
-                  _HeroPill(icon: AppIcons.customers, label: 'F3 Customer'),
-                  _HeroPill(icon: AppIcons.wifiOff, label: 'Offline ready'),
+                  _HeroPill(icon: AppIcons.bolt, label: s.of('heroCheckout')),
+                  _HeroPill(icon: AppIcons.customers, label: s.of('heroCustomer')),
+                  _HeroPill(icon: AppIcons.wifiOff, label: s.of('heroOffline')),
                 ],
               ),
             ],
@@ -200,7 +200,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _registerMode ? 'Create your store — first account becomes admin' : 'Welcome back — sign in to your store',
+                    _registerMode ? s.of('registerHeading') : s.of('loginHeading'),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                   const SizedBox(height: 20),

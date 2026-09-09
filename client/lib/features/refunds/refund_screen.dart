@@ -170,10 +170,10 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
           itemBuilder: (context, i) {
             final order = refundable[i];
             return ListTile(
-              title: Text('Order #${order.id}'),
+              title: Text(s.of('orderId', args: {'id': order.id})),
               subtitle: Text(
                 '${formatCents(centsFromApi(order.grandTotalAmount))} — '
-                '${order.items.length} item(s)',
+                '${s.of('itemsCount', args: {'count': order.items.length})}',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
@@ -204,7 +204,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
         Row(
           children: [
             Text(
-              'Order #${order.id}',
+              s.of('orderId', args: {'id': order.id}),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const Spacer(),
@@ -275,7 +275,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Refund selected items'),
+              : Text(s.of('refundSelected')),
         ),
       ],
     );

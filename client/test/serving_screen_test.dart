@@ -164,6 +164,11 @@ void main() {
     expect(find.text('Mark ready'), findsNWidgets(2));
     expect(find.text('Start preparing'), findsNothing);
 
+    // Let the success SnackBar auto-dismiss (and its exit animation
+    // settle) so the next tap lands on the button, not the SnackBar.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Mark served'));
     await tester.pumpAndSettle();
     expect(fake.transitions, 2);
@@ -178,6 +183,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No orders waiting to be served'), findsOneWidget);
+
+    await _dispose(tester, container);
+  });
+
+  testWidgets('advancing status confirms with a snackbar', (tester) async {
+    final fake = _FakeServing();
+    final container = _container(repo: fake);
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Start preparing'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(fake.transitions, 1);
+    expect(find.text('Order #1 → Preparing'), findsOneWidget);
 
     await _dispose(tester, container);
   });

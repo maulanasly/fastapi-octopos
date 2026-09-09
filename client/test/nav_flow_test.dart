@@ -115,4 +115,18 @@ void main() {
 
     expect(find.text('Page not found'), findsWidgets);
   });
+
+  testWidgets('zero and negative receipt IDs show the 404 screen', (
+    tester,
+  ) async {
+    final container = await _pumpApp(tester);
+
+    container.read(routerProvider).go('/receipt/0');
+    await tester.pumpAndSettle();
+    expect(find.text('Page not found'), findsWidgets);
+
+    container.read(routerProvider).go('/receipt/-5');
+    await tester.pumpAndSettle();
+    expect(find.text('Page not found'), findsWidgets);
+  });
 }

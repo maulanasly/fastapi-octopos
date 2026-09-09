@@ -657,7 +657,12 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
                         dense: true,
                         title: Text(c.name),
                         subtitle: Text(c.email ?? ''),
-                        trailing: Text('${c.pointsBalance} pts'),
+                        trailing: Text(
+                          s.of(
+                            'pointsShort',
+                            args: {'count': c.pointsBalance},
+                          ),
+                        ),
                         onTap: () =>
                             Navigator.of(context).pop(_CustomerPickResult(c)),
                       );
@@ -701,18 +706,19 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.read(stringsProvider);
     return AlertDialog(
-      title: const Text('Open drawer'),
+      title: Text(s.of('openDrawer')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _controller,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Starting cash',
+            decoration: InputDecoration(
+              labelText: s.of('startingCash'),
               prefixText: r'$ ',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
             ),
           ),
           if (_error != null)

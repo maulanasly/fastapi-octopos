@@ -132,7 +132,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final orderId = int.tryParse(
             state.pathParameters['orderId'] ?? '',
           );
-          if (orderId == null) {
+          if (orderId == null || orderId <= 0) {
             return NotFoundScreen(path: state.uri.path);
           }
           return ReceiptScreen(orderId: orderId);

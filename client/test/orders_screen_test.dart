@@ -170,11 +170,16 @@ void main() {
     await tester.tap(find.byIcon(Icons.cancel_outlined));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel order').last);
-    await tester.pumpAndSettle();
+    // Let the dialog dismiss, the cancel land, and the SnackBar present
+    // — but don't settle past the SnackBar's 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     final fake = container.read(orderRepositoryProvider) as _FakeOrders;
     expect(fake.cancelCount, 1);
     expect(fake.stored.firstWhere((o) => o.id == 2).status, 'cancelled');
+    expect(find.text('Order #2 cancelled'), findsOneWidget);
   });
 
   testWidgets('reprint opens the receipt', (tester) async {

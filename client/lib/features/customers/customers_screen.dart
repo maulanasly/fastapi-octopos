@@ -230,7 +230,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('${customer.pointsBalance} pts'),
+                    Text(
+                      s.of(
+                        'pointsShort',
+                        args: {'count': customer.pointsBalance},
+                      ),
+                    ),
                     if (canManage) ...[
                       IconButton(
                         tooltip: s.of('editCustomer'),

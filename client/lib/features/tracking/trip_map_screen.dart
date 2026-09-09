@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/layout.dart';
 import '../../core/app_icons.dart';
+import '../../core/errors.dart';
 import '../../core/models.dart';
 import '../../core/strings.dart';
 
@@ -123,10 +124,10 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 if (live.trackingStatus == 'assigned')
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ref.read(trackingControllerProvider.notifier).transition(
+                      onPressed: () => _runTripTransition(
                         live.orderId,
                         'en_route',
+                        'statusEnRoute',
                       ),
                       icon: const Icon(AppIcons.directionsCar),
                       label: Text(s.of('startTrip')),
@@ -135,10 +136,10 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
                 else if (live.trackingStatus == 'en_route')
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          ref.read(trackingControllerProvider.notifier).transition(
+                      onPressed: () => _runTripTransition(
                         live.orderId,
                         'on_site',
+                        'statusOnSite',
                       ),
                       icon: const Icon(AppIcons.location),
                       label: Text(s.of('arrivedOnSite')),
@@ -192,6 +193,40 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _runTripTransition(
+    int orderId,
+    String status,
+    String statusKey,
+  ) async {
+    final s = ref.read(stringsProvider);
+    try {
+      await ref
+          .read(trackingControllerProvider.notifier)
+          .transition(orderId, status);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              s.of(
+                'statusChanged',
+                args: {
+                  'order': s.of('orderNumber', args: {'id': orderId}),
+                  'status': s.of(statusKey),
+                },
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, s))),
+        );
+      }
+    }
   }
 
   Future<void> _reportCurrentPosition() async {

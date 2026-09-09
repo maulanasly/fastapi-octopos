@@ -285,7 +285,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                   TextField(
                     controller: stock,
                     keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: '${s.of('stock')} (initial)'),
+                    decoration: InputDecoration(labelText: '${s.of('stock')} (${s.of('initialSuffix')})'),
                   )
                 else
                   Padding(
@@ -294,7 +294,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            '${s.of('stock')}: ${product.stockQuantity} — ${s.of('adjustStock')} via Inventory',
+                            '${s.of('stock')}: ${product.stockQuantity} — ${s.of('adjustStock')} ${s.of('viaInventory')}',
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),

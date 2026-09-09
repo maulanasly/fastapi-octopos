@@ -87,7 +87,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text(
-                        'Order #${receipt.orderId} — ${receipt.status}',
+                        '${s.of('orderId', args: {'id': receipt.orderId})} — ${_statusLabel(s, receipt.status)}',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
@@ -133,7 +133,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                         _line(context, s.of('tax'), receipt.taxTotalAmount),
                       _line(
                         context,
-                        'Total',
+                        s.of('total'),
                         receipt.grandTotalAmount,
                         bold: true,
                       ),
@@ -141,7 +141,10 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                       for (final payment in receipt.payments)
                         _line(
                           context,
-                          'Paid (${payment.paymentMethod})',
+                          s.of(
+                            'paid',
+                            args: {'method': payment.paymentMethod},
+                          ),
                           payment.amount,
                         ),
                       if (receipt.changeAmount > 0)
@@ -169,6 +172,13 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
       ),
     );
   }
+
+  String _statusLabel(AppStrings s, String status) => switch (status) {
+    'serving' => s.of('statusServing'),
+    'completed' => s.of('statusCompleted'),
+    'cancelled' => s.of('statusCancelled'),
+    _ => s.of('statusPending'),
+  };
 
   Widget _line(
     BuildContext context,

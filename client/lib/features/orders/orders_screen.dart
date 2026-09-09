@@ -36,7 +36,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       ref.read(orderRepositoryProvider).recentOrders();
 
   void _reload() {
-    setState(() => _future = _load());
+    setState(() {
+      _future = _load();
+    });
   }
 
   Future<void> _cancel(Order order) async {
@@ -62,6 +64,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     try {
       await ref.read(orderRepositoryProvider).cancel(order.id);
       _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.of('orderCancelled', args: {'id': order.id})),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -155,11 +163,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   onRefresh: () async => _reload(),
                   child: OctoResponsiveTable(
                     columns: [
-                      const OctoTableColumn('Order', flex: 2),
+                      OctoTableColumn(s.of('orderHeader'), flex: 2),
                       OctoTableColumn(s.of('date'), flex: 2),
-                      const OctoTableColumn('Items'),
+                      OctoTableColumn(s.of('itemsHeader')),
                       OctoTableColumn(s.of('total'), numeric: true),
-                      const OctoTableColumn('Status'),
+                      OctoTableColumn(s.of('orderStatus')),
                       const OctoTableColumn(''),
                     ],
                     rows: [
