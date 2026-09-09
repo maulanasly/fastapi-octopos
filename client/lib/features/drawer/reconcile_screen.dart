@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/layout.dart';
+import '../../core/errors.dart';
 import '../../core/money.dart';
 import '../../core/strings.dart';
 import '../../core/models.dart';
@@ -50,7 +51,9 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
           );
       setState(() => _result = result);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(
+        () => _error = friendlyError(e, ref.read(stringsProvider)),
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

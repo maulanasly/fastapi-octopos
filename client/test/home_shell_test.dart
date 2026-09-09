@@ -146,4 +146,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('tracking destination is labeled Tracking, not POS', (
+    tester,
+  ) async {
+    await _pumpShell(tester); // default surface: 800x600 (narrow)
+
+    // Tracking rides the bottom bar itself (not the More sheet), so
+    // scope to the bar: the labels underneath the sheet would double
+    // up any unscoped assertion.
+    final bar = find.byType(NavigationBar);
+    expect(
+      find.descendant(of: bar, matching: find.text('Tracking')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: bar, matching: find.text('POS')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

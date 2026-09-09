@@ -8,19 +8,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
+import '../../core/errors.dart';
 import '../../core/models.dart';
+import '../../core/strings.dart';
 
 final servingControllerProvider =
     NotifierProvider<ServingController, ServingState>(ServingController.new);
 
 class ServingState {
-  const ServingState({this.orders = const [], this.loading = false});
+  const ServingState({this.orders = const [], this.loading = false, this.error});
 
   final List<Order> orders;
   final bool loading;
 
-  ServingState copyWith({List<Order>? orders, bool? loading}) =>
-      ServingState(orders: orders ?? this.orders, loading: loading ?? this.loading);
+  /// Last refresh failure, if any. Shown only when the queue is empty;
+  /// a stale queue keeps rendering while [error] records the failure.
+  final String? error;
+
+  ServingState copyWith({
+    List<Order>? orders,
+    bool? loading,
+    String? Function()? error,
+  }) => ServingState(
+    orders: orders ?? this.orders,
+    loading: loading ?? this.loading,
+    error: error != null ? error() : this.error,
+  );
 }
 
 class ServingController extends Notifier<ServingState> {
@@ -80,9 +93,13 @@ class ServingController extends Notifier<ServingState> {
   Future<void> refresh() async {
     try {
       final orders = await ref.read(orderRepositoryProvider).servingQueue();
-      state = state.copyWith(orders: orders);
-    } catch (_) {
-      // keep last known queue on transient failures
+      state = state.copyWith(orders: orders, error: () => null);
+    } catch (e) {
+      // Keep the last known queue on transient failures, but record
+      // the error so an empty queue can offer a retry.
+      state = state.copyWith(
+        error: () => friendlyError(e, ref.read(stringsProvider)),
+      );
     }
   }
 

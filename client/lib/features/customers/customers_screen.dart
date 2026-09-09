@@ -85,7 +85,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         if (phone.text.trim().isNotEmpty) 'phone': phone.text.trim(),
         'is_active': isActive,
       });
-      setState(() => _future = ref.read(customerRepositoryProvider).list());
+      if (!mounted) return;
+      setState(() {
+        _future = ref.read(customerRepositoryProvider).list();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +122,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
     if (ok != true) return;
     try {
       await ref.read(customerRepositoryProvider).deactivate(customer.id);
-      setState(() => _future = ref.read(customerRepositoryProvider).list());
+      if (!mounted) return;
+      setState(() {
+        _future = ref.read(customerRepositoryProvider).list();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -176,7 +182,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             email: email.text.trim().isEmpty ? null : email.text.trim(),
             phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
           );
-      setState(() => _future = ref.read(customerRepositoryProvider).list());
+      if (!mounted) return;
+      setState(() {
+        _future = ref.read(customerRepositoryProvider).list();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -205,12 +214,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             return const LoadingStateView();
           }
           if (snapshot.hasError) {
-            return ErrorStateView(
-              message: s.of('genericError'),
-              onRetry: () => setState(
-                () => _future = ref.read(customerRepositoryProvider).list(),
-              ),
-            );
+                return ErrorStateView(
+                  message: s.of('genericError'),
+                  onRetry: () => setState(() {
+                    _future = ref.read(customerRepositoryProvider).list();
+                  }),
+                );
           }
           final customers = snapshot.data ?? [];
           return ListView.separated(
