@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:octopos_client/core/api_client.dart';
 import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/localization_controller.dart';
@@ -8,6 +9,7 @@ import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/pagination.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/orders/orders_screen.dart';
+import 'package:octopos_client/features/pos/receipt_screen.dart';
 
 class _FixedLanguageLocalization extends LocalizationController {
   @override
@@ -92,10 +94,29 @@ ProviderContainer _container() => ProviderContainer(
 );
 
 Future<void> _pump(WidgetTester tester, ProviderContainer container) async {
+  // Minimal GoRouter mirror of the production routes under test:
+  // reprint uses context.push('/receipt/:orderId'), which requires a
+  // GoRouter in scope (a bare MaterialApp would throw).
+  final router = GoRouter(
+    initialLocation: '/orders',
+    routes: [
+      GoRoute(
+        path: '/orders',
+        builder: (context, state) => const OrdersScreen(),
+      ),
+      GoRoute(
+        path: '/receipt/:orderId',
+        builder: (context, state) => ReceiptScreen(
+          orderId: int.parse(state.pathParameters['orderId']!),
+        ),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: OrdersScreen()),
+      child: MaterialApp.router(routerConfig: router),
     ),
   );
   await tester.pumpAndSettle();
@@ -149,11 +170,16 @@ void main() {
     await tester.tap(find.byIcon(Icons.cancel_outlined));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel order').last);
-    await tester.pumpAndSettle();
+    // Let the dialog dismiss, the cancel land, and the SnackBar present
+    // — but don't settle past the SnackBar's 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     final fake = container.read(orderRepositoryProvider) as _FakeOrders;
     expect(fake.cancelCount, 1);
     expect(fake.stored.firstWhere((o) => o.id == 2).status, 'cancelled');
+    expect(find.text('Order #2 cancelled'), findsOneWidget);
   });
 
   testWidgets('reprint opens the receipt', (tester) async {

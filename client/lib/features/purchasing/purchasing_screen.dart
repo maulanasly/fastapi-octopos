@@ -360,18 +360,24 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     }
     if (items.isEmpty) return;
     try {
-      await repo.createOrder(
+      final created = await repo.createOrder(
         supplierId: supplier!.id,
         items: items,
         notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
       );
       await ref.read(catalogControllerProvider.notifier).refresh();
-      if (mounted) {
-        _reload();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(s.of('purchaseOrders'))),
-        );
-      }
+      if (!mounted) return;
+      _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.of('poCreated', args: {'id': created.id})),
+          action: SnackBarAction(
+            label: s.of('viewDetails'),
+            onPressed: () => _orderDetail(created),
+          ),
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/api_repositories.dart';
@@ -377,8 +378,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               controller: productId,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
-                labelText: s.of('productId', args: {'id': ''}).replaceAll(' #', ''),
-                hintText: 'Product ID',
+                labelText: s.of('productIdField'),
                 isDense: true,
               ),
             ),
@@ -428,7 +428,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(s.of('shiftReconciled'))));
+        ).showSnackBar(SnackBar(content: Text(s.of('stockReceived'))));
       }
     } catch (e) {
       if (mounted) {
@@ -534,10 +534,7 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       controller: _productIdController,
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: s.of('productId', args: {'id': ''}).replaceAll(' #', '').trim().isEmpty
-                            ? 'Product ID'
-                            : s.of('productId', args: {'id': ''}).replaceAll(' #', ''),
-                        hintText: 'ID',
+                        labelText: s.of('productIdField'),
                         isDense: true,
                         suffixIcon: IconButton(
                           icon: const Icon(AppIcons.search, size: 18),
@@ -1076,6 +1073,15 @@ Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(s.of('ok')),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              // Draft POs land in Purchasing; denied roles fall back
+              // to POS with a notice via the router guard.
+              if (context.mounted) context.go('/purchasing');
+            },
+            child: Text(s.of('viewPurchasing')),
           ),
         ],
       ),

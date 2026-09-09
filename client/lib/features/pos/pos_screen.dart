@@ -19,12 +19,12 @@ import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/sync/connectivity_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../drawer/drawer_controller.dart';
 import 'product_tile.dart';
 import 'cart_controller.dart';
 import 'catalog_controller.dart';
 import 'checkout_sheet.dart';
-import 'receipt_screen.dart';
 
 class PosScreen extends ConsumerStatefulWidget {
   const PosScreen({super.key});
@@ -84,14 +84,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             message: s.of('pendingSync', args: {'count': pendingCount}),
             actions: [
               TextButton(
-                onPressed: () async {
-                  final db = ref.read(appDatabaseProvider);
-                  // ignore: unused
-                  db;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(s.of('queuedOrders'))),
-                  );
-                },
+                onPressed: () => _retrySync(context),
                 child: Text(s.of('retry')),
               ),
             ],
@@ -471,6 +464,34 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
   }
 
+  /// Manual retry for the pending-sync banner: pushes the outbox,
+  /// pulls the catalog, then reports what actually happened instead of
+  /// just toasting "queued orders".
+  Future<void> _retrySync(BuildContext context) async {
+    final s = ref.read(stringsProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final synced = await ref.read(syncServiceProvider).syncOutbox();
+      await ref.read(syncServiceProvider).syncCatalog();
+      await ref.read(catalogControllerProvider.notifier).refresh();
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            synced > 0
+                ? s.of('syncedOrders', args: {'count': synced})
+                : s.of('queuedOrders'),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(s.of('syncFailed'))),
+      );
+    }
+  }
+
   Future<void> _checkout(BuildContext context) async {
     final result = await showModalBottomSheet<Order>(
       context: context,
@@ -482,9 +503,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     if (result != null) {
       ref.read(cartControllerProvider.notifier).clear();
       if (!context.mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ReceiptScreen(orderId: result.id)),
-      );
+      // Canonical receipt route (top-level, deep-linkable); back returns
+      // to POS with the cleared cart.
+      await context.push('/receipt/${result.id}');
     }
   }
 }
@@ -636,7 +657,12 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
                         dense: true,
                         title: Text(c.name),
                         subtitle: Text(c.email ?? ''),
-                        trailing: Text('${c.pointsBalance} pts'),
+                        trailing: Text(
+                          s.of(
+                            'pointsShort',
+                            args: {'count': c.pointsBalance},
+                          ),
+                        ),
                         onTap: () =>
                             Navigator.of(context).pop(_CustomerPickResult(c)),
                       );
@@ -680,18 +706,19 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.read(stringsProvider);
     return AlertDialog(
-      title: const Text('Open drawer'),
+      title: Text(s.of('openDrawer')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
             controller: _controller,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Starting cash',
+            decoration: InputDecoration(
+              labelText: s.of('startingCash'),
               prefixText: r'$ ',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
             ),
           ),
           if (_error != null)

@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/layout.dart';
 import '../../core/money.dart';
@@ -55,6 +56,17 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
     }
   }
 
+  /// Closes the flow. Pushed flows pop back to their opener;
+  /// a cold-started deep link has nothing to pop, so it lands on POS
+  /// (open to every signed-in role) instead of stranding the user.
+  void _close(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/pos');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
@@ -66,8 +78,24 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
     }
 
     if (session == null) {
-      return const Scaffold(
-        body: Center(child: Text('No open drawer to reconcile.')),
+      return Scaffold(
+        appBar: AppBar(title: Text(s.of('endShift'))),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(s.of('noOpenDrawer')),
+                const SizedBox(height: AppSpacing.lg),
+                FilledButton(
+                  onPressed: () => _close(context),
+                  child: Text(s.of('backToPos')),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -85,12 +113,17 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Drawer #${session.id}',
+                  s.of('drawerNumber', args: {'id': session.id}),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'Opened with ${formatCents(centsFromApi(session.startingCash))}',
+                  s.of(
+                    'openedWith',
+                    args: {
+                      'amount': formatCents(centsFromApi(session.startingCash)),
+                    },
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 TextField(
@@ -160,44 +193,44 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'Reconciliation #${rec.id}',
+                    s.of('reconciliationId', args: {'id': rec.id}),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _row(
                     context,
-                    'Cash sales',
+                    s.of('cashSales'),
                     formatCents(centsFromApi(rec.cashSalesTotal)),
                   ),
                   _row(
                     context,
-                    'Non-cash sales',
+                    s.of('nonCashSales'),
                     formatCents(centsFromApi(rec.nonCashSalesTotal)),
                   ),
                   _row(
                     context,
-                    'Refunds',
+                    s.of('refunds'),
                     formatCents(centsFromApi(rec.refundsTotal)),
                   ),
                   _row(
                     context,
-                    'Gross sales',
+                    s.of('grossSales'),
                     formatCents(centsFromApi(rec.grossSalesTotal)),
                   ),
                   _row(
                     context,
-                    'Net sales',
+                    s.of('netSales'),
                     formatCents(centsFromApi(rec.netSalesTotal)),
                   ),
                   const Divider(height: 20),
                   _row(
                     context,
-                    'Expected cash',
+                    s.of('expectedCash'),
                     formatCents(centsFromApi(rec.expectedCash)),
                   ),
                   _row(
                     context,
-                    'Counted cash',
+                    s.of('countedCash'),
                     formatCents(centsFromApi(rec.countedCash)),
                   ),
                   _row(
@@ -209,8 +242,13 @@ class _ReconcileScreenState extends ConsumerState<ReconcileScreen> {
                   _row(context, s.of('orders'), '${rec.completedOrderCount}'),
                   const SizedBox(height: AppSpacing.lg),
                   FilledButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(s.of('done')),
+                    onPressed: () => _close(context),
+                    child: Text(s.of('backToPos')),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextButton(
+                    onPressed: () => context.go('/reports'),
+                    child: Text(s.of('viewShiftReport')),
                   ),
                 ],
               ),

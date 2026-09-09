@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
@@ -13,7 +14,6 @@ import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/octo_table.dart';
 import '../../core/strings.dart';
-import '../pos/receipt_screen.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -36,7 +36,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       ref.read(orderRepositoryProvider).recentOrders();
 
   void _reload() {
-    setState(() => _future = _load());
+    setState(() {
+      _future = _load();
+    });
   }
 
   Future<void> _cancel(Order order) async {
@@ -62,6 +64,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     try {
       await ref.read(orderRepositoryProvider).cancel(order.id);
       _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.of('orderCancelled', args: {'id': order.id})),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -71,9 +79,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   }
 
   void _reprint(Order order) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => ReceiptScreen(orderId: order.id)));
+    // Canonical receipt route (top-level, deep-linkable); back returns
+    // to this order list.
+    context.push('/receipt/${order.id}');
   }
 
   @override
@@ -155,11 +163,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   onRefresh: () async => _reload(),
                   child: OctoResponsiveTable(
                     columns: [
-                      const OctoTableColumn('Order', flex: 2),
+                      OctoTableColumn(s.of('orderHeader'), flex: 2),
                       OctoTableColumn(s.of('date'), flex: 2),
-                      const OctoTableColumn('Items'),
+                      OctoTableColumn(s.of('itemsHeader')),
                       OctoTableColumn(s.of('total'), numeric: true),
-                      const OctoTableColumn('Status'),
+                      OctoTableColumn(s.of('orderStatus')),
                       const OctoTableColumn(''),
                     ],
                     rows: [

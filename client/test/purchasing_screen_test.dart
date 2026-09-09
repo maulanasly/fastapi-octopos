@@ -8,6 +8,7 @@ import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/pagination.dart';
 import 'package:octopos_client/core/token_store.dart';
+import 'package:octopos_client/features/pos/catalog_controller.dart';
 import 'package:octopos_client/features/purchasing/purchasing_screen.dart';
 
 class _FixedLanguageLocalization extends LocalizationController {
@@ -54,6 +55,7 @@ class _FakePurchasing extends PurchasingRepository {
   int approvePaymentCalls = 0;
   int rejectPaymentCalls = 0;
   int createPaymentCalls = 0;
+  int createOrderCalls = 0;
 
   String? lastOrderNote;
   String? lastInvoiceNote;
@@ -154,6 +156,33 @@ class _FakePurchasing extends PurchasingRepository {
     updateSettingsCalls++;
     _settings = settings;
     return _settings;
+  }
+
+  @override
+  Future<PurchaseOrder> createOrder({
+    required int supplierId,
+    required List<Map<String, dynamic>> items,
+    String? notes,
+  }) async {
+    createOrderCalls++;
+    return PurchaseOrder(
+      id: 99,
+      supplierId: supplierId,
+      userId: 1,
+      status: 'draft',
+      totalEstimatedAmount: 75.0,
+      createdAt: '2026-08-17T10:00:00',
+      items: const [
+        PurchaseOrderItem(
+          id: 91,
+          purchaseOrderId: 99,
+          productId: 3,
+          quantityOrdered: 5,
+          quantityReceived: 0,
+          unitCost: 15.0,
+        ),
+      ],
+    );
   }
 
   @override
@@ -425,8 +454,27 @@ class _FakePurchasing extends PurchasingRepository {
   }
 }
 
-ProviderContainer _container({int ownerId = 1, bool isSuperuser = false}) {
-  final auth = _FakeAuth(ownerId: ownerId, isSuperuser: isSuperuser);
+class _FakeCatalog extends CatalogRepository {
+  _FakeCatalog()
+    : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
+
+  @override
+  Future<List<Product>> products({
+    PaginationParams pagination = PaginationParams.catalog,
+  }) async => const [
+    Product(id: 3, name: 'Beans', sku: 'BEAN-1', price: 15.0),
+  ];
+}
+
+class _NoopCatalog extends CatalogController {
+  @override
+  CatalogState build() => const CatalogState();
+
+  @override
+  Future<void> refresh() async {}
+}
+
+ProviderContainer _container({int ownerId = 1, bool isSuperuser = false}) {  final auth = _FakeAuth(ownerId: ownerId, isSuperuser: isSuperuser);
   return ProviderContainer(
     overrides: [
       localizationControllerProvider.overrideWith(_FixedLanguageLocalization.new),
@@ -465,6 +513,58 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PO #11 · pending_review'), findsOneWidget);
+  });
+
+  testWidgets('creating a PO confirms with its id and links to the detail', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        localizationControllerProvider.overrideWith(
+          _FixedLanguageLocalization.new,
+        ),
+        authControllerProvider.overrideWith(() => _FakeAuth()),
+        purchasingRepositoryProvider.overrideWithValue(_FakePurchasing()),
+        catalogRepositoryProvider.overrideWithValue(_FakeCatalog()),
+        catalogControllerProvider.overrideWith(_NoopCatalog.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.tap(find.text('Purchase orders'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    // Pick the supplier, then enter a quantity on the first product line.
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Acme Supply').last);
+    await tester.pumpAndSettle();
+    final dialogFields = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(dialogFields.at(1), '5');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Create order'));
+    // Let the create + SnackBar land, but don't settle past the
+    // SnackBar's 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final fake = container.read(purchasingRepositoryProvider) as _FakePurchasing;
+    expect(fake.createOrderCalls, 1);
+    expect(find.text('PO #99 created'), findsOneWidget);
+    expect(find.text('View details'), findsOneWidget);
+
+    await tester.tap(find.text('View details'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Purchase orders #99'), findsOneWidget);
   });
 
   testWidgets('review dialog sends review note on order approve', (tester) async {

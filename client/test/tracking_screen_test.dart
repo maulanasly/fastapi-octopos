@@ -178,10 +178,14 @@ void main() {
     expect(find.text('I\'m on site'), findsOneWidget);
 
     await tester.tap(find.text('I\'m on site'));
-    await tester.pumpAndSettle();
+    // Let the transition + SnackBar land, but don't settle past the
+    // SnackBar's 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(repo.transitions, 1);
     expect(repo.stored.first.trackingStatus, 'on_site');
+    expect(find.text('Order #7 → On site'), findsOneWidget);
     await _dispose(tester, container);
   });
 }

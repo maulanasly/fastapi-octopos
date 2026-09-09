@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/app_icons.dart';
@@ -26,6 +27,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
   bool _submitting = false;
   String? _error;
   String? _success;
+  int? _refundedOrderId;
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
       _submitting = true;
       _error = null;
       _success = null;
+      _refundedOrderId = null;
     });
     try {
       await ref
@@ -69,8 +72,10 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                 ? order.payments.first.paymentMethod
                 : 'cash',
           );
+      final refundedId = order.id;
       setState(() {
-        _success = 'Refund created';
+        _success = s.of('refundCreated');
+        _refundedOrderId = refundedId;
         _selected = null;
         _quantities.clear();
       });
@@ -105,11 +110,24 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                     ),
                   ),
                 if (_success != null)
-                  Text(
-                    _success!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _success!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      if (_refundedOrderId != null)
+                        TextButton(
+                          onPressed: () => context.push(
+                            '/receipt/${_refundedOrderId!}',
+                          ),
+                          child: Text(s.of('viewReceipt')),
+                        ),
+                    ],
                   ),
                 const SizedBox(height: AppSpacing.sm),
                 Expanded(
@@ -152,10 +170,10 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
           itemBuilder: (context, i) {
             final order = refundable[i];
             return ListTile(
-              title: Text('Order #${order.id}'),
+              title: Text(s.of('orderId', args: {'id': order.id})),
               subtitle: Text(
                 '${formatCents(centsFromApi(order.grandTotalAmount))} — '
-                '${order.items.length} item(s)',
+                '${s.of('itemsCount', args: {'count': order.items.length})}',
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
@@ -186,7 +204,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
         Row(
           children: [
             Text(
-              'Order #${order.id}',
+              s.of('orderId', args: {'id': order.id}),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const Spacer(),
@@ -257,7 +275,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                   width: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Refund selected items'),
+              : Text(s.of('refundSelected')),
         ),
       ],
     );

@@ -43,6 +43,20 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
   double? _pinLng;
   String? _error;
 
+  /// Set once the sheet may close without asking: user confirmed discard
+  /// or Pay succeeded. Required because PopScope vetoes even programmatic
+  /// pops while dirty.
+  bool _dismissConfirmed = false;
+
+  /// Payment details that would be lost on dismiss.
+  bool get _dirty =>
+      _promo.text.trim().isNotEmpty ||
+      _destination.text.trim().isNotEmpty ||
+      _cashReceived.text.trim().isNotEmpty ||
+      _splitCash.text.trim().isNotEmpty ||
+      _redeemPoints > 0 ||
+      _pinLat != null;
+
   /// Stable per-sheet idempotency keys: reused across retries so a
   /// network timeout after the server accepted the request never
   /// duplicates the order or payment on a second tap of Pay.
@@ -51,6 +65,21 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
 
   String get _orderKeyOnce => _orderKey ??= newIdempotencyKey();
   String get _payKeyOnce => _payKey ??= newIdempotencyKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // PopScope.canPop is read from the last build, so typing must
+    // rebuild the sheet to keep the dirty-confirm veto fresh.
+    void refresh() {
+      if (mounted) setState(() {});
+    }
+
+    _promo.addListener(refresh);
+    _destination.addListener(refresh);
+    _cashReceived.addListener(refresh);
+    _splitCash.addListener(refresh);
+  }
 
   @override
   void dispose() {
@@ -71,13 +100,39 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
         ? 0
         : customer.pointsBalance.clamp(0, total);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
+    return PopScope(
+      canPop: _dismissConfirmed || !_dirty,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || _submitting || !context.mounted) return;
+        final discard = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(s.of('discardChanges')),
+            content: Text(s.of('discardChangesHint')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(s.of('keepEditing')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: Text(s.of('discard')),
+              ),
+            ],
+          ),
+        );
+        if (discard == true && context.mounted) {
+          setState(() => _dismissConfirmed = true);
+          Navigator.of(context).pop();
+        }
+      },
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -317,9 +372,9 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
           ],
         ),
       ),
+    )
     );
   }
-
   int get _splitCents => centsFromInput(_splitCash.text);
 
   /// Captures the device position as the service pin (optional).
@@ -425,6 +480,8 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
       // Clear cart locally; order will sync in background
       ref.read(cartControllerProvider.notifier).clear();
       if (mounted && context.mounted) {
+        // Programmatic success pop: bypass the dirty-confirm veto.
+        _dismissConfirmed = true;
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(strings.of('queuedForSync'))),
@@ -510,7 +567,11 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
           idempotencyKey: _payKeyOnce,
         );
       }
-      if (mounted && context.mounted) Navigator.of(context).pop(order);
+      if (mounted && context.mounted) {
+        // Programmatic success pop: bypass the dirty-confirm veto.
+        _dismissConfirmed = true;
+        Navigator.of(context).pop(order);
+      }
     } on DioException catch (e) {
       final isNetwork = e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.connectionError ||
