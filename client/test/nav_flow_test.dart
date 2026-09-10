@@ -13,6 +13,7 @@ import 'package:octopos_client/core/db/app_database.dart';
 import 'package:octopos_client/core/db/database_provider.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
+import 'package:octopos_client/core/route_access.dart';
 import 'package:octopos_client/core/sync/connectivity_provider.dart';
 import 'package:octopos_client/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -114,6 +115,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Page not found'), findsWidgets);
+  });
+
+  test('receipt route stays open to signed-in roles by explicit rule', () {
+    const auth = AuthState(
+      status: AuthStatus.signedIn,
+      userId: 2,
+      email: 'cashier@octopos.test',
+      fullName: 'Cashier',
+      permissions: {'orders:manage', 'orders:track'},
+    );
+    expect(routePermitted(auth, '/receipt/7'), isTrue);
+    expect(routePermitted(auth, '/receipt/abc'), isTrue);
+    // And the guard still closes what it should.
+    expect(routePermitted(auth, '/admin'), isFalse);
   });
 
   testWidgets('zero and negative receipt IDs show the 404 screen', (

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:octopos_client/core/errors.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
@@ -130,6 +133,24 @@ void main() {
       final s = _strings();
       expect(friendlyError(StateError('boom'), s), s.of('genericError'));
       expect(friendlyError(_dio(500), s), s.of('genericError'));
+    });
+  });
+
+  group('locationErrorMessage', () {
+    test('distinguishes permission, service, and outage failures', () {
+      final s = _strings();
+      expect(
+        locationErrorMessage(const PermissionDeniedException('denied'), s),
+        s.of('locationPermissionDenied'),
+      );
+      expect(
+        locationErrorMessage(const LocationServiceDisabledException(), s),
+        s.of('locationServiceDisabled'),
+      );
+      expect(
+        locationErrorMessage(TimeoutException('timed out'), s),
+        s.of('locationUnavailable'),
+      );
     });
   });
 }

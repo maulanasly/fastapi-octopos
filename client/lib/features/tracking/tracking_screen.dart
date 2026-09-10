@@ -78,6 +78,8 @@ class TrackingScreen extends ConsumerWidget {
     'assigned' => s.of('statusAssigned'),
     'en_route' => s.of('statusEnRoute'),
     'on_site' => s.of('statusOnSite'),
+    // Placeholder for deep links not yet resolved to a live trip.
+    'none' => s.of('trackingNotStarted'),
     _ => status,
   };
 

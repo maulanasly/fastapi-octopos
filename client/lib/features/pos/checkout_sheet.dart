@@ -387,11 +387,11 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
         _pinLat = position.latitude;
         _pinLng = position.longitude;
       });
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         final strings = ref.read(stringsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(strings.of('locationUnavailable'))),
+          SnackBar(content: Text(locationErrorMessage(e, strings))),
         );
       }
     } finally {

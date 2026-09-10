@@ -422,6 +422,11 @@ const Map<String, Map<String, String>> _translations = {
     'typeHeader': 'Type',
     'qtyHeader': 'Qty',
     'reorderAt': 'reorder at {{point}}',
+    'trackingNotStarted': 'Not yet tracked',
+    'locationPermissionDenied':
+        'Location permission denied — enable it in settings to use this feature',
+    'locationServiceDisabled':
+        'Location services are off — turn them on to use this feature',
     'orderHeader': 'Order',
     'itemsHeader': 'Items',
     'initialSuffix': 'initial',
@@ -842,6 +847,11 @@ const Map<String, Map<String, String>> _translations = {
     'typeHeader': 'Jenis',
     'qtyHeader': 'Jml',
     'reorderAt': 'restok di {{point}}',
+    'trackingNotStarted': 'Belum dilacak',
+    'locationPermissionDenied':
+        'Izin lokasi ditolak — aktifkan di pengaturan untuk memakai fitur ini',
+    'locationServiceDisabled':
+        'Layanan lokasi mati — nyalakan untuk memakai fitur ini',
     'orderHeader': 'Pesanan',
     'itemsHeader': 'Item',
     'initialSuffix': 'awal',
