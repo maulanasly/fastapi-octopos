@@ -438,6 +438,7 @@ const Map<String, Map<String, String>> _translations = {
     'ledgerKindInvoice': 'Invoice',
     'ledgerKindPayment': 'Payment',
     'refundNumber': 'Refund #{{id}}',
+    'refresh': 'Refresh',
     'helpStepDrawerHint':
         'Open drawer → enter starting cash → Checkout unlocks',
     'helpStepCatalogHint': 'Scan barcode + Enter or tap a product tile',
@@ -892,6 +893,7 @@ const Map<String, Map<String, String>> _translations = {
     'ledgerKindInvoice': 'Faktur',
     'ledgerKindPayment': 'Pembayaran',
     'refundNumber': 'Refund #{{id}}',
+    'refresh': 'Muat ulang',
     'helpStepDrawerHint':
         'Buka laci → masukkan uang awal → Checkout terbuka',
     'helpStepCatalogHint': 'Scan barcode + Enter atau ketuk ubin produk',

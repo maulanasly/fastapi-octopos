@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_repositories.dart';
 import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
+import '../../core/skeletons.dart';
 import '../../core/auth_controller.dart';
 import '../../core/branded_banner.dart';
 import '../../core/colors.dart';
@@ -267,7 +268,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ),
         Expanded(
           child: catalog.loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const ProductGridSkeleton()
               : catalog.error != null
               ? ErrorStateView(
                   message: catalog.error!,

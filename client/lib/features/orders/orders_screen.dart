@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
+import '../../core/skeletons.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
@@ -187,7 +188,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const LoadingStateView();
+                  return const OrderRowSkeleton();
                 }
                 if (snapshot.hasError) {
                   return ErrorStateView(

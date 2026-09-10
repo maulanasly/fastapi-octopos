@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_repositories.dart';
 import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
+import '../../core/skeletons.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
@@ -171,7 +172,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
       future: _ordersFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const LoadingStateView();
+          return const OrderRowSkeleton();
         }
         if (snapshot.hasError) {
           return ErrorStateView(
@@ -252,6 +253,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      tooltip: s.of('decreaseQuantity'),
                       icon: const Icon(Icons.remove_circle_outline),
                       onPressed: () {
                         final qty = _quantities[item.id] ?? 0;
@@ -265,6 +267,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                     ),
                     Text('${_quantities[item.id] ?? 0}'),
                     IconButton(
+                      tooltip: s.of('increaseQuantity'),
                       icon: const Icon(AppIcons.addCircle),
                       onPressed: () {
                         final qty = _quantities[item.id] ?? 0;

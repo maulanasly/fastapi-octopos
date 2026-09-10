@@ -173,6 +173,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         title: Text(strings.of('reports')),
         actions: [
           IconButton(
+            tooltip: strings.of('refresh'),
             onPressed: () => setState(_load),
             icon: const Icon(Icons.refresh),
           ),

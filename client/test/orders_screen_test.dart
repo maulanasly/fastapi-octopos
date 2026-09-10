@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,7 @@ import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/pagination.dart';
+import 'package:octopos_client/core/skeletons.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/orders/orders_screen.dart';
 import 'package:octopos_client/features/pos/receipt_screen.dart';
@@ -53,6 +56,7 @@ class _FakeOrders extends OrderRepository {
   List<Order> stored = [_order(1, 'completed'), _order(2, 'pending')];
   int cancelCount = 0;
   bool failAll = false;
+  Completer<void>? gate;
 
   @override
   Future<List<Order>> recentOrders({
@@ -60,6 +64,7 @@ class _FakeOrders extends OrderRepository {
     String? status,
   }) async {
     if (failAll) throw Exception('boom');
+    if (gate != null) await gate!.future;
     var rows = stored;
     if (status != null) {
       rows = rows.where((o) => o.status == status).toList();
@@ -250,5 +255,45 @@ void main() {
 
     expect(find.text('Order #1'), findsOneWidget);
     expect(find.text('Order #2'), findsOneWidget);
+  });
+
+  testWidgets('loading shows a skeleton, not a bare spinner', (tester) async {
+    final fake = _FakeOrders()..gate = Completer<void>();
+    final container = _container(orders: fake);
+    addTearDown(container.dispose);
+    // No settle: the shimmer ticker schedules frames indefinitely
+    // while the gated load is pending.
+    final router = GoRouter(
+      initialLocation: '/orders',
+      routes: [
+        GoRoute(
+          path: '/orders',
+          builder: (context, state) => const OrdersScreen(),
+        ),
+        GoRoute(
+          path: '/receipt/:orderId',
+          builder: (context, state) => ReceiptScreen(
+            orderId: int.parse(state.pathParameters['orderId']!),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(OrderRowSkeleton), findsOneWidget);
+
+    fake.gate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OrderRowSkeleton), findsNothing);
+    expect(find.text('Order #1'), findsOneWidget);
   });
 }
