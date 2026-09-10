@@ -219,7 +219,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     decoration: InputDecoration(labelText: s.of('email'), prefixIcon: const Icon(Icons.alternate_email)),
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
-                    validator: (v) => (v == null || !v.contains('@')) ? 'Valid email required' : null,
+                    validator: (v) => (v == null || !v.contains('@')) ? s.of('validEmail') : null,
                   ),
                   const SizedBox(height: AppSpacing.md),
                   TextFormField(

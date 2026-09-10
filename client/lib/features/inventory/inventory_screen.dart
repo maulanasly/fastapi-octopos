@@ -506,14 +506,38 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
             runSpacing: AppSpacing.xs,
             children: [
               _typeChip(s, null, s.of('all')),
-              _typeChip(s, 'sale', 'sale'),
-              _typeChip(s, 'refund', 'refund'),
-              _typeChip(s, 'manual_adjustment', 'manual'),
-              _typeChip(s, 'initial_stock', 'initial'),
-              _typeChip(s, 'purchase_receipt', 'receipt'),
-              _typeChip(s, 'ad_hoc_receipt', 'ad-hoc'),
-              _typeChip(s, 'reservation_release', 'release'),
-              _typeChip(s, 'order_cancel', 'cancel'),
+              _typeChip(s, 'sale', _movementTypeLabel(s, 'sale')),
+              _typeChip(s, 'refund', _movementTypeLabel(s, 'refund')),
+              _typeChip(
+                s,
+                'manual_adjustment',
+                _movementTypeLabel(s, 'manual_adjustment'),
+              ),
+              _typeChip(
+                s,
+                'initial_stock',
+                _movementTypeLabel(s, 'initial_stock'),
+              ),
+              _typeChip(
+                s,
+                'purchase_receipt',
+                _movementTypeLabel(s, 'purchase_receipt'),
+              ),
+              _typeChip(
+                s,
+                'ad_hoc_receipt',
+                _movementTypeLabel(s, 'ad_hoc_receipt'),
+              ),
+              _typeChip(
+                s,
+                'reservation_release',
+                _movementTypeLabel(s, 'reservation_release'),
+              ),
+              _typeChip(
+                s,
+                'order_cancel',
+                _movementTypeLabel(s, 'order_cancel'),
+              ),
               if (hasFilters)
                 ActionChip(
                   label: Text('${s.of('clear')} ✕'),
@@ -722,9 +746,12 @@ Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
         : s.of('productId', args: {'id': m.productId});
     final meta = [
       if (m.userEmail != null) m.userEmail!,
-      if (m.orderId != null) 'Order #${m.orderId}',
-      if (m.purchaseOrderId != null) 'PO #${m.purchaseOrderId}',
-      if (m.refundId != null) 'Refund #${m.refundId}',
+      if (m.orderId case final int orderId)
+        s.of('orderId', args: {'id': orderId}),
+      if (m.purchaseOrderId case final int poId)
+        s.of('poNumber', args: {'id': poId}),
+      if (m.refundId case final int refundId)
+        s.of('refundNumber', args: {'id': refundId}),
     ].join(' · ');
     final scheme = Theme.of(context).colorScheme;
     return Card(
@@ -737,10 +764,9 @@ Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
                 ? Icons.add_box_outlined
                 : Icons.remove_circle_outline,
             color: delta >= 0 ? scheme.primary : scheme.error,
-            semanticLabel: delta >= 0 ? 'increase' : 'decrease',
           ),
         ),
-        title: Text('$productLabel · ${m.movementType}',
+        title: Text('$productLabel · ${_movementTypeLabel(s, m.movementType)}',
             style: Theme.of(context).textTheme.titleSmall),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1128,3 +1154,16 @@ class _SuggestionRow {
     this.supplierId,
   });
 }
+
+/// Localized label for a stock-movement type code.
+String _movementTypeLabel(AppStrings s, String type) => switch (type) {
+  'sale' => s.of('movementSale'),
+  'reservation_release' => s.of('movementReservationRelease'),
+  'order_cancel' => s.of('movementOrderCancel'),
+  'purchase_receipt' => s.of('movementPurchaseReceipt'),
+  'refund' => s.of('refunds'),
+  'ad_hoc_receipt' => s.of('stockReceived'),
+  'initial_stock' => s.of('movementInitial'),
+  'manual_adjustment' => s.of('movementManualAdjust'),
+  _ => type,
+};

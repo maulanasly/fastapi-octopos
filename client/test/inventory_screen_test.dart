@@ -185,7 +185,7 @@ void main() {
 
     // The type also renders as a row chip in the table, so tap the
     // first match (the filter chip, laid out above the list).
-    await tester.tap(find.text('sale').first);
+    await tester.tap(find.text('Sale').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Product #3'), findsOneWidget);
