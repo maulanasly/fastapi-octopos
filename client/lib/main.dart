@@ -14,20 +14,20 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Register background work (no-op if not supported like web)
   try {
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+    await Workmanager().initialize(callbackDispatcher);
     await Workmanager().registerPeriodicTask(
       syncTask,
       syncTask,
       frequency: const Duration(minutes: 15),
       constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
     await Workmanager().registerPeriodicTask(
       outboxTask,
       outboxTask,
       frequency: const Duration(minutes: 15),
       constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
     );
   } catch (_) {
     // Workmanager not available on web/desktop
