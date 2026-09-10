@@ -50,7 +50,7 @@ dependencies:
   drift: ^2.34.0
   drift_flutter: ^0.3.1
   connectivity_plus: ^7.3.1
-  workmanager: ^0.6.0
+  workmanager: ^0.10.10
   json_annotation: ^4.9.0
   freezed_annotation: ^3.1.0
   google_fonts: ^8.2.1
