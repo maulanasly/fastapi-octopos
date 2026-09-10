@@ -632,6 +632,14 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
                   if (snapshot.connectionState != ConnectionState.done) {
                     return const LoadingStateView();
                   }
+                  if (snapshot.hasError) {
+                    return ErrorStateView(
+                      message: friendlyError(snapshot.error!, s),
+                      onRetry: () => setState(() {
+                        _future = ref.read(customerRepositoryProvider).list();
+                      }),
+                    );
+                  }
                   final all = snapshot.data ?? [];
                   final customers = _query.isEmpty
                       ? all

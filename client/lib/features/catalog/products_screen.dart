@@ -327,7 +327,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
     );
 
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     final body = {
       'name': name.text.trim(),
       'sku': sku.text.trim(),

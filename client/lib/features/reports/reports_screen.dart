@@ -299,7 +299,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      if (items.isEmpty)
+                      if (snapshot.hasError)
+                        ErrorStateView(
+                          message: friendlyError(snapshot.error!, strings),
+                          onRetry: () => setState(_load),
+                        )
+                      else if (items.isEmpty)
                         Text(strings.of('noOrders'))
                       else
                         for (final item in items)
@@ -333,7 +338,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      if (items.isEmpty)
+                      if (snapshot.hasError)
+                        ErrorStateView(
+                          message: friendlyError(snapshot.error!, strings),
+                          onRetry: () => setState(_load),
+                        )
+                      else if (items.isEmpty)
                         Text(strings.of('noOrders'))
                       else
                         for (final item in items)
@@ -421,15 +431,20 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      if (products.isEmpty)
+                      if (snapshot.hasError)
+                        ErrorStateView(
+                          message: friendlyError(snapshot.error!, strings),
+                          onRetry: () => setState(_load),
+                        )
+                      else if (products.isEmpty)
                         Text(strings.of('healthyStock'))
                       else
                         for (final product in products)
                           _ReportRow(
                             title: product.name,
                             subtitle:
-                                '${product.stockQuantity} in stock · '
-                                'reorder at ${product.reorderPoint}',
+                                '${strings.of('inStock', args: {'count': product.stockQuantity})} · '
+                                '${strings.of('reorderAt', args: {'point': product.reorderPoint})}',
                             amount: formatCents(product.priceCents),
                           ),
                     ],
@@ -454,7 +469,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      if (shifts.isEmpty)
+                      if (snapshot.hasError)
+                        ErrorStateView(
+                          message: friendlyError(snapshot.error!, strings),
+                          onRetry: () => setState(_load),
+                        )
+                      else if (shifts.isEmpty)
                         Text(strings.of('noOrders'))
                       else
                         for (final shift in shifts)

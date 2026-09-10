@@ -382,6 +382,7 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
     setState(() => _locating = true);
     try {
       final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
       setState(() {
         _pinLat = position.latitude;
         _pinLng = position.longitude;

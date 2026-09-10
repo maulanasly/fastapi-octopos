@@ -84,6 +84,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
         _ordersFuture = reloaded;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = friendlyError(e, s));
     } finally {
       if (mounted) setState(() => _submitting = false);
