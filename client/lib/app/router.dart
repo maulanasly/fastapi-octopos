@@ -135,7 +135,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (orderId == null || orderId <= 0) {
             return NotFoundScreen(path: state.uri.path);
           }
-          return ReceiptScreen(orderId: orderId);
+          return ReceiptScreen(
+            orderId: orderId,
+            from: state.uri.queryParameters['from'],
+          );
         },
       ),
       ShellRoute(

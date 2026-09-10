@@ -59,7 +59,16 @@ class _FakeRefunds extends OrderRepository {
   int submits = 0;
 
   @override
-  Future<List<Order>> recentOrders({PaginationParams pagination = PaginationParams.recentOrders}) async => stored;
+  Future<List<Order>> recentOrders({
+    PaginationParams pagination = PaginationParams.recentOrders,
+    String? status,
+  }) async {
+    var rows = stored;
+    if (status != null) {
+      rows = rows.where((o) => o.status == status).toList();
+    }
+    return rows.skip(pagination.offset).take(pagination.limit).toList();
+  }
 
   @override
   Future<Refund> createRefund({

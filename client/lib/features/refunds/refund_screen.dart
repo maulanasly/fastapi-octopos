@@ -13,6 +13,7 @@ import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
+import '../../core/pagination.dart';
 
 class RefundScreen extends ConsumerStatefulWidget {
   const RefundScreen({super.key});
@@ -33,12 +34,29 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
   @override
   void initState() {
     super.initState();
-    _ordersFuture = ref.read(orderRepositoryProvider).recentOrders();
+    _ordersFuture = _load();
+  }
+
+  /// Refundable orders are serving or completed. The backend filters one
+  /// status per request, so fetch both first pages and merge newest-first
+  /// instead of windowing a single unfiltered page.
+  Future<List<Order>> _load() async {
+    final repo = ref.read(orderRepositoryProvider);
+    const page = PaginationParams(limit: 50);
+    final results = await Future.wait([
+      repo.recentOrders(pagination: page, status: 'serving'),
+      repo.recentOrders(pagination: page, status: 'completed'),
+    ]);
+    final merged = [...results[0], ...results[1]];
+    merged.sort(
+      (a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''),
+    );
+    return merged;
   }
 
   void _reload() {
     setState(() {
-      _ordersFuture = ref.read(orderRepositoryProvider).recentOrders();
+      _ordersFuture = _load();
     });
   }
 
@@ -74,7 +92,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                 : 'cash',
           );
       final refundedId = order.id;
-      final reloaded = ref.read(orderRepositoryProvider).recentOrders();
+      final reloaded = _load();
       if (!mounted) return;
       setState(() {
         _success = s.of('refundCreated');
@@ -127,7 +145,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                       if (_refundedOrderId != null)
                         TextButton(
                           onPressed: () => context.push(
-                            '/receipt/${_refundedOrderId!}',
+                            '/receipt/${_refundedOrderId!}?from=/refunds',
                           ),
                           child: Text(s.of('viewReceipt')),
                         ),

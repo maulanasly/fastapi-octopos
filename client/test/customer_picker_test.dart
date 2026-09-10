@@ -14,6 +14,7 @@ class _FakeCustomers extends CustomerRepository {
   _FakeCustomers(super.api);
 
   bool failList = false;
+  bool failCreate = false;
 
   final List<Customer> stored = [
     const Customer(
@@ -48,6 +49,7 @@ class _FakeCustomers extends CustomerRepository {
     String? email,
     String? phone,
   }) async {
+    if (failCreate) throw Exception('boom');
     final customer = Customer(
       id: 99,
       name: name,
@@ -224,6 +226,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Alice'), findsOneWidget);
+    expect(picked, isNull);
+  });
+
+  testWidgets('register requires a name and reports failures', (tester) async {
+    final fake = _FakeCustomers(
+      ApiClient(store: TokenStore(), onSessionExpired: () {}),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        localizationControllerProvider.overrideWith(
+          _FixedLanguageLocalization.new,
+        ),
+        customerRepositoryProvider.overrideWithValue(fake),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    dynamic picked;
+    await _pumpPickerHost(tester, container, (r) => picked = r);
+
+    // Empty name: inline error, dialog stays open, nothing created.
+    // (The picker button and the dialog title share a label, so assert
+    // on the dialog's unique action instead.)
+    await tester.tap(find.text('Register new customer'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Required'), findsOneWidget);
+    expect(find.text('Create'), findsOneWidget);
+
+    // Backend failure: localized snackbar, nothing picked.
+    await tester.enterText(find.widgetWithText(TextField, 'Name'), 'Dave');
+    fake.failCreate = true;
+    await tester.tap(find.text('Create'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      find.text('Something went wrong. Please try again.'),
+      findsOneWidget,
+    );
     expect(picked, isNull);
   });
 }

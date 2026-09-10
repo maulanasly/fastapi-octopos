@@ -529,7 +529,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       if (!context.mounted) return;
       // Canonical receipt route (top-level, deep-linkable); back returns
       // to POS with the cleared cart.
-      await context.push('/receipt/${result.id}');
+      await context.push('/receipt/${result.id}?from=/pos');
     }
   }
 }
@@ -562,51 +562,73 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
 
   Future<void> _register() async {
     final s = ref.read(stringsProvider);
+    // Owned by the dialog's exit animation: disposing here would race
+    // its final rebuilds (same convention as the other dialogs).
     final name = TextEditingController();
     final email = TextEditingController();
     final phone = TextEditingController();
+    String? nameError;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.of('registerCustomer')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: InputDecoration(labelText: s.of('name')),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(s.of('registerCustomer')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: InputDecoration(
+                  labelText: s.of('name'),
+                  errorText: nameError,
+                ),
+              ),
+              TextField(
+                controller: email,
+                decoration: InputDecoration(labelText: s.of('email')),
+              ),
+              TextField(
+                controller: phone,
+                decoration: InputDecoration(labelText: s.of('phone')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(s.of('cancel')),
             ),
-            TextField(
-              controller: email,
-              decoration: InputDecoration(labelText: s.of('email')),
-            ),
-            TextField(
-              controller: phone,
-              decoration: InputDecoration(labelText: s.of('phone')),
+            FilledButton(
+              onPressed: () {
+                if (name.text.trim().isEmpty) {
+                  setDialogState(() => nameError = s.of('required'));
+                } else {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              child: Text(s.of('create')),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(s.of('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(s.of('create')),
-          ),
-        ],
       ),
     );
-    if (ok != true) return;
-    final customer = await ref
-        .read(customerRepositoryProvider)
-        .create(
-          name: name.text.trim(),
-          email: email.text.trim().isEmpty ? null : email.text.trim(),
-          phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
+    if (ok != true || !mounted) return;
+    try {
+      final customer = await ref
+          .read(customerRepositoryProvider)
+          .create(
+            name: name.text.trim(),
+            email: email.text.trim().isEmpty ? null : email.text.trim(),
+            phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
+          );
+      if (mounted) Navigator.of(context).pop(_CustomerPickResult(customer));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, s))),
         );
-    if (mounted) Navigator.of(context).pop(_CustomerPickResult(customer));
+      }
+    }
   }
 
   @override
