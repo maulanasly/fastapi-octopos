@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,16 +29,25 @@ class _FakeReports extends ReportRepository {
     : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
 
   @override
-  Future<SalesSummary> sales({String? startDate, String? endDate}) async =>
-      const SalesSummary(
-        grossRevenue: 100,
-        totalDiscounts: 5,
-        totalRevenue: 95,
-        totalRefunds: 2,
-        netRevenue: 93,
-        orderCount: 4,
-        averageOrderValue: 23.75,
+  Future<SalesSummary> sales({String? startDate, String? endDate}) async {
+    if (failSales) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/reports/sales'),
+        type: DioExceptionType.connectionError,
       );
+    }
+    return const SalesSummary(
+      grossRevenue: 100,
+      totalDiscounts: 5,
+      totalRevenue: 95,
+      totalRefunds: 2,
+      netRevenue: 93,
+      orderCount: 4,
+      averageOrderValue: 23.75,
+    );
+  }
+
+  bool failSales = false;
 
   @override
   Future<List<TopProductItem>> topProducts({String? startDate, String? endDate, PaginationParams pagination = const PaginationParams(limit: 10)}) async => const [
@@ -227,5 +237,36 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('2026-08'), findsOneWidget);
+  });
+
+  testWidgets('failed sales summary shows a friendly error with retry', (
+    tester,
+  ) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    final fake = container.read(reportRepositoryProvider) as _FakeReports;
+    fake.failSales = true;
+    await _pump(tester, container);
+
+    await tester.scrollUntilVisible(
+      find.text('Could not reach the server. Is the backend running?'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.text('Could not reach the server. Is the backend running?'),
+      findsOneWidget,
+    );
+
+    fake.failSales = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Sales summary'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Sales summary'), findsOneWidget);
   });
 }

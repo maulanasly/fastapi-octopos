@@ -151,15 +151,18 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
                       labelText: s.of('appliesTo'),
                       isDense: true,
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'order', child: Text('order')),
+                    items: [
+                      DropdownMenuItem(
+                        value: 'order',
+                        child: Text(s.of('scopeOrder')),
+                      ),
                       DropdownMenuItem(
                         value: 'category',
-                        child: Text('category'),
+                        child: Text(s.of('scopeCategory')),
                       ),
                       DropdownMenuItem(
                         value: 'product',
-                        child: Text('product'),
+                        child: Text(s.of('scopeProduct')),
                       ),
                     ],
                     onChanged: (v) => setDialogState(() {
@@ -212,7 +215,7 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
       ),
     );
 
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     final body = <String, dynamic>{
       'code': code.text.trim(),
       'name': name.text.trim(),
@@ -237,6 +240,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
         await ref.read(promotionRepositoryProvider).update(promotion.id, body);
       }
       _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -269,6 +276,10 @@ class _PromotionsScreenState extends ConsumerState<PromotionsScreen> {
     try {
       await ref.read(promotionRepositoryProvider).deactivate(promotion.id);
       _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('deactivated'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

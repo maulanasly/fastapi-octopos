@@ -257,7 +257,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ? const Center(child: CircularProgressIndicator())
               : catalog.error != null
               ? ErrorStateView(
-                  message: s.of('genericError'),
+                  message: catalog.error!,
                   onRetry: () => ref
                       .read(catalogControllerProvider.notifier)
                       .refresh(),

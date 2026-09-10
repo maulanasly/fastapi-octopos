@@ -77,9 +77,15 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
                     labelText: s.of('taxScope'),
                     isDense: true,
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'order', child: Text('order')),
-                    DropdownMenuItem(value: 'product', child: Text('product')),
+                  items: [
+                    DropdownMenuItem(
+                      value: 'order',
+                      child: Text(s.of('scopeOrder')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'product',
+                      child: Text(s.of('scopeProduct')),
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => scope = v ?? 'order'),
                 ),
@@ -89,12 +95,15 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
                     labelText: s.of('taxMode'),
                     isDense: true,
                   ),
-                  items: const [
+                  items: [
                     DropdownMenuItem(
                       value: 'exclusive',
-                      child: Text('exclusive'),
+                      child: Text(s.of('modeExclusive')),
                     ),
-                    DropdownMenuItem(value: 'inclusive', child: Text('inclusive')),
+                    DropdownMenuItem(
+                      value: 'inclusive',
+                      child: Text(s.of('modeInclusive')),
+                    ),
                   ],
                   onChanged: (v) => setDialogState(() => mode = v ?? 'exclusive'),
                 ),
@@ -122,7 +131,7 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
         ),
       ),
     );
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     final parsedRate = double.tryParse(rate.text.trim());
     final body = <String, dynamic>{
       if (name.text.trim().isNotEmpty) 'name': name.text.trim(),
@@ -139,6 +148,10 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
         await repo.update(rule.id, body);
       }
       _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -169,10 +182,14 @@ class _TaxesScreenState extends ConsumerState<TaxesScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     try {
       await ref.read(taxRepositoryProvider).deactivate(rule.id);
       _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('deactivated'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
 import '../../core/dates.dart';
+import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
@@ -208,7 +209,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               }
               if (snapshot.hasError) {
                 return ErrorStateView(
-                  message: strings.of('genericError'),
+                  message: friendlyError(snapshot.error!, strings),
                   onRetry: () => setState(_load),
                 );
               }
@@ -486,7 +487,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               }
               if (snapshot.hasError) {
                 return ErrorStateView(
-                  message: strings.of('genericError'),
+                  message: friendlyError(snapshot.error!, strings),
                   onRetry: () => setState(_load),
                 );
               }
@@ -538,7 +539,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               }
               if (snapshot.hasError) {
                 return ErrorStateView(
-                  message: strings.of('genericError'),
+                  message: friendlyError(snapshot.error!, strings),
                   onRetry: () => setState(_load),
                 );
               }

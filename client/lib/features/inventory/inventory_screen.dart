@@ -204,7 +204,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       return ListTile(
                         dense: true,
                         title: Text(p.name),
-                        subtitle: Text('${p.sku} · ${p.stockQuantity} in stock'),
+                        subtitle: Text(
+                          '${p.sku} · ${s.of('inStock', args: {'count': p.stockQuantity})}',
+                        ),
                         onTap: () => Navigator.of(ctx).pop(p.id),
                       );
                     },

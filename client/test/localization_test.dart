@@ -139,6 +139,32 @@ void main() {
         'totallyMissing',
       );
     });
+
+    test('feedback and scope keys resolve in both languages', () {
+      final en = _stringsContainer('en');
+      addTearDown(en.dispose);
+      final es = en.read(stringsProvider);
+      expect(es.of('saved'), 'Saved');
+      expect(es.of('deactivated'), 'Deactivated');
+      expect(es.of('poNumber', args: {'id': 7}), 'PO #7');
+      expect(es.of('scopeOrder'), 'Order');
+      expect(es.of('scopeCategory'), 'Category');
+      expect(es.of('scopeProduct'), 'Product');
+      expect(es.of('modeExclusive'), 'Exclusive');
+      expect(es.of('modeInclusive'), 'Inclusive');
+
+      final id = _stringsContainer('id');
+      addTearDown(id.dispose);
+      final is_ = id.read(stringsProvider);
+      expect(is_.of('saved'), 'Disimpan');
+      expect(is_.of('deactivated'), 'Dinonaktifkan');
+      expect(is_.of('poNumber', args: {'id': 7}), 'PO #7');
+      expect(is_.of('scopeOrder'), 'Pesanan');
+      expect(is_.of('scopeCategory'), 'Kategori');
+      expect(is_.of('scopeProduct'), 'Produk');
+      expect(is_.of('modeExclusive'), 'Eksklusif');
+      expect(is_.of('modeInclusive'), 'Inklusif');
+    });
   });
 
   _authProfileTests();
