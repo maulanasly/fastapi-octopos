@@ -4,6 +4,8 @@
 /// the backend-aware message.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,7 @@ import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/pagination.dart';
+import 'package:octopos_client/core/skeletons.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/refunds/refund_screen.dart';
 
@@ -57,9 +60,20 @@ class _FakeRefunds extends OrderRepository {
   final bool failSubmit;
   List<Order> stored = [_order(1)];
   int submits = 0;
+  Completer<void>? gate;
 
   @override
-  Future<List<Order>> recentOrders({PaginationParams pagination = PaginationParams.recentOrders}) async => stored;
+  Future<List<Order>> recentOrders({
+    PaginationParams pagination = PaginationParams.recentOrders,
+    String? status,
+  }) async {
+    if (gate != null) await gate!.future;
+    var rows = stored;
+    if (status != null) {
+      rows = rows.where((o) => o.status == status).toList();
+    }
+    return rows.skip(pagination.offset).take(pagination.limit).toList();
+  }
 
   @override
   Future<Refund> createRefund({
@@ -114,6 +128,8 @@ void main() {
     await _pump(tester, container);
 
     await _selectOneUnit(tester);
+    expect(find.byTooltip('Decrease quantity'), findsOneWidget);
+    expect(find.byTooltip('Increase quantity'), findsOneWidget);
     await tester.tap(find.text('Refund selected items'));
     await tester.pumpAndSettle();
 
@@ -144,5 +160,29 @@ void main() {
     );
     expect(find.textContaining('boom'), findsNothing);
     expect(find.textContaining('Exception'), findsNothing);
+  });
+
+  testWidgets('loading shows a skeleton, not a bare spinner', (tester) async {
+    final fake = _FakeRefunds()..gate = Completer<void>();
+    final container = _container(fake);
+    addTearDown(container.dispose);
+    // No settle: the shimmer ticker schedules frames indefinitely
+    // while the gated load is pending.
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: RefundScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(OrderRowSkeleton), findsOneWidget);
+
+    fake.gate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OrderRowSkeleton), findsNothing);
+    expect(find.text('Order #1'), findsOneWidget);
   });
 }

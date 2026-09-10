@@ -109,10 +109,14 @@ class OrderRepository {
 
   Future<List<Order>> recentOrders({
     PaginationParams pagination = PaginationParams.recentOrders,
+    String? status,
   }) async {
     final resp = await api.dio.get<List<dynamic>>(
       '/orders/',
-      queryParameters: pagination.toQuery(),
+      queryParameters: {
+        ...pagination.toQuery(),
+        if (status case final s) 'status': s,
+      },
     );
     return resp.data!
         .map((e) => Order.fromJson(e as Map<String, dynamic>))

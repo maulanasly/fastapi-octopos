@@ -153,4 +153,26 @@ void main() {
       );
     });
   });
+
+  group('outboxRowErrorMessage', () {
+    test('maps stored codes and passes legacy text through', () {
+      final s = _strings();
+      expect(outboxRowErrorMessage(null, s), s.of('genericError'));
+      expect(outboxRowErrorMessage('', s), s.of('genericError'));
+      expect(outboxRowErrorMessage('http_404', s), s.of('notFound'));
+      expect(
+        outboxRowErrorMessage('http_422', s),
+        s.of('validationFailed'),
+      );
+      expect(outboxRowErrorMessage('http_500', s), s.of('genericError'));
+      expect(
+        outboxRowErrorMessage('unexpected_error', s),
+        s.of('genericError'),
+      );
+      expect(
+        outboxRowErrorMessage('some legacy raw text', s),
+        'some legacy raw text',
+      );
+    });
+  });
 }

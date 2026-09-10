@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/app_icons.dart';
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
+import '../../core/skeletons.dart';
 import '../../core/errors.dart';
 import '../../core/colors.dart';
 import '../../core/config.dart';
@@ -71,10 +72,11 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
                 prefixIcon: const Icon(AppIcons.search),
                 border: const OutlineInputBorder(),
                 isDense: true,
-                suffixIcon: _query.text.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
+                    suffixIcon: _query.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: s.of('clear'),
+                            icon: const Icon(Icons.clear),
                         onPressed: () {
                           _query.clear();
                           setState(() {
@@ -146,7 +148,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       );
     }
     if (catalog.loading) {
-      return const LoadingStateView();
+      return const ProductGridSkeleton();
     }
     if (catalog.error != null) {
       return ErrorStateView(

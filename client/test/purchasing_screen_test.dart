@@ -512,7 +512,7 @@ void main() {
     await tester.tap(find.text('Purchase orders'));
     await tester.pumpAndSettle();
 
-    expect(find.text('PO #11 · pending_review'), findsOneWidget);
+    expect(find.text('PO #11 · Pending review'), findsOneWidget);
   });
 
   testWidgets('creating a PO confirms with its id and links to the detail', (
@@ -637,7 +637,7 @@ void main() {
     await tester.tap(find.text('Purchase invoices'));
     await tester.pumpAndSettle();
 
-    expect(find.text('INV-001 · pending_review'), findsOneWidget);
+    expect(find.text('INV-001 · Pending review'), findsOneWidget);
   });
 
   testWidgets('review dialog sends review note on invoice approve', (tester) async {
@@ -685,7 +685,7 @@ void main() {
     await tester.tap(find.text('Supplier payments'));
     await tester.pumpAndSettle();
 
-    expect(find.text('#41 · pending_review'), findsOneWidget);
+    expect(find.text('#41 · Pending review'), findsOneWidget);
     expect(find.textContaining('100.00'), findsOneWidget);
   });
 
@@ -698,7 +698,7 @@ void main() {
     await tester.tap(find.text('Supplier payments'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#41 · pending_review'));
+    await tester.tap(find.text('#41 · Pending review'));
     await tester.pumpAndSettle();
     expect(find.text('Approve'), findsOneWidget);
 
@@ -721,7 +721,7 @@ void main() {
     await tester.tap(find.text('Supplier payments'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#41 · pending_review'));
+    await tester.tap(find.text('#41 · Pending review'));
     await tester.pumpAndSettle();
 
     expect(find.text('Approve'), findsNothing);

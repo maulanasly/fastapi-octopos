@@ -9,18 +9,19 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_repositories.dart';
 import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
+import '../../core/skeletons.dart';
 import '../../core/auth_controller.dart';
 import '../../core/branded_banner.dart';
 import '../../core/colors.dart';
-import '../../core/db/app_database.dart';
-import '../../core/db/database_provider.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/sync/connectivity_provider.dart';
+import '../../core/sync/outbox_providers.dart';
 import '../../core/sync/sync_service.dart';
+import 'failed_orders_dialog.dart';
 import '../drawer/drawer_controller.dart';
 import 'product_tile.dart';
 import 'cart_controller.dart';
@@ -47,8 +48,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final drawer = ref.watch(drawerControllerProvider);
     final isOnline = ref.watch(isOnlineProvider);
     // Pending outbox count
-    final pendingAsync = ref.watch(_pendingOutboxProvider);
+    final pendingAsync = ref.watch(pendingOutboxProvider);
     final pendingCount = pendingAsync.maybeWhen(data: (l) => l.length, orElse: () => 0);
+    final failedAsync = ref.watch(failedOutboxProvider);
+    final failedCount = failedAsync.maybeWhen(data: (l) => l.length, orElse: () => 0);
     // Restore the persisted draft once the catalog is available.
     ref.watch(cartRestoreProvider);
 
@@ -87,6 +90,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               TextButton(
                 onPressed: () => _retrySync(context),
                 child: Text(s.of('retry')),
+              ),
+            ],
+          ),
+        if (failedCount > 0)
+          BrandedBanner(
+            icon: AppIcons.error,
+            message: s.of('syncFailedOrders', args: {'count': failedCount}),
+            actions: [
+              TextButton(
+                onPressed: () => _showFailedOrders(context),
+                child: Text(s.of('viewDetails')),
               ),
             ],
           ),
@@ -254,7 +268,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ),
         Expanded(
           child: catalog.loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const ProductGridSkeleton()
               : catalog.error != null
               ? ErrorStateView(
                   message: catalog.error!,
@@ -485,12 +499,22 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(s.of('syncFailed'))),
+        SnackBar(content: Text(friendlyError(e, s))),
       );
     }
+  }
+
+  /// Shows the orders the sync engine gave up on, with per-row retry
+  /// (re-queues for the next run) and discard. 4xx rows fail again by
+  /// design, so discarding is a first-class action here, not a fallback.
+  Future<void> _showFailedOrders(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => const FailedOrdersDialog(),
+    );
   }
 
   Future<void> _checkout(BuildContext context) async {
@@ -506,7 +530,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       if (!context.mounted) return;
       // Canonical receipt route (top-level, deep-linkable); back returns
       // to POS with the cleared cart.
-      await context.push('/receipt/${result.id}');
+      await context.push('/receipt/${result.id}?from=/pos');
     }
   }
 }
@@ -539,51 +563,73 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
 
   Future<void> _register() async {
     final s = ref.read(stringsProvider);
+    // Owned by the dialog's exit animation: disposing here would race
+    // its final rebuilds (same convention as the other dialogs).
     final name = TextEditingController();
     final email = TextEditingController();
     final phone = TextEditingController();
+    String? nameError;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s.of('registerCustomer')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: name,
-              decoration: InputDecoration(labelText: s.of('name')),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(s.of('registerCustomer')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                decoration: InputDecoration(
+                  labelText: s.of('name'),
+                  errorText: nameError,
+                ),
+              ),
+              TextField(
+                controller: email,
+                decoration: InputDecoration(labelText: s.of('email')),
+              ),
+              TextField(
+                controller: phone,
+                decoration: InputDecoration(labelText: s.of('phone')),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(s.of('cancel')),
             ),
-            TextField(
-              controller: email,
-              decoration: InputDecoration(labelText: s.of('email')),
-            ),
-            TextField(
-              controller: phone,
-              decoration: InputDecoration(labelText: s.of('phone')),
+            FilledButton(
+              onPressed: () {
+                if (name.text.trim().isEmpty) {
+                  setDialogState(() => nameError = s.of('required'));
+                } else {
+                  Navigator.of(ctx).pop(true);
+                }
+              },
+              child: Text(s.of('create')),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(s.of('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(s.of('create')),
-          ),
-        ],
       ),
     );
-    if (ok != true) return;
-    final customer = await ref
-        .read(customerRepositoryProvider)
-        .create(
-          name: name.text.trim(),
-          email: email.text.trim().isEmpty ? null : email.text.trim(),
-          phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
+    if (ok != true || !mounted) return;
+    try {
+      final customer = await ref
+          .read(customerRepositoryProvider)
+          .create(
+            name: name.text.trim(),
+            email: email.text.trim().isEmpty ? null : email.text.trim(),
+            phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
+          );
+      if (mounted) Navigator.of(context).pop(_CustomerPickResult(customer));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, s))),
         );
-    if (mounted) Navigator.of(context).pop(_CustomerPickResult(customer));
+      }
+    }
   }
 
   @override
@@ -781,10 +827,6 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
   }
 }
 
-final _pendingOutboxProvider = StreamProvider<List<OutboxOrder>>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return (db.select(db.outboxOrders)..where((t) => t.status.equals('pending'))).watch();
-});
 
 /// Category chip tinted with the category's configured color.
 class _CategoryChip extends StatelessWidget {

@@ -431,7 +431,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  '${supplier?.name ?? '—'} · ${order.status}',
+                  '${supplier?.name ?? '—'} · ${purchaseStatusLabel(s, order.status)}',
                   style: Theme.of(ctx).textTheme.bodyMedium,
                 ),
               ),
@@ -972,7 +972,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('${invoice.invoiceNumber} · ${invoice.status}'),
+        title: Text(
+          '${invoice.invoiceNumber} · ${purchaseStatusLabel(s, invoice.status)}',
+        ),
         content: SizedBox(
           width: dialogWidth(context),
           child: Column(
@@ -1322,7 +1324,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('#${payment.id} · ${payment.status}'),
+        title: Text(
+          '#${payment.id} · ${purchaseStatusLabel(s, payment.status)}',
+        ),
         content: SizedBox(
           width: dialogWidth(context),
           child: Column(
@@ -1668,7 +1672,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                     leading: Icon(_ledgerIcon(entry.kind), size: 18),
                     title: Text(entry.reference ?? '#${entry.id}'),
                     subtitle: Text(
-                      '${entry.kind} · ${entry.status}'
+                      '${ledgerKindLabel(s, entry.kind)} · ${purchaseStatusLabel(s, entry.status)}'
                       '${entry.date != null ? ' · ${formatDateTimeIso(entry.date)}' : ''}',
                     ),
                     trailing: Text(formatCents(centsFromApi(entry.amount))),
@@ -1801,7 +1805,7 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 margin: EdgeInsets.zero,
                 child: ListTile(
                   title: Text(
-                    '${s.of('poNumber', args: {'id': order.id})} · ${order.status}',
+                    '${s.of('poNumber', args: {'id': order.id})} · ${purchaseStatusLabel(s, order.status)}',
                   ),
                   subtitle: Text(
                     '${order.items.length} ${s.of('itemsCount', args: {'count': order.items.length})} · '
@@ -1874,10 +1878,10 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                 margin: EdgeInsets.zero,
                 child: ListTile(
                   title: Text(
-                    '${invoice.invoiceNumber} · ${invoice.status}',
+                    '${invoice.invoiceNumber} · ${purchaseStatusLabel(s, invoice.status)}',
                   ),
                   subtitle: Text(
-                    'PO #${invoice.purchaseOrderId} · '
+                    '${s.of('poNumber', args: {'id': invoice.purchaseOrderId})} · '
                     '${formatCents(centsFromApi(invoice.totalAmount))}'
                     '${(invoice.hasQuantityVariance || invoice.hasPriceVariance) ? ' · ${s.of('variance')}' : ''}',
                   ),
@@ -1916,7 +1920,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  title: Text('#${payment.id} · ${payment.status}'),
+                  title: Text(
+                    '#${payment.id} · ${purchaseStatusLabel(s, payment.status)}',
+                  ),
                   subtitle: Text(
                     '${s.of('invoiceNumber')} #${payment.invoiceId} · '
                     '${formatCents(centsFromApi(payment.amount))} · '
@@ -1952,3 +1958,24 @@ String paymentMethodLabel(AppStrings s, String method) {
       return s.of('payCash');
   }
 }
+
+/// Localized label for a purchase order / invoice / payment status code.
+String purchaseStatusLabel(AppStrings s, String status) => switch (status) {
+  'draft' => s.of('statusDraft'),
+  'pending_review' => s.of('pendingReview'),
+  'ordered' => s.of('statusOrdered'),
+  'partially_received' => s.of('statusPartiallyReceived'),
+  'received' => s.of('qtyReceived'),
+  'cancelled' => s.of('statusCancelled'),
+  'rejected' => s.of('statusRejected'),
+  'approved' => s.of('statusApproved'),
+  _ => status,
+};
+
+/// Localized label for a supplier-ledger entry kind.
+String ledgerKindLabel(AppStrings s, String kind) => switch (kind) {
+  'purchase_order' => s.of('ledgerKindOrder'),
+  'invoice' => s.of('ledgerKindInvoice'),
+  'payment' => s.of('ledgerKindPayment'),
+  _ => kind,
+};

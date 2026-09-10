@@ -165,6 +165,46 @@ void main() {
       expect(is_.of('modeExclusive'), 'Eksklusif');
       expect(is_.of('modeInclusive'), 'Inklusif');
     });
+
+    test('status, movement, and help keys resolve in both languages', () {
+      final en = _stringsContainer('en');
+      addTearDown(en.dispose);
+      final es = en.read(stringsProvider);
+      expect(es.of('statusDraft'), 'Draft');
+      expect(es.of('statusOrdered'), 'Ordered');
+      expect(
+        es.of('statusPartiallyReceived'),
+        'Partially received',
+      );
+      expect(es.of('statusRejected'), 'Rejected');
+      expect(es.of('statusApproved'), 'Approved');
+      expect(es.of('movementSale'), 'Sale');
+      expect(es.of('movementManualAdjust'), 'Manual adjustment');
+      expect(es.of('ledgerKindOrder'), 'Purchase order');
+      expect(es.of('refundNumber', args: {'id': 3}), 'Refund #3');
+      expect(es.of('reorderAt', args: {'point': 5}), 'reorder at 5');
+      expect(es.of('helpStepCartHint'), contains('Guest'));
+      expect(es.of('tipsOffline'), contains('Offline:'));
+
+      final id = _stringsContainer('id');
+      addTearDown(id.dispose);
+      final is_ = id.read(stringsProvider);
+      expect(is_.of('statusDraft'), 'Draf');
+      expect(is_.of('statusOrdered'), 'Dipesan');
+      expect(
+        is_.of('statusPartiallyReceived'),
+        'Diterima sebagian',
+      );
+      expect(is_.of('statusRejected'), 'Ditolak');
+      expect(is_.of('statusApproved'), 'Disetujui');
+      expect(is_.of('movementSale'), 'Penjualan');
+      expect(is_.of('movementManualAdjust'), 'Penyesuaian manual');
+      expect(is_.of('ledgerKindOrder'), 'Pesanan pembelian');
+      expect(is_.of('refundNumber', args: {'id': 3}), 'Refund #3');
+      expect(is_.of('reorderAt', args: {'point': 5}), 'restok di 5');
+      expect(is_.of('helpStepCartHint'), contains('Tamu'));
+      expect(is_.of('tipsOffline'), contains('Offline:'));
+    });
   });
 
   _authProfileTests();

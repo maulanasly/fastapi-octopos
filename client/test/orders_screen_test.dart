@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,7 @@ import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/localization_controller.dart';
 import 'package:octopos_client/core/models.dart';
 import 'package:octopos_client/core/pagination.dart';
+import 'package:octopos_client/core/skeletons.dart';
 import 'package:octopos_client/core/token_store.dart';
 import 'package:octopos_client/features/orders/orders_screen.dart';
 import 'package:octopos_client/features/pos/receipt_screen.dart';
@@ -52,9 +55,22 @@ class _FakeOrders extends OrderRepository {
 
   List<Order> stored = [_order(1, 'completed'), _order(2, 'pending')];
   int cancelCount = 0;
+  bool failAll = false;
+  Completer<void>? gate;
 
   @override
-  Future<List<Order>> recentOrders({PaginationParams pagination = PaginationParams.recentOrders}) async => stored;
+  Future<List<Order>> recentOrders({
+    PaginationParams pagination = PaginationParams.recentOrders,
+    String? status,
+  }) async {
+    if (failAll) throw Exception('boom');
+    if (gate != null) await gate!.future;
+    var rows = stored;
+    if (status != null) {
+      rows = rows.where((o) => o.status == status).toList();
+    }
+    return rows.skip(pagination.offset).take(pagination.limit).toList();
+  }
 
   @override
   Future<Order> cancel(int orderId) async {
@@ -86,10 +102,10 @@ class _FakeOrders extends OrderRepository {
   );
 }
 
-ProviderContainer _container() => ProviderContainer(
+ProviderContainer _container({_FakeOrders? orders}) => ProviderContainer(
   overrides: [
     localizationControllerProvider.overrideWith(_FixedLanguageLocalization.new),
-    orderRepositoryProvider.overrideWithValue(_FakeOrders()),
+    orderRepositoryProvider.overrideWithValue(orders ?? _FakeOrders()),
   ],
 );
 
@@ -196,5 +212,88 @@ void main() {
       reason: 'receipt screen shown',
     );
     expect(find.textContaining('Order #1'), findsWidgets);
+  });
+
+  testWidgets('load more appends the next page', (tester) async {
+    final fake = _FakeOrders()
+      ..stored = [
+        for (var i = 1; i <= 55; i++) _order(i, 'pending'),
+        _order(100, 'completed'),
+      ];
+    final container = _container(orders: fake);
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    expect(find.text('Order #50'), findsOneWidget);
+    expect(find.text('Order #51'), findsNothing);
+    expect(find.text('Load more (50 shown)'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Load more (50 shown)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Load more (50 shown)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order #51'), findsOneWidget);
+    expect(find.text('Order #55'), findsOneWidget);
+    expect(find.textContaining('Load more'), findsNothing);
+  });
+
+  testWidgets('failed load shows an error with retry', (tester) async {
+    final fake = _FakeOrders()..failAll = true;
+    final container = _container(orders: fake);
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    expect(
+      find.text('Something went wrong. Please try again.'),
+      findsOneWidget,
+    );
+
+    fake.failAll = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order #1'), findsOneWidget);
+    expect(find.text('Order #2'), findsOneWidget);
+  });
+
+  testWidgets('loading shows a skeleton, not a bare spinner', (tester) async {
+    final fake = _FakeOrders()..gate = Completer<void>();
+    final container = _container(orders: fake);
+    addTearDown(container.dispose);
+    // No settle: the shimmer ticker schedules frames indefinitely
+    // while the gated load is pending.
+    final router = GoRouter(
+      initialLocation: '/orders',
+      routes: [
+        GoRoute(
+          path: '/orders',
+          builder: (context, state) => const OrdersScreen(),
+        ),
+        GoRoute(
+          path: '/receipt/:orderId',
+          builder: (context, state) => ReceiptScreen(
+            orderId: int.parse(state.pathParameters['orderId']!),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(OrderRowSkeleton), findsOneWidget);
+
+    fake.gate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OrderRowSkeleton), findsNothing);
+    expect(find.text('Order #1'), findsOneWidget);
   });
 }

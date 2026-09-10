@@ -17,9 +17,14 @@ import '../../core/models.dart';
 import 'print_stub.dart' if (dart.library.js_interop) 'print_web.dart';
 
 class ReceiptScreen extends ConsumerStatefulWidget {
-  const ReceiptScreen({super.key, required this.orderId});
+  const ReceiptScreen({super.key, required this.orderId, this.from});
 
   final int orderId;
+
+  /// Where to land when there is nothing to pop (cold-started deep link
+  /// shared from another screen, e.g. `?from=/orders`). Unsafe values
+  /// fall back to POS.
+  final String? from;
 
   @override
   ConsumerState<ReceiptScreen> createState() => _ReceiptScreenState();
@@ -34,12 +39,23 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     _future = ref.read(orderRepositoryProvider).receipt(widget.orderId);
   }
 
-  /// Closes the receipt. Pushed flows pop back to their opener;
-  /// a cold-started deep link has nothing to pop, so it lands on POS
-  /// (open to every signed-in role) instead of stranding the user.
+  /// Closes the receipt. Pushed flows pop back to their opener; a
+  /// cold-started deep link has nothing to pop, so it returns to the
+  /// recorded origin when safe, else lands on POS (open to every
+  /// signed-in role) instead of stranding the user.
   void _close(BuildContext context) {
     if (context.canPop()) {
       context.pop();
+      return;
+    }
+    final from = widget.from;
+    if (from != null &&
+        from.startsWith('/') &&
+        !from.startsWith('/receipt') &&
+        from != '/login' &&
+        from != '/splash') {
+      // The router's permission gate still applies on arrival.
+      context.go(from);
     } else {
       context.go('/pos');
     }

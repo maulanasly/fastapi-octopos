@@ -224,6 +224,12 @@ class AppDatabase extends _$AppDatabase {
   Future<List<OutboxOrder>> pendingOrders() =>
       (select(outboxOrders)..where((t) => t.status.equals('pending'))).get();
 
+  Future<List<OutboxOrder>> failedOrders() =>
+      (select(outboxOrders)..where((t) => t.status.equals('failed'))).get();
+
+  Stream<List<OutboxOrder>> watchFailedOrders() =>
+      (select(outboxOrders)..where((t) => t.status.equals('failed'))).watch();
+
   Future<void> markOrderStatus(int id, String status, {String? error}) async {
     await (update(outboxOrders)..where((t) => t.id.equals(id))).write(
       OutboxOrdersCompanion(

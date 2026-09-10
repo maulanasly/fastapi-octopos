@@ -239,6 +239,7 @@ void main() {
     );
     expect(find.textContaining('COGS estimate'), findsOneWidget);
     expect(find.text('Acme Supply'), findsOneWidget);
+    expect(find.byTooltip('Refresh'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text('Purchase variance trend'),

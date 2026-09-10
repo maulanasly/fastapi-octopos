@@ -7,12 +7,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/async_views.dart';
+import '../../core/skeletons.dart';
 import '../../core/dates.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/octo_table.dart';
+import '../../core/pagination.dart';
 import '../../core/strings.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
@@ -23,22 +25,68 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
+  static const _pageSize = 50;
+
   String? _statusFilter;
-  late Future<List<Order>> _future;
+  List<Order> _orders = [];
+  int _offset = 0;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  late Future<void> _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _future = _loadFirst();
   }
 
-  Future<List<Order>> _load() =>
-      ref.read(orderRepositoryProvider).recentOrders();
+  Future<List<Order>> _fetchPage(int offset, String? status) =>
+      ref.read(orderRepositoryProvider).recentOrders(
+        pagination: PaginationParams(limit: _pageSize, offset: offset),
+        status: status,
+      );
+
+  Future<void> _loadFirst() async {
+    final rows = await _fetchPage(0, _statusFilter);
+    if (!mounted) return;
+    setState(() {
+      _orders = rows;
+      _offset = rows.length;
+      _hasMore = rows.length == _pageSize;
+    });
+  }
 
   void _reload() {
     setState(() {
-      _future = _load();
+      _orders = [];
+      _offset = 0;
+      _hasMore = false;
+      _loadingMore = false;
+      _future = _loadFirst();
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final rows = await _fetchPage(_offset, _statusFilter);
+      if (!mounted) return;
+      setState(() {
+        _orders = [..._orders, ...rows];
+        _offset += rows.length;
+        _hasMore = rows.length == _pageSize;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyError(e, ref.read(stringsProvider))),
+        ),
+      );
+    }
   }
 
   Future<void> _cancel(Order order) async {
@@ -81,7 +129,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   void _reprint(Order order) {
     // Canonical receipt route (top-level, deep-linkable); back returns
     // to this order list.
-    context.push('/receipt/${order.id}');
+    context.push('/receipt/${order.id}?from=/orders');
   }
 
   @override
@@ -136,11 +184,11 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             ),
           ),
           Expanded(
-            child: FutureBuilder<List<Order>>(
+            child: FutureBuilder<void>(
               future: _future,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const LoadingStateView();
+                  return const OrderRowSkeleton();
                 }
                 if (snapshot.hasError) {
                   return ErrorStateView(
@@ -148,10 +196,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     onRetry: _reload,
                   );
                 }
-                final all = snapshot.data ?? [];
-                final visible = _statusFilter == null
-                    ? all
-                    : all.where((o) => o.status == _statusFilter).toList();
+                // Rows arrive server-filtered and server-paged; the list
+                // below only appends.
+                final visible = _orders;
                 if (visible.isEmpty) {
                   return BrandedEmptyState(
                     message: s.of('noOrdersHint'),
@@ -159,9 +206,15 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     title: s.of('noOrders'),
                   );
                 }
-                return RefreshIndicator(
-                  onRefresh: () async => _reload(),
-                  child: OctoResponsiveTable(
+                return Column(
+                  children: [
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () async {
+                          _reload();
+                          await _future;
+                        },
+                        child: OctoResponsiveTable(
                     columns: [
                       OctoTableColumn(s.of('orderHeader'), flex: 2),
                       OctoTableColumn(s.of('date'), flex: 2),
@@ -221,14 +274,38 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                     cardBuilder: (context, i) =>
                         _orderTile(context, visible[i]),
                   ),
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+              ),
+              if (_hasMore || _loadingMore)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: _loadingMore
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton(
+                          onPressed: _loadMore,
+                          child: Text(
+                            s.of(
+                              'loadMore',
+                              args: {'count': visible.length},
+                            ),
+                          ),
+                        ),
+                ),
+            ],
+          );
+        },
       ),
-    );
-  }
+    ),
+  ],
+),
+);
+}
 
   Widget _filterChip(
     AppStrings s,
@@ -242,7 +319,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         key: Key(keyName),
         label: Text(label),
         selected: _statusFilter == value,
-        onSelected: (_) => setState(() => _statusFilter = value),
+        onSelected: (_) {
+          setState(() => _statusFilter = value);
+          _reload();
+        },
       ),
     );
   }

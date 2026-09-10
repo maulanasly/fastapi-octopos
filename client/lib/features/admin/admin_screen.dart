@@ -120,7 +120,9 @@ class _AuditTabState extends ConsumerState<_AuditTab> {
                   return ListTile(
                     dense: true,
                     leading: const Icon(Icons.history, size: 20),
-                    title: Text('${e.action} · user ${e.userId ?? '-'}'),
+                    title: Text(
+                      '${e.action.replaceAll('_', ' ')} · user ${e.userId ?? '-'}',
+                    ),
                     subtitle: Text(
                       '${formatDateTimeIso(e.createdAt)}'
                       '${e.resourceType != null ? ' · ${e.resourceType}#${e.resourceId ?? '?'}' : ''}'
