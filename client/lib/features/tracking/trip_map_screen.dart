@@ -168,30 +168,45 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
       ('on_site', s.of('statusOnSite')),
     ];
     final current = steps.indexWhere((e) => e.$1 == trip.trackingStatus);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
-      child: Row(
-        children: [
-          for (var i = 0; i < steps.length; i++) ...[
-            Icon(
-              i <= current ? AppIcons.checkCircle : Icons.radio_button_unchecked,
-              color: i <= current
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                steps[i].$2,
-                style: TextStyle(
-                  fontWeight: i == current ? FontWeight.bold : FontWeight.normal,
-                ),
+    final stepper = Row(
+      children: [
+        for (var i = 0; i < steps.length; i++) ...[
+          Icon(
+            i <= current
+                ? AppIcons.checkCircle
+                : Icons.radio_button_unchecked,
+            color: i <= current
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              steps[i].$2,
+              style: TextStyle(
+                fontWeight: i == current ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            if (i < steps.length - 1) const SizedBox(width: AppSpacing.xs),
-          ],
+          ),
+          if (i < steps.length - 1) const SizedBox(width: AppSpacing.xs),
         ],
-      ),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
+      child: current >= 0
+          ? stepper
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                stepper,
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  s.of('trackingNotStarted'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
     );
   }
 
@@ -238,11 +253,11 @@ class _TripMapScreenState extends ConsumerState<TripMapScreen> {
         lat: position.latitude,
         lng: position.longitude,
       );
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         final strings = ref.read(stringsProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(strings.of('locationUnavailable'))),
+          SnackBar(content: Text(locationErrorMessage(e, strings))),
         );
       }
     } finally {

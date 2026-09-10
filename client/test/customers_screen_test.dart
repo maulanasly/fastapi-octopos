@@ -5,6 +5,7 @@ library;
 
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,9 +46,18 @@ class _FakeCustomers extends CustomerRepository {
   ];
   Completer<void>? gate;
   int creates = 0;
+  bool failList = false;
 
   @override
-  Future<List<Customer>> list() async => stored;
+  Future<List<Customer>> list() async {
+    if (failList) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/customers/'),
+        type: DioExceptionType.connectionError,
+      );
+    }
+    return stored;
+  }
 
   @override
   Future<Customer> create({
@@ -105,11 +115,40 @@ void main() {
     await tester.pumpAndSettle();
 
     await _startCreate(tester);
-    await tester.pumpAndSettle();
+    // Let the SnackBar land, but don't settle past its 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(fake.creates, 1);
     expect(tester.takeException(), isNull);
+    expect(find.text('Saved'), findsOneWidget);
     expect(find.text('Bob'), findsOneWidget);
+  });
+
+  testWidgets('failed load shows a friendly error with retry', (
+    tester,
+  ) async {
+    final fake = _FakeCustomers()..failList = true;
+    final container = _container(fake);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: CustomersScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Could not reach the server. Is the backend running?'),
+      findsOneWidget,
+    );
+
+    fake.failList = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ada'), findsOneWidget);
   });
 
   testWidgets('navigating away mid-save does not crash', (tester) async {

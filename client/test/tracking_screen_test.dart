@@ -214,4 +214,30 @@ void main() {
     expect(find.text('Order #7 → On site'), findsOneWidget);
     await _dispose(tester, container);
   });
+
+  testWidgets('trip map with unresolved status explains itself', (
+    tester,
+  ) async {
+    final repo = _FakeTracking();
+    final container = _container(repo: repo);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(
+          home: TripMapScreen(
+            trip: TrackedOrder(
+              orderId: 8,
+              status: 'completed',
+              trackingStatus: 'none',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not yet tracked'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await _dispose(tester, container);
+  });
 }

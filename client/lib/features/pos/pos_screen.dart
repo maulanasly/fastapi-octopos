@@ -257,7 +257,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               ? const Center(child: CircularProgressIndicator())
               : catalog.error != null
               ? ErrorStateView(
-                  message: s.of('genericError'),
+                  message: catalog.error!,
                   onRetry: () => ref
                       .read(catalogControllerProvider.notifier)
                       .refresh(),
@@ -631,6 +631,14 @@ class _CustomerPickerDialogState extends ConsumerState<CustomerPickerDialog> {
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
                     return const LoadingStateView();
+                  }
+                  if (snapshot.hasError) {
+                    return ErrorStateView(
+                      message: friendlyError(snapshot.error!, s),
+                      onRetry: () => setState(() {
+                        _future = ref.read(customerRepositoryProvider).list();
+                      }),
+                    );
                   }
                   final all = snapshot.data ?? [];
                   final customers = _query.isEmpty

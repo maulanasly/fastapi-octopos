@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,8 @@ import 'package:octopos_client/features/pos/pos_screen.dart';
 
 class _FakeCustomers extends CustomerRepository {
   _FakeCustomers(super.api);
+
+  bool failList = false;
 
   final List<Customer> stored = [
     const Customer(
@@ -29,7 +32,15 @@ class _FakeCustomers extends CustomerRepository {
   ];
 
   @override
-  Future<List<Customer>> list() async => stored;
+  Future<List<Customer>> list() async {
+    if (failList) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '/customers/'),
+        type: DioExceptionType.connectionError,
+      );
+    }
+    return stored;
+  }
 
   @override
   Future<Customer> create({
@@ -178,5 +189,41 @@ void main() {
     expect(picked, isNotNull);
     expect(picked.customer, isNotNull);
     expect(picked.customer.name, 'Carol');
+  });
+
+  testWidgets('failed load shows a friendly error with retry', (tester) async {
+    // Tall viewport: the dialog caps at 60% of the height and the full
+    // ErrorStateView would otherwise overflow a 600px surface,
+    // pushing Retry off-screen.
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(800, 1200);
+    addTearDown(tester.view.reset);
+    final fake = _FakeCustomers(
+      ApiClient(store: TokenStore(), onSessionExpired: () {}),
+    )..failList = true;
+    final container = ProviderContainer(
+      overrides: [
+        localizationControllerProvider.overrideWith(
+          _FixedLanguageLocalization.new,
+        ),
+        customerRepositoryProvider.overrideWithValue(fake),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    dynamic picked;
+    await _pumpPickerHost(tester, container, (r) => picked = r);
+
+    expect(
+      find.text('Could not reach the server. Is the backend running?'),
+      findsOneWidget,
+    );
+
+    fake.failList = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice'), findsOneWidget);
+    expect(picked, isNull);
   });
 }

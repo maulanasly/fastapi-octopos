@@ -150,7 +150,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
     }
     if (catalog.error != null) {
       return ErrorStateView(
-        message: s.of('genericError'),
+        message: catalog.error!,
         onRetry: () => ref.read(catalogControllerProvider.notifier).refresh(),
       );
     }
@@ -327,7 +327,7 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
       ),
     );
 
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     final body = {
       'name': name.text.trim(),
       'sku': sku.text.trim(),
@@ -344,6 +344,10 @@ class _ProductsScreenState extends ConsumerState<ProductsScreen> {
             .updateProduct(product.id, body);
       }
       await ref.read(catalogControllerProvider.notifier).refresh();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -422,6 +426,7 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
   }
 
   Future<void> _create() async {
+    final s = ref.read(stringsProvider);
     final name = _name.text.trim();
     if (name.isEmpty) return;
     try {
@@ -431,6 +436,10 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
       _name.clear();
       setState(() => _color = null);
       await ref.read(catalogControllerProvider.notifier).refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -476,10 +485,23 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
       ),
     );
     if (chosen == null || !mounted) return;
-    await ref
-        .read(catalogRepositoryProvider)
-        .updateCategoryColor(category.id, chosen.isEmpty ? null : chosen);
-    await ref.read(catalogControllerProvider.notifier).refresh();
+    final s = ref.read(stringsProvider);
+    try {
+      await ref
+          .read(catalogRepositoryProvider)
+          .updateCategoryColor(category.id, chosen.isEmpty ? null : chosen);
+      await ref.read(catalogControllerProvider.notifier).refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e, s))),
+        );
+      }
+    }
   }
 
   @override
@@ -574,21 +596,22 @@ class _CategoriesDialogState extends ConsumerState<CategoriesDialog> {
   }
 }
 
-class _ProductTile extends StatelessWidget {
+class _ProductTile extends ConsumerWidget {
   const _ProductTile({required this.product, required this.onTap});
 
   final Product product;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(stringsProvider);
     final color = product.category?.color;
     return ListTile(
       leading: _ProductThumb(product: product),
       title: Text(product.name),
       subtitle: Text(
         '${product.sku} · ${formatCents(product.priceCents)} · '
-        '${product.stockQuantity} in stock',
+        '${s.of('inStock', args: {'count': product.stockQuantity})}',
       ),
       trailing: color == null
           ? null

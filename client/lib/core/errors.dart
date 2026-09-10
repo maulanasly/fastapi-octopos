@@ -6,6 +6,7 @@
 library;
 
 import 'package:dio/dio.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'strings.dart';
 
@@ -50,6 +51,19 @@ String friendlyError(Object error, AppStrings strings) {
     return strings.of('genericError');
   }
   return strings.of('genericError');
+}
+
+/// Maps a geolocation failure to a message that tells the user how to
+/// fix it: denied permission and disabled services need different
+/// action than a transient outage.
+String locationErrorMessage(Object error, AppStrings strings) {
+  if (error is PermissionDeniedException) {
+    return strings.of('locationPermissionDenied');
+  }
+  if (error is LocationServiceDisabledException) {
+    return strings.of('locationServiceDisabled');
+  }
+  return strings.of('locationUnavailable');
 }
 
 String? _detailFrom(DioException error) {

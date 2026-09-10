@@ -105,8 +105,11 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Tax name'), 'GST');
     await tester.enterText(find.widgetWithText(TextField, 'Rate'), '10');
     await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
+    // Let the SnackBar land, but don't settle past its 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     expect(fake.created, isTrue);
+    expect(find.text('Saved'), findsOneWidget);
   });
 }

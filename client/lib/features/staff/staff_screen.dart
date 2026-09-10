@@ -92,13 +92,14 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         ],
       ),
     );
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     try {
       final created = await ref.read(staffRepositoryProvider).createUser(
         email: email.text.trim(),
         fullName: fullName.text.trim().isEmpty ? null : fullName.text.trim(),
         password: password.text,
       );
+      if (!mounted) return;
       _reload();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,13 +172,14 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         ),
       ),
     );
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     try {
       await ref.read(staffRepositoryProvider).updateUser(user.id, {
         if (fullName.text.trim().isNotEmpty) 'full_name': fullName.text.trim(),
         if (password.text.isNotEmpty) 'password': password.text,
         'is_active': isActive,
       });
+      if (!mounted) return;
       _reload();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -214,11 +216,12 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     try {
       await ref.read(staffRepositoryProvider).updateUser(user.id, {
         'is_active': false,
       });
+      if (!mounted) return;
       _reload();
     } catch (e) {
       if (mounted) {
@@ -283,13 +286,14 @@ class _StaffScreenState extends ConsumerState<StaffScreen> {
         ),
       ),
     );
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
     try {
       final roleIds = roles
           .where((r) => selected.contains(r.name))
           .map((r) => r.id)
           .toList();
       await ref.read(rbacAdminRepositoryProvider).assignRoles(user.id, roleIds);
+      if (!mounted) return;
       _reload();
     } catch (e) {
       if (mounted) {

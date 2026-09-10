@@ -204,7 +204,9 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       return ListTile(
                         dense: true,
                         title: Text(p.name),
-                        subtitle: Text('${p.sku} · ${p.stockQuantity} in stock'),
+                        subtitle: Text(
+                          '${p.sku} · ${s.of('inStock', args: {'count': p.stockQuantity})}',
+                        ),
                         onTap: () => Navigator.of(ctx).pop(p.id),
                       );
                     },
@@ -627,15 +629,25 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
         }
         final hasMore = movements.length >= _movementsLimit;
         return RefreshIndicator(
-          onRefresh: () async => setState(_reload),
+          onRefresh: () async {
+            setState(_reload);
+            // Hold the indicator until the reloaded futures settle so
+            // failures land in the FutureBuilders' error states instead
+            // of vanishing with an early dismiss.
+            try {
+              await Future.wait([_movements, _suggestions]);
+            } catch (_) {
+              // Errors surface in the FutureBuilders below.
+            }
+          },
           child: Column(
             children: [
               Expanded(
                 child: OctoResponsiveTable(
                   columns: [
-                    const OctoTableColumn('Product', flex: 2),
-                    const OctoTableColumn('Type'),
-                    const OctoTableColumn('Qty', numeric: true),
+                    OctoTableColumn(s.of('productHeader'), flex: 2),
+                    OctoTableColumn(s.of('typeHeader')),
+                    OctoTableColumn(s.of('qtyHeader'), numeric: true),
                     OctoTableColumn(s.of('date')),
                   ],
                   rows: [
@@ -779,7 +791,14 @@ Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
         ),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async => setState(_reload),
+            onRefresh: () async {
+              setState(_reload);
+              try {
+                await Future.wait([_movements, _suggestions]);
+              } catch (_) {
+                // Errors surface in the FutureBuilders below.
+              }
+            },
             child: FutureBuilder<List<ReplenishmentSuggestion>>(
               future: _suggestions,
               builder: (context, snapshot) {
@@ -1091,7 +1110,8 @@ Widget _movementTile(BuildContext context, AppStrings s, StockMovement m) {
   }
 
   String _productName(int productId) =>
-      _rows[productId]?.name ?? '#$productId';
+      _rows[productId]?.name ??
+      ref.read(stringsProvider).of('productId', args: {'id': productId});
 }
 
 class _SuggestionRow {

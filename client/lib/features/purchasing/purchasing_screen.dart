@@ -444,7 +444,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        title: Text('Product #${item.productId}'),
+                        title: Text(
+                          s.of('productId', args: {'id': item.productId}),
+                        ),
                         subtitle: Text(
                           '${s.of('qtyOrdered')}: ${item.quantityOrdered} · '
                           '${s.of('qtyReceived')}: ${item.quantityReceived} · '
@@ -1009,7 +1011,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
                       ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        title: Text('Product #${item.productId}'),
+                        title: Text(
+                          s.of('productId', args: {'id': item.productId}),
+                        ),
                         subtitle: Text(
                           '${s.of('billed')}: ${item.billedQuantity} × '
                           '${formatCents(centsFromApi(item.billedUnitCost))}',
@@ -1796,7 +1800,9 @@ class _PurchasingScreenState extends ConsumerState<PurchasingScreen> {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  title: Text('PO #${order.id} · ${order.status}'),
+                  title: Text(
+                    '${s.of('poNumber', args: {'id': order.id})} · ${order.status}',
+                  ),
                   subtitle: Text(
                     '${order.items.length} ${s.of('itemsCount', args: {'count': order.items.length})} · '
                     '${formatCents(centsFromApi(order.totalEstimatedAmount))}'

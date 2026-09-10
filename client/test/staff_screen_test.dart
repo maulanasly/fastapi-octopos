@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:octopos_client/core/api_client.dart';
 import 'package:octopos_client/core/api_repositories.dart';
 import 'package:octopos_client/core/auth_controller.dart';
@@ -61,6 +64,7 @@ class _FakeStaff extends StaffRepository {
   ];
 
   bool created = false;
+  Completer<void>? gate;
 
   @override
   Future<List<UserProfile>> users() async => List.of(staff);
@@ -71,6 +75,7 @@ class _FakeStaff extends StaffRepository {
     String? fullName,
     required String password,
   }) async {
+    if (gate != null) await gate!.future;
     created = true;
     return UserProfile(
       id: 99,
@@ -173,5 +178,63 @@ void main() {
     expect(find.text('Assign roles'), findsOneWidget);
     expect(find.text('cashier'), findsWidgets);
     expect(find.text('manager'), findsOneWidget);
+  });
+
+  testWidgets('navigating away mid-create does not crash', (tester) async {
+    final staff = _FakeStaff()..gate = Completer<void>();
+    final container = ProviderContainer(
+      overrides: [
+        localizationControllerProvider.overrideWith(
+          _FixedLanguageLocalization.new,
+        ),
+        authControllerProvider.overrideWith(_FakeAuth.new),
+        staffRepositoryProvider.overrideWithValue(staff),
+        rbacAdminRepositoryProvider.overrideWithValue(_FakeRbacAdmin()),
+      ],
+    );
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      initialLocation: '/staff',
+      routes: [
+        GoRoute(
+          path: '/staff',
+          builder: (context, state) => const StaffScreen(),
+        ),
+        GoRoute(
+          path: '/other',
+          builder: (context, state) => const Text('other'),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Email'),
+      'newbie@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Password'),
+      'Secret123',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    // Leave while the create is still in flight.
+    router.go('/other');
+    await tester.pumpAndSettle();
+    staff.gate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(staff.created, isTrue);
+    expect(tester.takeException(), isNull);
+    expect(find.text('other'), findsOneWidget);
   });
 }

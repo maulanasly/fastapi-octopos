@@ -53,9 +53,26 @@ class _FakePromotions extends PromotionRepository {
     ),
   ];
   int deactivated = 0;
+  int created = 0;
 
   @override
   Future<List<Promotion>> list() async => stored;
+
+  @override
+  Future<Promotion> create(Map<String, dynamic> body) async {
+    created++;
+    return Promotion(
+      id: 3,
+      code: (body['code'] ?? '') as String,
+      name: (body['name'] ?? '') as String,
+      discountType: (body['discount_type'] ?? 'percentage') as String,
+      discountValue: ((body['discount_value'] ?? 0) as num).toDouble(),
+      minOrderAmount: 0,
+      appliesTo: (body['applies_to'] ?? 'order') as String,
+      isActive: true,
+      usageCount: 0,
+    );
+  }
 
   @override
   Future<void> deactivate(int id) async {
@@ -123,11 +140,14 @@ void main() {
     await tester.tap(find.byIcon(Icons.remove_circle_outline));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Deactivate').last);
-    await tester.pumpAndSettle();
+    // Let the SnackBar land, but don't settle past its 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
 
     final fake = container.read(promotionRepositoryProvider) as _FakePromotions;
     expect(fake.deactivated, 1);
     expect(fake.stored.first.isActive, isFalse);
+    expect(find.text('Deactivated'), findsOneWidget);
   });
 
   testWidgets('create dialog opens', (tester) async {
@@ -142,5 +162,31 @@ void main() {
     expect(find.text('Discount type'), findsOneWidget);
     expect(find.text('Percentage'), findsOneWidget);
     expect(find.text('Fixed amount'), findsOneWidget);
+  });
+
+  testWidgets('saving a promotion confirms with a snackbar', (tester) async {
+    final container = _container();
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Promotion code'),
+      'NEW5',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Discount value'),
+      '5',
+    );
+    await tester.tap(find.text('Save'));
+    // Let the SnackBar land, but don't settle past its 4s auto-dismiss.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final fake = container.read(promotionRepositoryProvider) as _FakePromotions;
+    expect(fake.created, 1);
+    expect(find.text('Saved'), findsOneWidget);
   });
 }

@@ -42,6 +42,7 @@ class _FakeInventory extends InventoryRepository {
     : super(ApiClient(store: TokenStore(), onSessionExpired: () {}));
 
   int suggestionsCalls = 0;
+  bool failMovements = false;
 
   @override
   Future<List<StockMovement>> movements({
@@ -53,6 +54,7 @@ class _FakeInventory extends InventoryRepository {
     int? purchaseOrderId,
     PaginationParams pagination = PaginationParams.inventory,
   }) async {
+    if (failMovements) throw Exception('boom');
     final all = [
       const StockMovement(
         id: 1,
@@ -257,5 +259,38 @@ void main() {
     await tester.pumpAndSettle();
     // dialog closed, list reloaded
     expect(find.text('1 draft purchase order(s) created'), findsNothing);
+  });
+
+  testWidgets('pull-to-refresh surfaces load failures', (tester) async {
+    final fake = _FakeInventory();
+    final container = ProviderContainer(
+      overrides: [
+        localizationControllerProvider.overrideWith(
+          _FixedLanguageLocalization.new,
+        ),
+        authControllerProvider.overrideWith(
+          () => _FakeAuth(extraPermissions: {'purchasing:manage'}),
+        ),
+        inventoryRepositoryProvider.overrideWithValue(fake),
+        purchasingRepositoryProvider.overrideWithValue(_FakePurchasing()),
+      ],
+    );
+    addTearDown(container.dispose);
+    await _pump(tester, container);
+    expect(find.text('Product #3'), findsOneWidget);
+
+    fake.failMovements = true;
+    await tester.fling(
+      find.byType(RefreshIndicator).first,
+      const Offset(0, 300),
+      1000,
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.text('Something went wrong. Please try again.'),
+      findsOneWidget,
+    );
   });
 }

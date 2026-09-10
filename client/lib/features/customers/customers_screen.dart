@@ -77,7 +77,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         ),
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     try {
       await ref.read(customerRepositoryProvider).update(customer.id, {
         if (name.text.trim().isNotEmpty) 'name': name.text.trim(),
@@ -89,6 +89,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       setState(() {
         _future = ref.read(customerRepositoryProvider).list();
       });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,13 +122,16 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     try {
       await ref.read(customerRepositoryProvider).deactivate(customer.id);
       if (!mounted) return;
       setState(() {
         _future = ref.read(customerRepositoryProvider).list();
       });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('deactivated'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -173,7 +179,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
     try {
       await ref
           .read(customerRepositoryProvider)
@@ -186,6 +192,9 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       setState(() {
         _future = ref.read(customerRepositoryProvider).list();
       });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(s.of('saved'))));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -214,12 +223,12 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             return const LoadingStateView();
           }
           if (snapshot.hasError) {
-                return ErrorStateView(
-                  message: s.of('genericError'),
-                  onRetry: () => setState(() {
-                    _future = ref.read(customerRepositoryProvider).list();
-                  }),
-                );
+            return ErrorStateView(
+              message: friendlyError(snapshot.error!, s),
+              onRetry: () => setState(() {
+                _future = ref.read(customerRepositoryProvider).list();
+              }),
+            );
           }
           final customers = snapshot.data ?? [];
           return ListView.separated(

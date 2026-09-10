@@ -40,6 +40,10 @@ const kRouteAccess = <RouteAccess>[
   RouteAccess('/admin', superuserOnly: true),
   RouteAccess('/refunds', anyOf: {'refunds:create'}),
   RouteAccess('/reconcile'),
+  // Receipt-of-record for a settled order: open to every signed-in role
+  // because the cashier POS flow itself ends here. Listed explicitly so
+  // the rule survives any future tightening of the unknown-path default.
+  RouteAccess('/receipt'),
   RouteAccess('/help'),
 ];
 
