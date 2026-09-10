@@ -14,6 +14,7 @@ import '../../core/branded_banner.dart';
 import '../../core/colors.dart';
 import '../../core/db/app_database.dart';
 import '../../core/db/database_provider.dart';
+import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
@@ -753,7 +754,14 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
                       Navigator.of(context).pop(true);
                     }
                   } catch (e) {
-                    if (mounted) setState(() => _error = e.toString());
+                    if (mounted) {
+                      setState(
+                        () => _error = friendlyError(
+                          e,
+                          ref.read(stringsProvider),
+                        ),
+                      );
+                    }
                   } finally {
                     if (mounted) setState(() => _submitting = false);
                   }

@@ -25,6 +25,13 @@ class ServingScreen extends ConsumerWidget {
 
     if (orders.isEmpty) {
       if (state.loading) return const LoadingStateView();
+      if (state.error != null) {
+        return ErrorStateView(
+          message: state.error!,
+          onRetry: () =>
+              ref.read(servingControllerProvider.notifier).refresh(),
+        );
+      }
       return BrandedEmptyState(
         message: s.of('servingEmptyHint'),
         illustration: 'assets/illustrations/empty-cart.svg',

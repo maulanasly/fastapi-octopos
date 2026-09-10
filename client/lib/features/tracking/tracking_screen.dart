@@ -23,6 +23,13 @@ class TrackingScreen extends ConsumerWidget {
     if (state.trips.isEmpty && state.loading) {
       return const LoadingStateView();
     }
+    if (state.trips.isEmpty && state.error != null) {
+      return ErrorStateView(
+        message: state.error!,
+        onRetry: () =>
+            ref.read(trackingControllerProvider.notifier).refresh(),
+      );
+    }
     if (state.trips.isEmpty) {
       return BrandedEmptyState(
         message: s.of('trackingEmptyHint'),

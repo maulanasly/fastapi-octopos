@@ -8,22 +8,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_repositories.dart';
 import '../../core/auth_controller.dart';
+import '../../core/errors.dart';
 import '../../core/models.dart';
+import '../../core/strings.dart';
 
 final trackingControllerProvider =
     NotifierProvider<TrackingController, TrackingState>(TrackingController.new);
 
 class TrackingState {
-  const TrackingState({this.trips = const [], this.loading = false});
+  const TrackingState({this.trips = const [], this.loading = false, this.error});
 
   final List<TrackedOrder> trips;
   final bool loading;
 
-  TrackingState copyWith({List<TrackedOrder>? trips, bool? loading}) =>
-      TrackingState(
-        trips: trips ?? this.trips,
-        loading: loading ?? this.loading,
-      );
+  /// Last refresh failure, if any. Shown only when there are no trips;
+  /// stale trips keep rendering while [error] records the failure.
+  final String? error;
+
+  TrackingState copyWith({
+    List<TrackedOrder>? trips,
+    bool? loading,
+    String? Function()? error,
+  }) => TrackingState(
+    trips: trips ?? this.trips,
+    loading: loading ?? this.loading,
+    error: error != null ? error() : this.error,
+  );
 }
 
 class TrackingController extends Notifier<TrackingState> {
@@ -85,9 +95,13 @@ class TrackingController extends Notifier<TrackingState> {
   Future<void> refresh() async {
     try {
       final trips = await ref.read(orderRepositoryProvider).activeTracking();
-      state = state.copyWith(trips: trips);
-    } catch (_) {
-      // keep last known trips on transient failures
+      state = state.copyWith(trips: trips, error: () => null);
+    } catch (e) {
+      // Keep the last known trips on transient failures, but record
+      // the error so an empty list can offer a retry.
+      state = state.copyWith(
+        error: () => friendlyError(e, ref.read(stringsProvider)),
+      );
     }
   }
 

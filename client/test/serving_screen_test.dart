@@ -71,9 +71,13 @@ class _FakeServing extends OrderRepository {
     _order(3, 'ready'),
   ];
   int transitions = 0;
+  bool failQueue = false;
 
   @override
-  Future<List<Order>> servingQueue({String? status}) async => stored;
+  Future<List<Order>> servingQueue({String? status}) async {
+    if (failQueue) throw Exception('boom');
+    return stored;
+  }
 
   @override
   Future<Order> startServing(int orderId) async {
@@ -183,6 +187,29 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No orders waiting to be served'), findsOneWidget);
+
+    await _dispose(tester, container);
+  });
+
+  testWidgets('failed load shows an error with a retry that recovers', (
+    tester,
+  ) async {
+    final fake = _FakeServing()..failQueue = true;
+    final container = _container(repo: fake);
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Something went wrong. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
+
+    fake.failQueue = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order #1'), findsOneWidget);
 
     await _dispose(tester, container);
   });

@@ -40,9 +40,13 @@ class _FakeTracking extends OrderRepository {
     ),
   ];
   int transitions = 0;
+  bool failLoad = false;
 
   @override
-  Future<List<TrackedOrder>> activeTracking() async => stored;
+  Future<List<TrackedOrder>> activeTracking() async {
+    if (failLoad) throw Exception('boom');
+    return stored;
+  }
 
   @override
   Future<Order> trackingStatus({
@@ -156,6 +160,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No active trips being tracked'), findsOneWidget);
+    await _dispose(tester, container);
+  });
+
+  testWidgets('failed load shows an error with a retry that recovers', (
+    tester,
+  ) async {
+    final repo = _FakeTracking()..failLoad = true;
+    final container = _container(repo: repo);
+    await tester.pumpWidget(_app(container));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Something went wrong. Please try again.'),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
+
+    repo.failLoad = false;
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Order #7 · En route'), findsOneWidget);
     await _dispose(tester, container);
   });
 

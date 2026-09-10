@@ -347,6 +347,8 @@ String _stringKeyForPath(String path) {
       return 'products';
     case '/serving':
       return 'serving';
+    case '/tracking':
+      return 'tracking';
     case '/customers':
       return 'customers';
     case '/reports':

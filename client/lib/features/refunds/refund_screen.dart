@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api_repositories.dart';
 import '../../core/app_icons.dart';
 import '../../core/async_views.dart';
+import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
@@ -73,15 +74,17 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
                 : 'cash',
           );
       final refundedId = order.id;
+      final reloaded = ref.read(orderRepositoryProvider).recentOrders();
+      if (!mounted) return;
       setState(() {
         _success = s.of('refundCreated');
         _refundedOrderId = refundedId;
         _selected = null;
         _quantities.clear();
+        _ordersFuture = reloaded;
       });
-      _ordersFuture = ref.read(orderRepositoryProvider).recentOrders();
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e, s));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -153,7 +156,7 @@ class _RefundScreenState extends ConsumerState<RefundScreen> {
         }
         if (snapshot.hasError) {
           return ErrorStateView(
-            message: s.of('genericError'),
+            message: friendlyError(snapshot.error!, s),
             onRetry: _reload,
           );
         }
