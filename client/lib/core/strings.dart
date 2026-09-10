@@ -423,6 +423,9 @@ const Map<String, Map<String, String>> _translations = {
     'qtyHeader': 'Qty',
     'reorderAt': 'reorder at {{point}}',
     'trackingNotStarted': 'Not yet tracked',
+    'failedOrders': 'Failed orders',
+    'noFailedOrders': 'No failed orders',
+    'syncFailedOrders': '{{count}} order(s) failed to sync',
     'locationPermissionDenied':
         'Location permission denied — enable it in settings to use this feature',
     'locationServiceDisabled':
@@ -848,6 +851,9 @@ const Map<String, Map<String, String>> _translations = {
     'qtyHeader': 'Jml',
     'reorderAt': 'restok di {{point}}',
     'trackingNotStarted': 'Belum dilacak',
+    'failedOrders': 'Pesanan gagal',
+    'noFailedOrders': 'Tidak ada pesanan gagal',
+    'syncFailedOrders': '{{count}} pesanan gagal disinkron',
     'locationPermissionDenied':
         'Izin lokasi ditolak — aktifkan di pengaturan untuk memakai fitur ini',
     'locationServiceDisabled':

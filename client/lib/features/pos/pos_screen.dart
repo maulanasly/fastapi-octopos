@@ -12,15 +12,15 @@ import '../../core/async_views.dart';
 import '../../core/auth_controller.dart';
 import '../../core/branded_banner.dart';
 import '../../core/colors.dart';
-import '../../core/db/app_database.dart';
-import '../../core/db/database_provider.dart';
 import '../../core/errors.dart';
 import '../../core/layout.dart';
 import '../../core/strings.dart';
 import '../../core/money.dart';
 import '../../core/models.dart';
 import '../../core/sync/connectivity_provider.dart';
+import '../../core/sync/outbox_providers.dart';
 import '../../core/sync/sync_service.dart';
+import 'failed_orders_dialog.dart';
 import '../drawer/drawer_controller.dart';
 import 'product_tile.dart';
 import 'cart_controller.dart';
@@ -47,8 +47,10 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final drawer = ref.watch(drawerControllerProvider);
     final isOnline = ref.watch(isOnlineProvider);
     // Pending outbox count
-    final pendingAsync = ref.watch(_pendingOutboxProvider);
+    final pendingAsync = ref.watch(pendingOutboxProvider);
     final pendingCount = pendingAsync.maybeWhen(data: (l) => l.length, orElse: () => 0);
+    final failedAsync = ref.watch(failedOutboxProvider);
+    final failedCount = failedAsync.maybeWhen(data: (l) => l.length, orElse: () => 0);
     // Restore the persisted draft once the catalog is available.
     ref.watch(cartRestoreProvider);
 
@@ -87,6 +89,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               TextButton(
                 onPressed: () => _retrySync(context),
                 child: Text(s.of('retry')),
+              ),
+            ],
+          ),
+        if (failedCount > 0)
+          BrandedBanner(
+            icon: AppIcons.error,
+            message: s.of('syncFailedOrders', args: {'count': failedCount}),
+            actions: [
+              TextButton(
+                onPressed: () => _showFailedOrders(context),
+                child: Text(s.of('viewDetails')),
               ),
             ],
           ),
@@ -485,12 +498,22 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        SnackBar(content: Text(s.of('syncFailed'))),
+        SnackBar(content: Text(friendlyError(e, s))),
       );
     }
+  }
+
+  /// Shows the orders the sync engine gave up on, with per-row retry
+  /// (re-queues for the next run) and discard. 4xx rows fail again by
+  /// design, so discarding is a first-class action here, not a fallback.
+  Future<void> _showFailedOrders(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => const FailedOrdersDialog(),
+    );
   }
 
   Future<void> _checkout(BuildContext context) async {
@@ -781,10 +804,6 @@ class _OpenDrawerDialogState extends ConsumerState<_OpenDrawerDialog> {
   }
 }
 
-final _pendingOutboxProvider = StreamProvider<List<OutboxOrder>>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return (db.select(db.outboxOrders)..where((t) => t.status.equals('pending'))).watch();
-});
 
 /// Category chip tinted with the category's configured color.
 class _CategoryChip extends StatelessWidget {

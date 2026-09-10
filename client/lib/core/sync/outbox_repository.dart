@@ -50,9 +50,14 @@ class OutboxRepository {
 
   Future<List<OutboxOrder>> pendingOrders() => db.pendingOrders();
 
+  Future<List<OutboxOrder>> failedOrders() => db.failedOrders();
+
   Future<void> markSynced(int id) => db.markOrderStatus(id, 'synced');
 
   Future<void> markFailed(int id, String error) => db.markOrderStatus(id, 'failed', error: error);
+
+  /// Re-queue a failed row for the next sync run (clears its error).
+  Future<void> retry(int id) => db.markOrderStatus(id, 'pending');
 
   Future<void> remove(int id) => db.deleteOrder(id);
 
@@ -61,4 +66,6 @@ class OutboxRepository {
   Stream<List<OutboxOrder>> watchPending() {
     return (db.select(db.outboxOrders)..where((t) => t.status.equals('pending'))).watch();
   }
+
+  Stream<List<OutboxOrder>> watchFailed() => db.watchFailedOrders();
 }

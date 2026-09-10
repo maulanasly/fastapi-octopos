@@ -66,6 +66,27 @@ String locationErrorMessage(Object error, AppStrings strings) {
   return strings.of('locationUnavailable');
 }
 
+/// Maps an outbox row's stored error to a localized message. The sync
+/// service stores stable codes (`http_<code>`, `unexpected_error`);
+/// anything else is a legacy raw string shown as-is.
+String outboxRowErrorMessage(String? stored, AppStrings strings) {
+  if (stored == null || stored.isEmpty) return strings.of('genericError');
+  final http = RegExp(r'^http_(\d+)$').firstMatch(stored);
+  if (http != null) {
+    return switch (int.tryParse(http.group(1)!)) {
+      400 => strings.of('validationFailed'),
+      401 => strings.of('sessionExpired'),
+      403 => strings.of('forbidden'),
+      404 => strings.of('notFound'),
+      409 => strings.of('conflict'),
+      422 => strings.of('validationFailed'),
+      _ => strings.of('genericError'),
+    };
+  }
+  if (stored == 'unexpected_error') return strings.of('genericError');
+  return stored;
+}
+
 String? _detailFrom(DioException error) {
   final data = error.response?.data;
   if (data is Map && data['detail'] is String) {

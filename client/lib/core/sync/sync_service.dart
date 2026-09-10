@@ -119,13 +119,15 @@ class SyncService {
             await outbox.remove(row.id);
             synced++;
           } else if (code != null && code >= 400 && code < 500) {
-            await outbox.markFailed(row.id, e.message ?? 'client error $code');
+            await outbox.markFailed(row.id, 'http_$code');
           } else {
             // network/server error -> keep pending for next run
             await db.markOrderStatus(row.id, 'pending', error: e.message);
           }
         } catch (e) {
-          await outbox.markFailed(row.id, e.toString());
+          // Store a stable code, not the raw exception text: the UI maps
+          // it to a localized message (see outboxRowErrorMessage).
+          await outbox.markFailed(row.id, 'unexpected_error');
         }
       }
     } finally {
