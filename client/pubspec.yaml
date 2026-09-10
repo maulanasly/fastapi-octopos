@@ -53,7 +53,7 @@ dependencies:
   workmanager: ^0.6.0
   json_annotation: ^4.9.0
   freezed_annotation: ^3.1.0
-  google_fonts: ^6.2.1
+  google_fonts: ^8.2.1
   flutter_svg: ^2.0.10
 
 dev_dependencies:
